@@ -1,0 +1,20 @@
+# Bỏ qua thư viện tải về
+node_modules/
+anhquy-frontend/node_modules/
+anhquy-backend/node_modules/
+
+# Bỏ qua các file chứa biến môi trường (Bảo mật tuyệt đối)
+.env
+.env.local
+
+# Bỏ qua thư mục build khi deploy
+dist/
+build/
+anhquy-frontend/dist/
+
+# Bỏ qua các file log và file rác của hệ điều hành
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
