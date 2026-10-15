@@ -19,7 +19,7 @@ DATABASE_URL="sqlserver://localhost:1433;database=anhquyDB;integratedSecurity=tr
 GEMINI_API_KEY="Điền_API_Key_Gemini_Vào_Đây"
 
 
-//Nếu login bằng user và mật khẩu
+//Nếu login bằng user và mật khẩu (nếu không thì đừng quan tâm)
 //DATABASE_URL="sqlserver://localhost:1433;database=anhquyDB;user=sa;password=MatKhauCuaBan;encrypt=true;trustServerCertificate=true;"
 # 4. Kích hoạt Cơ sở dữ liệu (Prisma):
 - đầu tiên vào SQl tạo database anhquyDB (file anhquy/Database/anhquyDB-maytinhkhac.sql)
