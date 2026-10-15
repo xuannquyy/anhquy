@@ -1,0 +1,225 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Audit_Logs {
+  id           Int       @id(map: "PK__Audit_Lo__3213E83F4B7CD943") @default(autoincrement())
+  user_id      Int
+  action_type  String    @db.VarChar(50)
+  target_table String    @db.VarChar(50)
+  target_id    Int?
+  old_value    String?   @db.NVarChar(Max)
+  new_value    String?   @db.NVarChar(Max)
+  created_at   DateTime? @default(now(), map: "DF__Audit_Log__creat__66603565") @db.DateTime
+  Users        Users     @relation(fields: [user_id], references: [id], onUpdate: NoAction, map: "FK_AuditLogs_Users")
+
+  @@index([action_type], map: "IX_AuditLogs_Action")
+  @@index([user_id], map: "IX_AuditLogs_User")
+}
+
+model Categories {
+  id                 Int                  @id(map: "PK__Categori__3213E83F01D6BE39") @default(autoincrement())
+  category_type      String               @db.VarChar(50)
+  name               String               @db.NVarChar(255)
+  description        String?              @db.NVarChar(Max)
+  is_active          Boolean?             @default(true, map: "DF__Categorie__is_ac__35BCFE0A")
+  created_at         DateTime?            @default(now(), map: "DF__Categorie__creat__36B12243") @db.DateTime
+  updated_at         DateTime?            @default(now(), map: "DF__Categorie__updat__37A5467C") @db.DateTime
+  Category_Standards Category_Standards[]
+  Documents          Documents[]
+  Suppliers          Suppliers[]
+
+  @@index([category_type], map: "IX_Categories_Type")
+}
+
+model Category_Standards {
+  category_id Int
+  standard_id Int
+  Categories  Categories @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_CS_Categories")
+  Standards   Standards  @relation(fields: [standard_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_CS_Standards")
+
+  @@id([category_id, standard_id], map: "PK__Category__12C518FFD45016E3")
+}
+
+model Documents {
+  id               Int          @id(map: "PK__Document__3213E83F2E5771AA") @default(autoincrement())
+  supplier_id      Int
+  category_id      Int
+  file_name        String       @db.NVarChar(255)
+  file_size        Int
+  file_type        String       @db.VarChar(10)
+  file_hash        String?      @db.VarChar(255)
+  storage_url      String       @db.VarChar(Max)
+  status           String       @db.VarChar(20)
+  uploaded_at      DateTime?    @default(now(), map: "DF__Documents__uploa__571DF1D5") @db.DateTime
+  last_analyzed_at DateTime?    @db.DateTime
+  updated_at       DateTime?    @default(now(), map: "DF__Documents__updat__5812160E") @db.DateTime
+  Categories       Categories   @relation(fields: [category_id], references: [id], onUpdate: NoAction, map: "FK_Documents_Categories")
+  Suppliers        Suppliers    @relation(fields: [supplier_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Documents_Suppliers")
+  Violations       Violations[]
+
+  @@index([category_id], map: "IX_Documents_Category")
+  @@index([status], map: "IX_Documents_Status")
+  @@index([supplier_id], map: "IX_Documents_Supplier")
+}
+
+model Permissions {
+  id               Int                @id(map: "PK__Permissi__3213E83FC4F88983") @default(autoincrement())
+  permission_code  String             @unique(map: "UQ__Permissi__A98A808E98A03BE1") @db.VarChar(50)
+  permission_name  String             @db.NVarChar(100)
+  Role_Permissions Role_Permissions[]
+}
+
+model Risk_Thresholds {
+  id         Int       @id(map: "PK__Risk_Thr__3213E83FD7ED7F79") @default(autoincrement())
+  level_name String    @db.VarChar(50)
+  min_score  Int
+  max_score  Int
+  color_code String    @db.VarChar(20)
+  created_at DateTime? @default(now(), map: "DF__Risk_Thre__creat__6FE99F9F") @db.DateTime
+  updated_at DateTime? @default(now(), map: "DF__Risk_Thre__updat__70DDC3D8") @db.DateTime
+}
+
+model Role_Permissions {
+  role_id       Int
+  permission_id Int
+  Permissions   Permissions @relation(fields: [permission_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_RP_Permissions")
+  Roles         Roles       @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_RP_Roles")
+
+  @@id([role_id, permission_id], map: "PK__Role_Per__C85A5463D2192D77")
+}
+
+model Roles {
+  id               Int                @id(map: "PK__Roles__3213E83F0C67AB3A") @default(autoincrement())
+  role_name        String             @unique(map: "UQ__Roles__783254B19F8FE99A") @db.VarChar(50)
+  description      String?            @db.NVarChar(255)
+  Role_Permissions Role_Permissions[]
+  Users            Users[]
+}
+
+model Standards {
+  id                      Int                       @id(map: "PK__Standard__3213E83F2DEF04C7") @default(autoincrement())
+  group_id                Int
+  standard_code           String                    @unique(map: "UQ__Standard__D060AFA09A8376D6") @db.VarChar(50)
+  name                    String                    @db.NVarChar(255)
+  jurisdiction            String?                   @default("Global", map: "DF__Standards__juris__45F365D3") @db.VarChar(50)
+  priority_level          Int?                      @default(1, map: "DF__Standards__prior__46E78A0C")
+  content_i18n            String?                   @db.NVarChar(Max)
+  description             String?                   @db.NVarChar(Max)
+  created_by              Int?
+  is_active               Boolean?                  @default(true, map: "DF__Standards__is_ac__47DBAE45")
+  created_at              DateTime?                 @default(now(), map: "DF__Standards__creat__48CFD27E") @db.DateTime
+  updated_at              DateTime?                 @default(now(), map: "DF__Standards__updat__49C3F6B7") @db.DateTime
+  Category_Standards      Category_Standards[]
+  Standard_Groups         Standard_Groups           @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Standards_Groups")
+  Users                   Users?                    @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Standards_Users")
+  User_Excluded_Standards User_Excluded_Standards[]
+  Violations              Violations[]
+
+  @@index([group_id], map: "IX_Standards_Group")
+}
+
+model Suppliers {
+  id            Int         @id(map: "PK__Supplier__3213E83F890B6DA9") @default(autoincrement())
+  company_name  String      @db.NVarChar(255)
+  tax_code      String      @unique(map: "UQ__Supplier__13E39CF6FEBD63E9") @db.VarChar(50)
+  industry_id   Int?
+  contact_email String?     @db.VarChar(255)
+  contact_phone String?     @db.VarChar(20)
+  address       String?     @db.NVarChar(Max)
+  risk_score    Int?        @default(100, map: "DF__Suppliers__risk___3B75D760")
+  is_deleted    Boolean?    @default(false, map: "DF__Suppliers__is_de__3C69FB99")
+  created_at    DateTime?   @default(now(), map: "DF__Suppliers__creat__3D5E1FD2") @db.DateTime
+  updated_at    DateTime?   @default(now(), map: "DF__Suppliers__updat__3E52440B") @db.DateTime
+  Documents     Documents[]
+  Categories    Categories? @relation(fields: [industry_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Suppliers_Categories")
+
+  @@index([company_name], map: "IX_Suppliers_Company")
+  @@index([industry_id], map: "IX_Suppliers_Industry")
+}
+
+model sysdiagrams {
+  name         String @db.NVarChar(128)
+  principal_id Int
+  diagram_id   Int    @id(map: "PK__sysdiagr__C2B05B612C11C1F2") @default(autoincrement())
+  version      Int?
+  definition   Bytes?
+
+  @@unique([principal_id, name], map: "UK_principal_name")
+}
+
+model System_Configs {
+  id           Int       @id(map: "PK__System_C__3213E83F194EEE74") @default(autoincrement())
+  config_key   String    @unique(map: "UQ__System_C__BDF6033D44952F92") @db.VarChar(100)
+  config_value String    @db.NVarChar(255)
+  description  String?   @db.NVarChar(Max)
+  created_at   DateTime? @default(now(), map: "DF__System_Co__creat__6B24EA82") @db.DateTime
+  updated_at   DateTime? @default(now(), map: "DF__System_Co__updat__6C190EBB") @db.DateTime
+}
+
+model User_Excluded_Standards {
+  user_id     Int
+  standard_id Int
+  Standards   Standards @relation(fields: [standard_id], references: [id], onUpdate: NoAction, map: "FK_UES_Standards")
+  Users       Users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_UES_Users")
+
+  @@id([user_id, standard_id], map: "PK__User_Exc__7E35C644DB21281C")
+}
+
+model Users {
+  id                      Int                       @id(map: "PK__Users__3213E83F792C6EF2") @default(autoincrement())
+  email                   String                    @unique(map: "UQ__Users__AB6E6164477BA437") @db.VarChar(255)
+  password_hash           String                    @db.VarChar(255)
+  full_name               String                    @db.NVarChar(100)
+  role_id                 Int
+  is_active               Boolean?                  @default(true, map: "DF__Users__is_active__2F10007B")
+  failed_login_attempts   Int?                      @default(0, map: "DF__Users__failed_lo__300424B4")
+  locked_until            DateTime?                 @db.DateTime
+  refresh_token           String?                   @db.VarChar(512)
+  refresh_token_expiry    DateTime?                 @db.DateTime
+  created_at              DateTime?                 @default(now(), map: "DF__Users__created_a__30F848ED") @db.DateTime
+  updated_at              DateTime?                 @default(now(), map: "DF__Users__updated_a__31EC6D26") @db.DateTime
+  Audit_Logs              Audit_Logs[]
+  Standards               Standards[]
+  User_Excluded_Standards User_Excluded_Standards[]
+  Roles                   Roles                     @relation(fields: [role_id], references: [id], onUpdate: NoAction, map: "FK_Users_Roles")
+  Violations              Violations[]
+
+  @@index([role_id], map: "IX_Users_Role")
+}
+
+model Violations {
+  id             Int        @id(map: "PK__Violatio__3213E83FEB7234E7") @default(autoincrement())
+  document_id    Int
+  standard_id    Int?
+  risk_level     String     @db.VarChar(20)
+  violation_desc String     @db.NVarChar(Max)
+  evidence_quote String     @db.NVarChar(Max)
+  page_number    Int?
+  recommendation String?    @db.NVarChar(Max)
+  status         String     @default("Pending", map: "DF__Violation__statu__5DCAEF64") @db.VarChar(20)
+  reviewed_by    Int?
+  reviewed_at    DateTime?  @db.DateTime
+  created_at     DateTime?  @default(now(), map: "DF__Violation__creat__5FB337D6") @db.DateTime
+  updated_at     DateTime?  @default(now(), map: "DF__Violation__updat__60A75C0F") @db.DateTime
+  Documents      Documents  @relation(fields: [document_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Violations_Documents")
+  Standards      Standards? @relation(fields: [standard_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Violations_Standards")
+  Users          Users?     @relation(fields: [reviewed_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Violations_Users")
+
+  @@index([document_id], map: "IX_Violations_Document")
+  @@index([standard_id], map: "IX_Violations_Standard")
+  @@index([status], map: "IX_Violations_Status")
+}
+
+model Standard_Groups {
+  id          Int         @id(map: "PK__Standard__3213E83FCEF34715") @default(autoincrement())
+  group_code  String      @unique(map: "UQ__Standard__3180DCD1AFA55081") @db.VarChar(50)
+  group_name  String      @db.NVarChar(100)
+  description String?     @db.NVarChar(Max)
+  Standards   Standards[]
+}
