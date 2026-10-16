@@ -4,20 +4,44 @@
   "description": "",
   "main": "server.js",
   "scripts": {
+<<<<<<< Updated upstream
     "start": "node server.js",
     "dev": "nodemon server.js"
   }
+=======
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+>>>>>>> Stashed changes
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+<<<<<<< Updated upstream
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "langchain": "^1.5.10",
     "mongoose": "^9.9.4",
     "multer": "^2.3.0",
+=======
+    "@google/genai": "^2.30.0",
+    "@prisma/client": "^5.22.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.3.0",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.8",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.4.0",
+>>>>>>> Stashed changes
     "pdf-parse": "^2.4.5"
   },
   "devDependencies": {
