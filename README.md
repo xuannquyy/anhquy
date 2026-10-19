@@ -16,7 +16,10 @@ Bạn phải tự tạo một file tên là .env nằm trong thư mục anhquy-b
 
 
 DATABASE_URL="sqlserver://localhost:1433;database=anhquyDB;integratedSecurity=true;trustServerCertificate=true;"
-GEMINI_API_KEY="Điền_API_Key_Gemini_Vào_Đây"
+GEMINI_API_KEY="AIzaSyBJd2z9PDUMhdfeH4KaXKCFabtUr1_u1qQ"
+JWT_SECRET="anhquy_super_secret_jwt_key_change_this_in_production"
+JWT_EXPIRES_IN="8h"
+PORT=3000
 
 
 //Nếu login bằng user và mật khẩu (nếu không thì đừng quan tâm)
