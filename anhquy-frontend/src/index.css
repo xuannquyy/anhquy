@@ -1,3 +1,37 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-Snowflake text-Branch;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  /* Scrollbar tùy chỉnh */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-Snowflake;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-Mist rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-Branch;
+  }
+}

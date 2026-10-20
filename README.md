@@ -49,5 +49,8 @@ cd anhquy-frontend
 # 2. Tải thư viện UI (LƯU Ý: BẮT BUỘC phải có --legacy-peer-deps để không bị lỗi thư viện PDF)
 npm install --legacy-peer-deps
 
-# 3. Khởi chạy Giao diện Frontend
+# 3. Cấu hình biến môi trường (.env):
+VITE_API_BASE_URL=http://localhost:3000/api
+
+# 4. Khởi chạy Giao diện Frontend
 npm run dev

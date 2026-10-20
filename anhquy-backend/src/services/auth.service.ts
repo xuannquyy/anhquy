@@ -37,11 +37,19 @@ export const loginService = async (
   email: string,
   password: string
 ): Promise<{ token: string; refresh_token: string; user: object }> => {
-  // 1. Tìm user theo email, kèm thông tin role
+  // 1. Tìm user theo email, kèm thông tin role và danh sách permission_code
   const user = await prisma.users.findUnique({
     where: { email },
     include: {
-      Roles: { select: { id: true, role_name: true } },
+      Roles: {
+        select: {
+          id: true,
+          role_name: true,
+          Role_Permissions: {
+            select: { Permissions: { select: { permission_code: true } } },
+          },
+        },
+      },
     },
   });
 
@@ -248,6 +256,7 @@ export const getMeService = async (userId: number): Promise<object> => {
       id: true,
       email: true,
       full_name: true,
+      role_id: true,
       is_active: true,
       created_at: true,
       updated_at: true,
@@ -256,6 +265,9 @@ export const getMeService = async (userId: number): Promise<object> => {
           id: true,
           role_name: true,
           description: true,
+          Role_Permissions: {
+            select: { Permissions: { select: { permission_code: true } } },
+          },
         },
       },
     },
@@ -267,7 +279,22 @@ export const getMeService = async (userId: number): Promise<object> => {
     throw err;
   }
 
-  return user;
+  return {
+    id: user.id,
+    email: user.email,
+    full_name: user.full_name,
+    role: user.Roles.role_name,
+    role_id: user.role_id,
+    is_active: user.is_active,
+    created_at: user.created_at,
+    updated_at: user.updated_at,
+    Roles: {
+      id: user.Roles.id,
+      role_name: user.Roles.role_name,
+      description: user.Roles.description,
+    },
+    permissions: user.Roles.Role_Permissions.map((rp) => rp.Permissions.permission_code),
+  };
 };
 
 /**
