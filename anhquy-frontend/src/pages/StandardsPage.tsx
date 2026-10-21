@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   Plus, Edit2, Trash2, RotateCcw, Lock, Globe, MapPin,
-  SlidersHorizontal, Search, Ban, ListChecks, CheckCircle2
+  SlidersHorizontal, Search, Ban, ListChecks, CheckCircle2, Sparkles, ShieldCheck
 } from 'lucide-react'
 import { MainLayout } from '../components/MainLayout'
 import { ConfirmModal, Modal, Pagination, Spinner, EmptyState } from '../components/ui'
@@ -263,83 +263,98 @@ export default function StandardsPage() {
 
   return (
     <MainLayout breadcrumb="Bộ Tiêu chuẩn RBA/VN">
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-extrabold text-Pine tracking-tight">
-              Bộ Tiêu chuẩn RBA & Pháp luật Việt Nam
-            </h1>
-            <p className="text-xs sm:text-sm text-Mist mt-0.5">
-              Bật/tắt tiêu chuẩn khi quét AI hoặc bổ sung tiêu chuẩn nội bộ riêng của doanh nghiệp
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setLang(lang === 'vi' ? 'en' : 'vi')}
-              className="flex items-center gap-1.5 px-3.5 py-2.5 border border-Mist/40 bg-white text-Pine text-xs font-extrabold rounded-2xl hover:bg-Snowflake transition-all shadow-sm"
-            >
-              <Globe className="w-4 h-4 text-Berry" />
-              Ngôn ngữ: {lang.toUpperCase()}
-            </button>
-            {hasPermission('CREATE_CUSTOM_STANDARD') && (
+      <div className="space-y-6 pb-16">
+        
+        {/* 🌟 Header Cao Cấp & Cân Đối */}
+        <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-tr from-Pine via-[#24333D] to-Branch p-8 sm:p-10 text-white shadow-2xl border border-white/10">
+          <div className="absolute top-0 right-0 -mt-16 -mr-16 w-80 h-80 bg-Berry/35 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-1/3 w-60 h-60 bg-emerald-500/20 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-3">
+              <span className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-mono text-xs font-black border border-emerald-500/30">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                RBA 8.0 & VN LAW COMPLIANCE
+              </span>
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white drop-shadow-sm">
+                Bộ Tiêu chuẩn Kiểm Toán
+              </h1>
+              <p className="text-xs sm:text-sm text-Frostysilver max-w-2xl font-medium leading-relaxed">
+                Bật/tắt tiêu chuẩn khi quét AI hoặc bổ sung tiêu chuẩn nội bộ riêng của doanh nghiệp một cách linh hoạt.
+              </p>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-3.5 flex-shrink-0">
               <button
                 type="button"
-                onClick={openCreate}
-                className="flex items-center gap-2 px-4 py-2.5 bg-Pine text-white text-xs font-extrabold rounded-2xl hover:bg-Pine/90 shadow-sm hover:shadow-md transition-all"
+                onClick={() => setLang(lang === 'vi' ? 'en' : 'vi')}
+                className="inline-flex items-center gap-2 px-5 py-3.5 bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white border border-white/20 text-xs font-black rounded-2xl transition-all shadow-lg whitespace-nowrap"
               >
-                <Plus className="w-4 h-4" />
-                Tạo tiêu chuẩn riêng
+                <Globe className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <span>Ngôn ngữ: {lang.toUpperCase()}</span>
               </button>
-            )}
-          </div>
-        </div>
-
-        {/* Summary Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-3xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Pine text-white flex items-center justify-center flex-shrink-0">
-              <ListChecks className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-Branch">Tổng tiêu chuẩn hiển thị</p>
-              <p className="text-xl font-extrabold text-Pine">{total}</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-3xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Mist text-Pine flex items-center justify-center flex-shrink-0">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-Branch">Đang bật khi quét AI</p>
-              <p className="text-xl font-extrabold text-Pine">{activeScanCount}</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-3xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Berry text-white flex items-center justify-center flex-shrink-0">
-              <SlidersHorizontal className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-Branch">Đang tạm tắt (Excluded)</p>
-              <p className="text-xl font-extrabold text-Berry">{excluded.size}</p>
+              {hasPermission('CREATE_CUSTOM_STANDARD') && (
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  className="inline-flex items-center gap-2 px-6 py-3.5 bg-gradient-to-r from-Berry to-[#872B38] hover:brightness-110 text-white text-xs font-black rounded-2xl transition-all shadow-xl shadow-Berry/35 whitespace-nowrap active:scale-95"
+                >
+                  <Plus className="w-4 h-4 flex-shrink-0" />
+                  <span>Tạo tiêu chuẩn riêng</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Filter Bar */}
-        <div className="bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] p-4 sm:p-5 space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-Mist/15 pb-3">
+        {/* 🌟 Summary Strip (3 Thẻ Thống Kê) */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="bg-white/95 backdrop-blur-3xl rounded-[2.5rem] border border-white p-6 shadow-[0_15px_45px_rgba(39,54,63,0.06)] flex items-center gap-5 group hover:border-Pine/50 transition-all duration-500">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-Pine via-[#344854] to-[#1A252B] text-white flex items-center justify-center flex-shrink-0 shadow-xl shadow-Pine/30 group-hover:scale-110 transition-transform">
+              <ListChecks className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-wider text-Mist">Tổng tiêu chuẩn hiển thị</p>
+              <p className="text-3xl font-black text-Pine tracking-tight mt-1">{total}</p>
+            </div>
+          </div>
+
+          <div className="bg-white/95 backdrop-blur-3xl rounded-[2.5rem] border border-white p-6 shadow-[0_15px_45px_rgba(39,54,63,0.06)] flex items-center gap-5 group hover:border-emerald-500/50 transition-all duration-500">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-900 text-white flex items-center justify-center flex-shrink-0 shadow-xl shadow-emerald-600/30 group-hover:scale-110 transition-transform">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-wider text-Mist">Đang bật khi quét AI</p>
+              <p className="text-3xl font-black text-emerald-700 tracking-tight mt-1">{activeScanCount}</p>
+            </div>
+          </div>
+
+          <div className="bg-white/95 backdrop-blur-3xl rounded-[2.5rem] border border-white p-6 shadow-[0_15px_45px_rgba(39,54,63,0.06)] flex items-center gap-5 group hover:border-Berry/50 transition-all duration-500">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-Berry via-[#872B38] to-[#42141B] text-white flex items-center justify-center flex-shrink-0 shadow-xl shadow-Berry/30 group-hover:scale-110 transition-transform">
+              <SlidersHorizontal className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-wider text-Mist">Đang tạm tắt (Excluded)</p>
+              <p className="text-3xl font-black text-Berry tracking-tight mt-1">{excluded.size}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* 🌟 Filter Bar & Cards Grid */}
+        <div className="bg-white/95 backdrop-blur-3xl rounded-[2.8rem] border border-white shadow-[0_20px_60px_rgba(39,54,63,0.08)] p-7 space-y-6">
+          
+          {/* Tab & Filter Bar Cân đối */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-Mist/20 pb-5">
             {/* Pill Tabs */}
-            <div className="flex items-center gap-1 bg-Snowflake/60 p-1 rounded-2xl w-fit">
+            <div className="flex items-center gap-1.5 bg-Snowflake/80 p-1.5 rounded-2xl border border-Mist/20 w-fit">
               {TAB_OPTIONS.map((tab) => (
                 <button
                   key={tab.key}
                   type="button"
                   onClick={() => { setActiveTab(tab.key as typeof activeTab); setPage(1) }}
-                  className={`px-3.5 py-1.5 text-xs font-extrabold rounded-xl transition-all ${
+                  className={`px-4 py-2 text-xs font-black rounded-xl transition-all whitespace-nowrap ${
                     activeTab === tab.key
-                      ? 'bg-Pine text-white shadow-sm'
+                      ? 'bg-Pine text-white shadow-md'
                       : 'text-Branch hover:text-Pine'
                   }`}
                 >
@@ -349,21 +364,21 @@ export default function StandardsPage() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap gap-2.5 flex-1 lg:justify-end">
-              <div className="relative flex-1 min-w-[180px] max-w-xs">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-Mist" />
+            <div className="flex flex-wrap items-center gap-3 flex-1 lg:justify-end">
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-Mist" />
                 <input
                   type="text"
                   placeholder="Tìm mã hoặc tên tiêu chuẩn..."
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                  className="w-full pl-9 pr-3 py-2 border border-Mist/40 rounded-xl text-xs bg-Snowflake/20 text-Pine focus:outline-none focus:border-Pine"
+                  className="w-full pl-11 pr-4 py-3 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-bold bg-Snowflake/40 text-Pine focus:outline-none focus:border-Pine transition-colors shadow-inner"
                 />
               </div>
               <select
                 value={filterGroup}
                 onChange={(e) => { setFilterGroup(e.target.value); setPage(1) }}
-                className="px-3 py-2 border border-Mist/40 rounded-xl text-xs font-bold bg-white text-Pine focus:outline-none focus:border-Pine"
+                className="px-4 py-3 border border-Mist/30 rounded-2xl text-xs font-black bg-white text-Pine focus:outline-none focus:border-Pine cursor-pointer shadow-2xs"
               >
                 <option value="">Tất cả 4 nhóm</option>
                 {groups.map((g) => <option key={g.id} value={g.id}>{g.group_name}</option>)}
@@ -371,7 +386,7 @@ export default function StandardsPage() {
               <select
                 value={filterJurisdiction}
                 onChange={(e) => { setFilterJurisdiction(e.target.value); setPage(1) }}
-                className="px-3 py-2 border border-Mist/40 rounded-xl text-xs font-bold bg-white text-Pine focus:outline-none focus:border-Pine"
+                className="px-4 py-3 border border-Mist/30 rounded-2xl text-xs font-black bg-white text-Pine focus:outline-none focus:border-Pine cursor-pointer shadow-2xs"
               >
                 <option value="">Mọi phạm vi</option>
                 <option value="Global">Global (RBA)</option>
@@ -380,7 +395,7 @@ export default function StandardsPage() {
               <select
                 value={filterStatus}
                 onChange={(e) => { setFilterStatus(e.target.value as typeof filterStatus); setPage(1) }}
-                className="px-3 py-2 border border-Mist/40 rounded-xl text-xs font-bold bg-white text-Pine focus:outline-none focus:border-Pine"
+                className="px-4 py-3 border border-Mist/30 rounded-2xl text-xs font-black bg-white text-Pine focus:outline-none focus:border-Pine cursor-pointer shadow-2xs"
               >
                 <option value="all">Mọi trạng thái</option>
                 <option value="active">Đang hoạt động</option>
@@ -391,11 +406,11 @@ export default function StandardsPage() {
 
           {/* Cards grid */}
           {loading ? (
-            <div className="flex justify-center py-16"><Spinner size="lg" /></div>
+            <div className="flex justify-center py-20"><Spinner size="lg" /></div>
           ) : standards.length === 0 ? (
             <EmptyState message="Không tìm thấy tiêu chuẩn nào" />
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {standards.map((s) => {
                 const isExcluded = excluded.has(s.id)
                 const isSystem = s.created_by === null
@@ -404,58 +419,56 @@ export default function StandardsPage() {
                 return (
                   <div
                     key={s.id}
-                    className={`rounded-2xl border p-4 transition-all duration-300 flex flex-col justify-between
-                      ${
-                        !s.is_active
-                          ? 'opacity-60 bg-Snowflake/50 border-Mist/30 cursor-not-allowed'
-                          : isExcluded
-                          ? 'bg-Snowflake/25 border-Mist/40 border-l-4 border-l-Mist'
-                          : 'bg-white border-Mist/25 shadow-sm hover:shadow-md'
-                      }
-                    `}
+                    className={`rounded-3xl border p-6 transition-all duration-300 flex flex-col justify-between gap-4 ${
+                      !s.is_active
+                        ? 'opacity-60 bg-Snowflake/50 border-Mist/30 cursor-not-allowed'
+                        : isExcluded
+                        ? 'bg-Snowflake/30 border-Mist/40 border-l-8 border-l-Mist shadow-sm'
+                        : 'bg-white border-Mist/25 shadow-md hover:shadow-xl hover:border-Pine/40'
+                    }`}
                   >
-                    <div>
+                    <div className="space-y-3">
                       {/* Card header */}
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
-                            <span className="font-mono text-xs font-extrabold text-white bg-Pine px-2.5 py-0.5 rounded-lg">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-xs font-black text-white bg-Pine px-3 py-1 rounded-xl shadow-xs">
                               {s.standard_code}
                             </span>
                             {s.jurisdiction === 'VN' ? (
-                              <span className="flex items-center gap-0.5 text-[11px] font-bold bg-Berry/10 text-Berry px-2 py-0.5 rounded-lg border border-Berry/20">
-                                <MapPin className="w-2.5 h-2.5" /> VN Law
+                              <span className="inline-flex items-center gap-1 text-[11px] font-black bg-Berry/10 text-Berry px-2.5 py-1 rounded-xl border border-Berry/20">
+                                <MapPin className="w-3 h-3" /> VN Law
                               </span>
                             ) : (
-                              <span className="flex items-center gap-0.5 text-[11px] font-bold bg-Snowflake text-Pine px-2 py-0.5 rounded-lg border border-Mist/30">
-                                <Globe className="w-2.5 h-2.5" /> Global RBA
+                              <span className="inline-flex items-center gap-1 text-[11px] font-black bg-Snowflake text-Pine px-2.5 py-1 rounded-xl border border-Mist/30">
+                                <Globe className="w-3 h-3" /> Global RBA
                               </span>
                             )}
                             <span
-                              className={`text-[11px] px-2 py-0.5 rounded-lg font-bold ${
+                              className={`text-[11px] px-2.5 py-1 rounded-xl font-black ${
                                 s.priority_level === 1
-                                  ? 'bg-Berry text-white'
+                                  ? 'bg-Berry text-white shadow-2xs'
                                   : 'bg-Frostysilver/50 text-Pine'
                               }`}
                             >
                               {s.priority_level === 1 ? 'Mức 1 · Bắt buộc' : 'Mức 2 · Quan trọng'}
                             </span>
                             {isSystem ? (
-                              <span className="text-[11px] bg-Pine/10 text-Pine px-2 py-0.5 rounded-lg font-bold">
+                              <span className="text-[11px] bg-Pine/10 text-Pine px-2.5 py-1 rounded-xl font-black">
                                 Chuẩn Gốc
                               </span>
                             ) : (
-                              <span className="text-[11px] bg-Branch text-white px-2 py-0.5 rounded-lg font-bold">
+                              <span className="text-[11px] bg-Branch text-white px-2.5 py-1 rounded-xl font-black">
                                 Tiêu chuẩn riêng
                               </span>
                             )}
                             {!s.is_active && (
-                              <span className="flex items-center gap-1 text-[11px] font-bold bg-Berry/10 text-Berry px-2 py-0.5 rounded-lg">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-black bg-Berry/10 text-Berry px-2.5 py-1 rounded-xl">
                                 <Ban className="w-3 h-3" /> Đã lưu trữ
                               </span>
                             )}
                           </div>
-                          <h3 className={`text-sm font-extrabold ${!s.is_active ? 'line-through text-Branch' : 'text-Pine'}`}>
+                          <h3 className={`text-sm sm:text-base font-black leading-snug whitespace-normal break-words ${!s.is_active ? 'line-through text-Branch' : 'text-Pine'}`}>
                             {s.name}
                           </h3>
                         </div>
@@ -467,13 +480,13 @@ export default function StandardsPage() {
                             onClick={() => handleToggleExclude(s)}
                             disabled={toggleLoading.has(s.id)}
                             title={isExcluded ? 'Bật lại khi quét AI' : 'Tắt khỏi bộ quét AI'}
-                            className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-xl border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-2xl border-2 border-transparent transition-colors duration-200 focus:outline-none ${
                               isExcluded ? 'bg-Mist' : 'bg-Pine'
                             } ${toggleLoading.has(s.id) ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
                             <span
-                              className={`pointer-events-none inline-block h-4 w-4 rounded-lg bg-white shadow transform transition duration-200 ${
-                                isExcluded ? 'translate-x-0' : 'translate-x-4'
+                              className={`pointer-events-none inline-block h-5 w-5 rounded-xl bg-white shadow-md transform transition duration-200 ${
+                                isExcluded ? 'translate-x-0' : 'translate-x-5'
                               }`}
                             />
                           </button>
@@ -481,31 +494,31 @@ export default function StandardsPage() {
                       </div>
 
                       {/* Content */}
-                      <p className="text-xs text-Branch leading-relaxed line-clamp-3">
+                      <p className="text-xs sm:text-sm text-Branch leading-relaxed font-medium line-clamp-3">
                         {parseContent(s.content_i18n, s.description, lang)}
                       </p>
 
                       {isExcluded && s.is_active && (
-                        <p className="text-[11px] text-Berry font-semibold mt-2 italic flex items-center gap-1">
-                          <SlidersHorizontal className="w-3 h-3" />
+                        <p className="text-xs text-Berry font-bold italic flex items-center gap-1.5 bg-Berry/5 p-2 rounded-xl border border-Berry/10">
+                          <SlidersHorizontal className="w-3.5 h-3.5 flex-shrink-0" />
                           Đang tạm tắt — AI sẽ bỏ qua tiêu chuẩn này khi quét hợp đồng
                         </p>
                       )}
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-Mist/15">
-                      <span className="text-[11px] font-semibold text-Mist truncate">
+                    <div className="flex items-center justify-between gap-3 pt-3.5 border-t border-Mist/20">
+                      <span className="text-xs font-bold text-Mist truncate">
                         {s.Standard_Groups?.group_name || 'Nhóm tiêu chuẩn'}
                       </span>
 
                       {s.is_active ? (
                         canMod ? (
-                          <div className="flex gap-1.5">
+                          <div className="flex items-center gap-2 flex-shrink-0">
                             <button
                               type="button"
                               onClick={() => openEdit(s)}
-                              className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-Pine hover:bg-Snowflake rounded-xl transition-colors"
+                              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-black text-Pine bg-Snowflake hover:bg-Pine hover:text-white rounded-xl transition-all shadow-2xs"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                               Sửa
@@ -513,25 +526,25 @@ export default function StandardsPage() {
                             <button
                               type="button"
                               onClick={() => setConfirmDelete(s)}
-                              className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-Berry hover:bg-Berry/10 rounded-xl transition-colors"
+                              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-black text-Berry bg-Berry/10 hover:bg-Berry hover:text-white rounded-xl transition-all"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                               Ẩn
                             </button>
                           </div>
                         ) : (
-                          <span className="text-[11px] font-bold text-Pine/60">Bảo vệ toàn vẹn</span>
+                          <span className="text-xs font-black text-Pine/60">Bảo vệ toàn vẹn</span>
                         )
                       ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 text-xs text-Berry/60">
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="inline-flex items-center gap-1 text-xs text-Berry font-bold">
                             <Lock className="w-3.5 h-3.5" /> Đã khóa
                           </span>
                           {canMod && (
                             <button
                               type="button"
                               onClick={() => setConfirmRestore(s)}
-                              className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-Pine bg-Snowflake hover:bg-Mist/30 border border-Mist/40 rounded-xl transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-black text-Pine bg-Snowflake hover:bg-Mist/30 border border-Mist/40 rounded-xl transition-all shadow-2xs cursor-pointer"
                             >
                               <RotateCcw className="w-3.5 h-3.5" />
                               Khôi phục
@@ -547,7 +560,7 @@ export default function StandardsPage() {
           )}
 
           {!loading && (
-            <div className="pt-2 border-t border-Mist/15">
+            <div className="pt-4 border-t border-Mist/20">
               <Pagination
                 page={page}
                 total={total}
@@ -567,86 +580,102 @@ export default function StandardsPage() {
         onClose={() => setModalOpen(false)}
         size="lg"
       >
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Mã tiêu chuẩn *</label>
+              <label className="block text-xs font-black uppercase tracking-wider text-Pine mb-2">Mã tiêu chuẩn *</label>
               <input
                 type="text"
                 disabled={!!editTarget}
                 value={form.standard_code}
                 onChange={(e) => setForm((f) => ({ ...f, standard_code: e.target.value }))}
                 placeholder="CUSTOM-LD-01"
-                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white font-mono disabled:bg-Snowflake"
+                className="w-full px-4 py-3 border border-Mist/30 rounded-2xl text-xs sm:text-sm focus:outline-none focus:border-Pine bg-white font-mono font-bold disabled:bg-Snowflake shadow-inner"
               />
             </div>
             <div>
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Phạm vi áp dụng</label>
+              <label className="block text-xs font-black uppercase tracking-wider text-Pine mb-2">Phạm vi áp dụng</label>
               <select
                 value={form.jurisdiction}
                 onChange={(e) => setForm((f) => ({ ...f, jurisdiction: e.target.value }))}
-                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Pine"
+                className="w-full px-4 py-3 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-black focus:outline-none focus:border-Pine bg-white text-Pine shadow-xs cursor-pointer"
               >
                 <option value="Global">Global (RBA)</option>
                 <option value="VN">Việt Nam</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Mức độ ưu tiên</label>
+              <label className="block text-xs font-black uppercase tracking-wider text-Pine mb-2">Mức độ ưu tiên</label>
               <select
                 value={form.priority_level}
                 onChange={(e) => setForm((f) => ({ ...f, priority_level: e.target.value }))}
-                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Pine"
+                className="w-full px-4 py-3 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-black focus:outline-none focus:border-Pine bg-white text-Pine shadow-xs cursor-pointer"
               >
                 <option value="1">Mức 1 – Nghiêm trọng (Bắt buộc)</option>
                 <option value="2">Mức 2 – Quan trọng (Khuyến nghị)</option>
               </select>
             </div>
           </div>
+
           <div>
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Tên tiêu chuẩn *</label>
+            <label className="block text-xs font-black uppercase tracking-wider text-Pine mb-2">Tên tiêu chuẩn *</label>
             <input
               type="text"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="Ví dụ: Quy định phụ cấp ca đêm tối thiểu 35%"
-              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Pine"
+              className="w-full px-4 py-3 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Pine shadow-inner"
             />
           </div>
+
           <div>
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Nhóm tiêu chuẩn *</label>
+            <label className="block text-xs font-black uppercase tracking-wider text-Pine mb-2">Nhóm tiêu chuẩn *</label>
             <select
               value={form.group_id}
               onChange={(e) => setForm((f) => ({ ...f, group_id: e.target.value }))}
-              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Pine"
+              className="w-full px-4 py-3 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-black focus:outline-none focus:border-Pine bg-white text-Pine shadow-xs cursor-pointer"
             >
               <option value="">-- Chọn nhóm tiêu chuẩn --</option>
               {groups.map((g) => <option key={g.id} value={g.id}>{g.group_name}</option>)}
             </select>
           </div>
+
           <div>
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Nội dung quy định (Tiếng Việt)</label>
+            <label className="block text-xs font-black uppercase tracking-wider text-Pine mb-2">Nội dung quy định (Tiếng Việt)</label>
             <textarea
               value={form.content_vi}
               onChange={(e) => setForm((f) => ({ ...f, content_vi: e.target.value }))}
               rows={3}
               placeholder="Mô tả chi tiết yêu cầu kiểm toán bằng tiếng Việt..."
-              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Pine resize-none"
+              className="w-full px-4 py-3 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-medium focus:outline-none focus:border-Pine bg-white text-Pine resize-none shadow-inner"
             />
           </div>
+
           <div>
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Content (English)</label>
+            <label className="block text-xs font-black uppercase tracking-wider text-Pine mb-2">Content (English)</label>
             <textarea
               value={form.content_en}
               onChange={(e) => setForm((f) => ({ ...f, content_en: e.target.value }))}
               rows={3}
               placeholder="Standard description in English..."
-              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Pine resize-none"
+              className="w-full px-4 py-3 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-medium focus:outline-none focus:border-Pine bg-white text-Pine resize-none shadow-inner"
             />
           </div>
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={() => setModalOpen(false)} className="flex-1 py-2.5 border border-Mist/40 text-Branch text-xs font-bold rounded-xl hover:bg-Snowflake transition-all">Hủy bỏ</button>
-            <button type="button" onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-Pine text-white text-xs font-extrabold rounded-xl hover:bg-Pine/90 disabled:opacity-60 transition-all flex items-center justify-center gap-2">
+
+          <div className="flex gap-4 pt-2">
+            <button
+              type="button"
+              onClick={() => setModalOpen(false)}
+              className="flex-1 py-3.5 border border-Mist/30 text-Branch text-xs font-black rounded-2xl hover:bg-Snowflake transition-all"
+            >
+              Hủy bỏ
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 py-3.5 bg-Pine text-white text-xs font-black rounded-2xl hover:bg-Berry disabled:opacity-60 transition-all flex items-center justify-center gap-2 shadow-xl shadow-Pine/30"
+            >
               {saving ? <Spinner size="sm" /> : null}
               {editTarget ? 'Lưu thay đổi' : 'Tạo tiêu chuẩn'}
             </button>

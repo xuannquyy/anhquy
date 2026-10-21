@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   Upload, FileText, Search, Trash2, Cpu, Eye, CheckCircle,
-  AlertTriangle, Clock, XCircle, Hash, Copy
+  AlertTriangle, Clock, XCircle, Hash, Copy, Sparkles, Filter, ShieldCheck, Layers, ArrowUpRight
 } from 'lucide-react'
 import { MainLayout } from '../components/MainLayout'
 import { ConfirmModal, Modal, Pagination, StatusBadge, Spinner, EmptyState } from '../components/ui'
@@ -31,7 +31,7 @@ interface Category { id: number; name: string; category_type: string }
 const STATUS_ICON: Record<string, React.ReactNode> = {
   Uploaded:  <Clock className="w-4 h-4 text-Pine" />,
   Analyzing: <Cpu className="w-4 h-4 text-Branch animate-pulse" />,
-  Analyzed:  <CheckCircle className="w-4 h-4 text-Pine" />,
+  Analyzed:  <CheckCircle className="w-4 h-4 text-emerald-600" />,
   Error:     <XCircle className="w-4 h-4 text-Berry" />,
 }
 
@@ -202,76 +202,89 @@ export default function DocumentsPage() {
 
   return (
     <MainLayout breadcrumb="Kho hợp đồng PDF">
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-extrabold text-Pine tracking-tight">Kho Hợp đồng PDF</h1>
-            <p className="text-xs sm:text-sm text-Mist mt-0.5">
-              Lưu trữ toàn vẹn bằng mã băm SHA-256 và bóc tách điều khoản vi phạm bằng AI RAG
-            </p>
-          </div>
-          {hasPermission('UPLOAD_DOC') && (
-            <button
-              type="button"
-              onClick={() => setUploadOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-Pine text-white text-xs font-extrabold rounded-2xl hover:bg-Pine/90 shadow-sm hover:shadow-md transition-all duration-200"
-            >
-              <Upload className="w-4 h-4" />
-              Tải lên hợp đồng PDF
-            </button>
-          )}
-        </div>
+      <div className="space-y-8 pb-16">
+        
+        {/* 🌟 1. Banner Hiện Đại & Bắt Mắt */}
+        <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-tr from-Pine via-[#24333D] to-Branch p-8 sm:p-10 text-white shadow-2xl border border-white/10">
+          <div className="absolute top-0 right-0 -mt-16 -mr-16 w-80 h-80 bg-Berry/35 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-1/3 w-60 h-60 bg-emerald-500/20 rounded-full blur-2xl pointer-events-none" />
 
-        {/* Summary KPI Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-3xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Pine text-white flex items-center justify-center flex-shrink-0">
-              <FileText className="w-5 h-5" />
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-3">
+              <span className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-mono text-xs font-black border border-emerald-500/30">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                SECURE RAG VAULT
+              </span>
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">Quản Lý & Kiểm Toán Hợp Đồng</h1>
+              <p className="text-xs sm:text-sm text-Frostysilver max-w-xl font-medium leading-relaxed">
+                Hệ thống lưu trữ tài liệu thông minh tích hợp mã hóa SHA-256 chống giả mạo và bóc tách điều khoản tự động bằng AI.
+              </p>
             </div>
-            <div>
-              <p className="text-xs font-bold text-Branch">Tổng số hợp đồng</p>
-              <p className="text-xl font-extrabold text-Pine">{total}</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-3xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Mist text-Pine flex items-center justify-center flex-shrink-0">
-              <CheckCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-Branch">Đã phân tích AI</p>
-              <p className="text-xl font-extrabold text-Pine">{analyzedCount}</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-3xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Berry text-white flex items-center justify-center flex-shrink-0">
-              <Clock className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-Branch">Chờ kích hoạt quét AI</p>
-              <p className="text-xl font-extrabold text-Berry">{uploadedCount}</p>
-            </div>
+            {hasPermission('UPLOAD_DOC') && (
+              <button
+                type="button"
+                onClick={() => setUploadOpen(true)}
+                className="inline-flex items-center justify-center gap-2 px-7 py-4 bg-gradient-to-r from-Berry to-[#872B38] hover:brightness-110 text-white text-xs font-black rounded-2xl transition-all duration-300 shadow-xl shadow-Berry/40 active:scale-95 flex-shrink-0"
+              >
+                <Upload className="w-4 h-4" />
+                <span>Tải lên hợp đồng PDF mới</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Filter & Table Card */}
-        <div className="bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] p-4 sm:p-5 space-y-4">
-          {/* Filters */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* 🌟 2. 3 Thẻ Thống Kê (KPI Cards) Thiết Kế Mới */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="bg-white rounded-3xl border border-Mist/30 p-6 shadow-[0_10px_30px_rgba(39,54,63,0.04)] flex items-center gap-5 hover:border-Pine transition-all">
+            <div className="w-14 h-14 rounded-2xl bg-Pine text-white flex items-center justify-center flex-shrink-0 shadow-lg shadow-Pine/30">
+              <FileText className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-Mist uppercase tracking-wider">Tổng số hợp đồng</p>
+              <p className="text-3xl font-black text-Pine mt-1">{total}</p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl border border-Mist/30 p-6 shadow-[0_10px_30px_rgba(39,54,63,0.04)] flex items-center gap-5 hover:border-emerald-500 transition-all">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-600/30">
+              <CheckCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-Mist uppercase tracking-wider">Đã phân tích AI</p>
+              <p className="text-3xl font-black text-emerald-700 mt-1">{analyzedCount}</p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl border border-Mist/30 p-6 shadow-[0_10px_30px_rgba(39,54,63,0.04)] flex items-center gap-5 hover:border-Berry transition-all">
+            <div className="w-14 h-14 rounded-2xl bg-Berry text-white flex items-center justify-center flex-shrink-0 shadow-lg shadow-Berry/30">
+              <Clock className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-Mist uppercase tracking-wider">Chờ quét AI</p>
+              <p className="text-3xl font-black text-Berry mt-1">{uploadedCount}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* 🌟 3. Khu vực Tìm kiếm, Bộ lọc & Bảng Dữ Liệu */}
+        <div className="bg-white rounded-[2.5rem] border border-Mist/25 shadow-[0_15px_50px_rgba(39,54,63,0.06)] p-6 sm:p-8 space-y-6">
+          
+          {/* Thanh tìm kiếm và bộ lọc */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-Mist" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-Mist" />
               <input
                 type="text"
-                placeholder="Tìm tên file, đối tác..."
+                placeholder="Tìm tên file, nhà cung ứng..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 border border-Mist/40 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-Pine bg-Snowflake/20 text-Pine placeholder-Mist"
+                className="w-full pl-11 pr-4 py-3.5 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-bold focus:outline-none focus:border-Pine bg-Snowflake/50 text-Pine placeholder-Mist transition-colors"
               />
             </div>
             <select
               value={filterSupplier}
               onChange={(e) => { setFilterSupplier(e.target.value); setPage(1) }}
-              className="px-3 py-2 border border-Mist/40 rounded-xl text-xs sm:text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Pine"
+              className="px-4 py-3.5 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-black focus:outline-none focus:border-Pine bg-white text-Pine cursor-pointer shadow-2xs"
             >
               <option value="">Tất cả nhà cung ứng</option>
               {suppliers.map((s) => <option key={s.id} value={s.id}>{s.company_name}</option>)}
@@ -279,7 +292,7 @@ export default function DocumentsPage() {
             <select
               value={filterCategory}
               onChange={(e) => { setFilterCategory(e.target.value); setPage(1) }}
-              className="px-3 py-2 border border-Mist/40 rounded-xl text-xs sm:text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Pine"
+              className="px-4 py-3.5 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-black focus:outline-none focus:border-Pine bg-white text-Pine cursor-pointer shadow-2xs"
             >
               <option value="">Tất cả loại hợp đồng</option>
               {contractTypes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -287,7 +300,7 @@ export default function DocumentsPage() {
             <select
               value={filterStatus}
               onChange={(e) => { setFilterStatus(e.target.value); setPage(1) }}
-              className="px-3 py-2 border border-Mist/40 rounded-xl text-xs sm:text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Pine"
+              className="px-4 py-3.5 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-black focus:outline-none focus:border-Pine bg-white text-Pine cursor-pointer shadow-2xs"
             >
               <option value="">Tất cả trạng thái</option>
               <option value="Uploaded">Đã tải lên</option>
@@ -298,55 +311,55 @@ export default function DocumentsPage() {
           </div>
 
           {loading ? (
-            <div className="flex justify-center py-16"><Spinner size="lg" /></div>
+            <div className="flex justify-center py-20"><Spinner size="lg" /></div>
           ) : filteredDocs.length === 0 ? (
             <EmptyState message="Không tìm thấy hợp đồng PDF nào" />
           ) : (
             <>
-              {/* 1. Desktop Table */}
+              {/* Bảng dữ liệu Desktop */}
               <div className="hidden md:block overflow-x-auto rounded-2xl border border-Mist/20">
                 <table className="min-w-full divide-y divide-Mist/15">
                   <thead>
                     <tr className="bg-Pine text-white">
                       {['Tên file PDF', 'Nhà cung ứng', 'Loại Hợp đồng', 'Dung lượng', 'Mã băm SHA-256', 'Trạng thái', 'Thao tác'].map((h) => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-extrabold uppercase tracking-wider whitespace-nowrap">{h}</th>
+                        <th key={h} className="px-5 py-4 text-left text-xs font-black uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-Mist/15 bg-white">
                     {filteredDocs.map((doc) => (
-                      <tr key={doc.id} className="hover:bg-Snowflake/35 transition-colors">
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-xl bg-Pine/10 text-Pine flex items-center justify-center flex-shrink-0">
-                              <FileText className="w-4 h-4" />
+                      <tr key={doc.id} className="hover:bg-Snowflake/60 transition-colors group">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-Pine/10 text-Pine flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                              <FileText className="w-5 h-5" />
                             </div>
                             <Link
                               to={`/audit/${doc.id}`}
-                              className="text-sm font-bold text-Pine hover:underline max-w-[210px] truncate"
+                              className="text-sm font-black text-Pine hover:text-Berry transition-colors max-w-[220px] truncate"
                               title={doc.file_name}
                             >
                               {doc.file_name}
                             </Link>
                           </div>
                         </td>
-                        <td className="px-4 py-3.5 text-xs font-bold text-Branch whitespace-nowrap">
+                        <td className="px-5 py-4 text-xs font-black text-Branch whitespace-nowrap">
                           {doc.Suppliers?.company_name || '—'}
                         </td>
-                        <td className="px-4 py-3.5 text-xs text-Branch whitespace-nowrap">
-                          <span className="px-2.5 py-1 rounded-xl bg-Snowflake text-Pine font-semibold">
+                        <td className="px-5 py-4 text-xs text-Branch whitespace-nowrap">
+                          <span className="px-3 py-1 rounded-xl bg-Snowflake text-Pine font-black border border-Mist/20">
                             {doc.Categories?.name || '—'}
                           </span>
                         </td>
-                        <td className="px-4 py-3.5 text-xs font-mono text-Mist whitespace-nowrap">
+                        <td className="px-5 py-4 text-xs font-mono text-Mist whitespace-nowrap font-bold">
                           {formatBytes(doc.file_size)}
                         </td>
-                        <td className="px-4 py-3.5">
+                        <td className="px-5 py-4">
                           {doc.file_hash ? (
                             <button
                               type="button"
                               onClick={() => copyHash(doc.file_hash!)}
-                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-Snowflake/80 hover:bg-Pine hover:text-white text-Pine text-xs font-mono transition-colors"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-Snowflake hover:bg-Pine hover:text-white text-Pine text-xs font-mono transition-colors font-bold shadow-2xs"
                               title={`Click để sao chép SHA-256: ${doc.file_hash}`}
                             >
                               <Hash className="w-3 h-3" />
@@ -355,18 +368,18 @@ export default function DocumentsPage() {
                             </button>
                           ) : '—'}
                         </td>
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-1.5">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-2">
                             {STATUS_ICON[doc.status]}
                             <StatusBadge status={doc.status} />
                           </div>
                         </td>
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-1.5">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-2">
                             <Link
                               to={`/audit/${doc.id}`}
-                              title="Mở Phòng Kiểm toán AI (Split-view)"
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-Snowflake text-Pine hover:bg-Pine hover:text-white text-xs font-extrabold rounded-xl transition-all"
+                              title="Mở Phòng Kiểm toán AI"
+                              className="inline-flex items-center gap-1 px-3 py-2 bg-Snowflake text-Pine hover:bg-Pine hover:text-white text-xs font-black rounded-xl transition-all shadow-2xs"
                             >
                               <Eye className="w-3.5 h-3.5" />
                               Kiểm toán
@@ -378,13 +391,9 @@ export default function DocumentsPage() {
                                 onClick={() => handleAnalyze(doc)}
                                 disabled={analyzingIds.has(doc.id)}
                                 title="Kích hoạt AI rà soát ngay"
-                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-Berry text-white hover:bg-Berry/90 text-xs font-extrabold rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                                className="inline-flex items-center gap-1 px-3 py-2 bg-Berry text-white hover:brightness-110 text-xs font-black rounded-xl transition-all disabled:opacity-40 shadow-sm"
                               >
-                                {analyzingIds.has(doc.id) ? (
-                                  <Spinner size="sm" />
-                                ) : (
-                                  <Cpu className="w-3.5 h-3.5" />
-                                )}
+                                {analyzingIds.has(doc.id) ? <Spinner size="sm" /> : <Cpu className="w-3.5 h-3.5" />}
                                 Quét AI
                               </button>
                             )}
@@ -394,8 +403,8 @@ export default function DocumentsPage() {
                                 type="button"
                                 disabled={doc.status === 'Analyzing'}
                                 onClick={() => setConfirmDelete(doc)}
-                                title={doc.status === 'Analyzing' ? 'Không thể xóa khi đang quét AI' : 'Xóa hợp đồng'}
-                                className="p-1.5 text-Berry hover:bg-Berry/10 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Xóa hợp đồng"
+                                className="p-2 text-Berry hover:bg-Berry/10 rounded-xl transition-colors disabled:opacity-30"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -408,26 +417,23 @@ export default function DocumentsPage() {
                 </table>
               </div>
 
-              {/* 2. Mobile Cards */}
-              <div className="md:hidden grid grid-cols-1 gap-3">
+              {/* Danh sách thẻ Mobile */}
+              <div className="md:hidden grid grid-cols-1 gap-4">
                 {filteredDocs.map((doc) => (
-                  <div key={doc.id} className="rounded-2xl border border-Mist/25 bg-white p-4 shadow-sm space-y-2.5">
+                  <div key={doc.id} className="rounded-2xl border border-Mist/30 bg-white p-4 shadow-sm space-y-3">
                     <div className="flex items-start justify-between gap-2">
-                      <Link to={`/audit/${doc.id}`} className="text-sm font-extrabold text-Pine truncate">
+                      <Link to={`/audit/${doc.id}`} className="text-sm font-black text-Pine truncate">
                         {doc.file_name}
                       </Link>
                       <StatusBadge status={doc.status} />
                     </div>
-                    <p className="text-xs text-Branch font-semibold">
+                    <p className="text-xs text-Branch font-black">
                       {doc.Suppliers?.company_name} · <span className="text-Mist">{doc.Categories?.name}</span>
                     </p>
                     <div className="flex items-center justify-between pt-2 border-t border-Mist/15">
-                      <span className="text-[11px] font-mono text-Mist">{formatBytes(doc.file_size)}</span>
-                      <div className="flex items-center gap-1.5">
-                        <Link
-                          to={`/audit/${doc.id}`}
-                          className="px-3 py-1.5 bg-Snowflake text-Pine text-xs font-extrabold rounded-xl"
-                        >
+                      <span className="text-xs font-mono text-Mist font-bold">{formatBytes(doc.file_size)}</span>
+                      <div className="flex items-center gap-2">
+                        <Link to={`/audit/${doc.id}`} className="px-3 py-1.5 bg-Snowflake text-Pine text-xs font-black rounded-xl">
                           Kiểm toán
                         </Link>
                         {hasPermission('RUN_AI_AUDIT') && doc.status !== 'Analyzing' && (
@@ -435,7 +441,7 @@ export default function DocumentsPage() {
                             type="button"
                             onClick={() => handleAnalyze(doc)}
                             disabled={analyzingIds.has(doc.id)}
-                            className="px-3 py-1.5 bg-Berry text-white text-xs font-extrabold rounded-xl"
+                            className="px-3 py-1.5 bg-Berry text-white text-xs font-black rounded-xl"
                           >
                             Quét AI
                           </button>
@@ -449,7 +455,7 @@ export default function DocumentsPage() {
           )}
 
           {!loading && (
-            <div className="pt-2 border-t border-Mist/15">
+            <div className="pt-4 border-t border-Mist/15">
               <Pagination
                 page={page}
                 total={total}
@@ -469,77 +475,75 @@ export default function DocumentsPage() {
         onClose={() => { setUploadOpen(false); setUploadFile(null) }}
         size="md"
       >
-        <div className="space-y-4">
-          {/* Drag & Drop Zone */}
+        <div className="space-y-5">
           <div
             ref={dropRef}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 ${
-              isDragging ? 'border-Pine bg-Pine/5' : 'border-Mist/40 hover:border-Pine/40 hover:bg-Snowflake/40'
+            className={`relative border-2 border-dashed rounded-3xl p-8 text-center transition-all duration-300 ${
+              isDragging ? 'border-Pine bg-Pine/5 scale-[1.01]' : 'border-Mist/40 hover:border-Pine hover:bg-Snowflake/50'
             }`}
           >
             {uploadFile ? (
-              <div className="flex items-center justify-center gap-3">
-                <FileText className="w-8 h-8 text-Pine" />
-                <div className="text-left">
-                  <p className="text-sm font-extrabold text-Pine">{uploadFile.name}</p>
-                  <p className="text-xs text-Mist">{formatBytes(uploadFile.size)}</p>
+              <div className="flex items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-Mist/25 shadow-sm">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-Pine/10 text-Pine flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div className="text-left min-w-0">
+                    <p className="text-sm font-black text-Pine truncate">{uploadFile.name}</p>
+                    <p className="text-xs font-mono text-Mist font-bold">{formatBytes(uploadFile.size)}</p>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setUploadFile(null)}
-                  className="ml-2 text-Berry hover:text-Berry/70"
-                >
+                <button type="button" onClick={() => setUploadFile(null)} className="text-Berry hover:text-Berry/70">
                   <XCircle className="w-5 h-5" />
                 </button>
               </div>
             ) : (
               <>
-                <Upload className="w-10 h-10 text-Mist mx-auto mb-3" />
-                <p className="text-sm font-bold text-Pine">Kéo & thả file PDF vào đây</p>
-                <p className="text-xs text-Mist mt-1">hoặc</p>
-                <label className="inline-block mt-2 px-4 py-2 bg-Pine text-white text-xs font-extrabold rounded-xl cursor-pointer hover:bg-Pine/90 transition-all shadow-sm">
-                  Chọn file PDF từ máy tính
+                <Upload className="w-12 h-12 text-Pine mx-auto mb-3" />
+                <p className="text-sm font-black text-Pine">Kéo & thả file PDF vào đây</p>
+                <p className="text-xs text-Mist mt-1 font-medium">hoặc bấm chọn từ máy tính</p>
+                <label className="inline-block mt-4 px-5 py-2.5 bg-Pine text-white text-xs font-black rounded-xl cursor-pointer hover:bg-Berry transition-all shadow-md">
+                  Chọn file PDF
                   <input type="file" accept="application/pdf" onChange={handleFileInput} className="hidden" />
                 </label>
-                <p className="text-xs text-Mist mt-2">Tối đa 50 MB · Chỉ nhận định dạng PDF</p>
+                <p className="text-xs font-bold text-Mist mt-3">Tối đa 50 MB · Chỉ nhận định dạng PDF</p>
               </>
             )}
           </div>
 
-          {/* Metadata */}
-          <div>
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Nhà cung ứng *</label>
-            <select
-              value={uploadSupplierId}
-              onChange={(e) => setUploadSupplierId(e.target.value)}
-              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Pine"
-            >
-              <option value="">-- Chọn nhà cung ứng --</option>
-              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.company_name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Loại hợp đồng *</label>
-            <select
-              value={uploadCategoryId}
-              onChange={(e) => setUploadCategoryId(e.target.value)}
-              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Pine"
-            >
-              <option value="">-- Chọn loại hợp đồng --</option>
-              {contractTypes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-Pine mb-1.5">Nhà cung ứng *</label>
+              <select
+                value={uploadSupplierId}
+                onChange={(e) => setUploadSupplierId(e.target.value)}
+                className="w-full px-4 py-3 border border-Mist/30 rounded-xl text-sm font-black focus:outline-none focus:border-Pine bg-white text-Pine shadow-2xs cursor-pointer"
+              >
+                <option value="">-- Chọn nhà cung ứng --</option>
+                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.company_name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-Pine mb-1.5">Loại hợp đồng *</label>
+              <select
+                value={uploadCategoryId}
+                onChange={(e) => setUploadCategoryId(e.target.value)}
+                className="w-full px-4 py-3 border border-Mist/30 rounded-xl text-sm font-black focus:outline-none focus:border-Pine bg-white text-Pine shadow-2xs cursor-pointer"
+              >
+                <option value="">-- Chọn loại hợp đồng --</option>
+                {contractTypes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
           </div>
 
-          {/* Bảo mật note */}
-          <div className="flex items-start gap-2.5 bg-Snowflake/60 rounded-2xl p-3.5 border border-Mist/25">
-            <AlertTriangle className="w-4 h-4 text-Berry mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-Branch leading-relaxed">
+          <div className="flex items-start gap-3 bg-Snowflake/80 rounded-2xl p-4 border border-Mist/25">
+            <ShieldCheck className="w-5 h-5 text-Pine mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-Branch leading-relaxed font-medium">
               Hệ thống tự động băm <strong>SHA-256</strong> để chống tải trùng hợp đồng.
-              Nội dung nhạy cảm (CCCD, MST, STK) sẽ được ẩn danh bằng{' '}
-              <strong>Data Masking</strong> trước khi gửi vào AI.
+              Nội dung nhạy cảm sẽ được ẩn danh bằng <strong>Data Masking</strong> trước khi gửi vào AI.
             </p>
           </div>
 
@@ -547,7 +551,7 @@ export default function DocumentsPage() {
             <button
               type="button"
               onClick={() => { setUploadOpen(false); setUploadFile(null) }}
-              className="flex-1 py-2.5 border border-Mist/40 text-Branch text-xs font-bold rounded-xl hover:bg-Snowflake transition-all"
+              className="flex-1 py-3 border border-Mist/30 text-Branch text-xs font-black rounded-xl hover:bg-Snowflake transition-all"
             >
               Hủy bỏ
             </button>
@@ -555,7 +559,7 @@ export default function DocumentsPage() {
               type="button"
               onClick={handleUpload}
               disabled={uploading || !uploadFile}
-              className="flex-1 py-2.5 bg-Pine text-white text-xs font-extrabold rounded-xl hover:bg-Pine/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-sm"
+              className="flex-1 py-3 bg-Pine text-white text-xs font-black rounded-xl hover:bg-Berry disabled:opacity-60 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-Pine/20"
             >
               {uploading ? <Spinner size="sm" /> : <Upload className="w-4 h-4" />}
               Tải lên hệ thống

@@ -47,12 +47,12 @@ interface Violation {
   Users?: { id: number; full_name: string }
 }
 
-// ─── Risk level styles (Chuẩn hệ màu Winter: Berry - Branch - Mist) ───────────
+// ─── Risk level styles (Chuẩn hệ màu Winter Vibe: Snowflake - Pine - Berry - Branch - Mist) ───────────
 
 const RISK_STYLES: Record<string, { card: string; badge: string; dot: string }> = {
-  High:   { card: 'border-l-4 border-l-Berry bg-Berry/[0.04]',     badge: 'bg-Berry text-white',  dot: 'bg-Berry animate-pulse' },
-  Medium: { card: 'border-l-4 border-l-Branch bg-Frostysilver/20', badge: 'bg-Branch text-white', dot: 'bg-Branch' },
-  Low:    { card: 'border-l-4 border-l-Mist bg-Snowflake/40',      badge: 'bg-Mist text-Pine',    dot: 'bg-Mist' },
+  High:   { card: 'border-l-4 border-l-Berry bg-Berry/[0.03] hover:border-l-Berry/90', badge: 'bg-Berry text-white shadow-sm shadow-Berry/20', dot: 'bg-Berry animate-pulse' },
+  Medium: { card: 'border-l-4 border-l-Branch bg-Branch/[0.02] hover:border-l-Branch/90', badge: 'bg-Branch text-white shadow-sm shadow-Branch/20', dot: 'bg-Branch' },
+  Low:    { card: 'border-l-4 border-l-Mist bg-Mist/[0.04] hover:border-l-Mist/90', badge: 'bg-Mist text-Pine font-bold', dot: 'bg-Mist' },
 }
 
 // ─── Hàm In Phiếu Kết Quả Kiểm Toán Riêng Cho Hợp Đồng Đang Mở ───────────────
@@ -266,8 +266,8 @@ function ViolationCard({
 
   return (
     <div
-      className={`rounded-2xl border border-Mist/25 mb-3 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer bg-white
-        ${s.card} ${isActive ? 'ring-2 ring-Pine shadow-md' : ''}`}
+      className={`rounded-lg border border-Mist/30 mb-3 overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 ease-in-out cursor-pointer bg-white
+        ${s.card} ${isActive ? 'ring-2 ring-Pine shadow-md border-transparent bg-Pine/[0.02]' : ''}`}
       onClick={onClick}
     >
       {/* Header */}
@@ -275,18 +275,18 @@ function ViolationCard({
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.dot}`} />
-            <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-xl ${s.badge}`}>
+            <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded-md ${s.badge}`}>
               {violation.risk_level === 'High' ? 'Rủi ro Cao' : violation.risk_level === 'Medium' ? 'Trung bình' : 'Rủi ro Thấp'}
             </span>
             {violation.Standards && (
-              <span className="text-xs font-mono text-Pine bg-Snowflake px-2 py-0.5 rounded-lg truncate font-extrabold border border-Mist/25">
+              <span className="text-xs font-mono text-Pine bg-Snowflake/80 px-2 py-0.5 rounded-md truncate font-extrabold border border-Mist/30">
                 {violation.Standards.standard_code}
               </span>
             )}
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {violation.page_number && (
-              <span className="text-[11px] font-extrabold text-Pine bg-Frostysilver/50 px-2.5 py-0.5 rounded-xl">
+              <span className="text-[11px] font-extrabold text-Pine bg-Frostysilver/30 px-2 py-0.5 rounded-md border border-Mist/20">
                 Trang {violation.page_number}
               </span>
             )}
@@ -297,10 +297,10 @@ function ViolationCard({
         {/* Standard name */}
         {violation.Standards && (
           <div className="flex items-center gap-1.5 mb-1.5">
-            <span className={`text-[11px] px-2 py-0.5 rounded-lg font-bold ${
+            <span className={`text-[11px] px-2 py-0.5 rounded-md font-bold border ${
               violation.Standards.jurisdiction === 'VN'
-                ? 'bg-Berry/10 text-Berry'
-                : 'bg-Pine/10 text-Pine'
+                ? 'bg-Berry/10 text-Berry border-Berry/20'
+                : 'bg-Pine/10 text-Pine border-Pine/20'
             }`}>
               {violation.Standards.jurisdiction === 'VN' ? <MapPin className="w-2.5 h-2.5 inline" /> : <Globe className="w-2.5 h-2.5 inline" />}
               {' '}{violation.Standards.jurisdiction || 'Global'}
@@ -317,10 +317,10 @@ function ViolationCard({
 
       {/* Evidence quote */}
       <div className="px-3.5 pb-2.5">
-        <div className="bg-Frostysilver/30 border border-Berry/20 rounded-xl p-2.5 text-xs text-Pine italic relative group">
+        <div className="bg-Frostysilver/20 border border-Berry/20 rounded-md p-2.5 text-xs text-Pine italic relative group">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <BookOpen className="w-3.5 h-3.5 inline mr-1.5 text-Berry" />
+              <BookOpen className="w-3.5 h-3.5 inline mr-1.5 text-Berry flex-shrink-0" />
               "{violation.evidence_quote && violation.evidence_quote.length > 160 && !expanded
                 ? violation.evidence_quote.substring(0, 160) + '…'
                 : violation.evidence_quote}"
@@ -329,7 +329,7 @@ function ViolationCard({
               type="button"
               onClick={handleCopyQuote}
               title="Sao chép bằng chứng"
-              className="p-1 rounded-lg bg-white/80 text-Pine hover:bg-Pine hover:text-white transition-colors flex-shrink-0"
+              className="p-1 rounded bg-white/80 text-Pine hover:bg-Pine hover:text-white transition-colors duration-200 flex-shrink-0"
             >
               <Copy className="w-3 h-3" />
             </button>
@@ -341,7 +341,7 @@ function ViolationCard({
       {expanded && (
         <div className="px-3.5 pb-3.5 space-y-2.5">
           {violation.recommendation && (
-            <div className="flex gap-2 bg-Snowflake/60 border border-Mist/25 rounded-xl p-2.5">
+            <div className="flex gap-2 bg-Snowflake/50 border border-Mist/30 rounded-md p-2.5">
               <Lightbulb className="w-4 h-4 text-Berry mt-0.5 flex-shrink-0" />
               <p className="text-xs text-Branch leading-relaxed">
                 <strong className="text-Pine">Khuyến nghị sửa đổi: </strong>
@@ -355,7 +355,7 @@ function ViolationCard({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onReview(violation.id, 'Approved') }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-Berry text-white text-xs font-extrabold rounded-xl hover:bg-Berry/90 transition-all shadow-sm"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-Berry text-white text-xs font-extrabold rounded-md hover:drop-shadow-[0_0_8px_rgba(107,33,44,0.6)] transition-all duration-300 shadow-sm"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Phê duyệt lỗi – Trừ điểm
@@ -363,7 +363,7 @@ function ViolationCard({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onReview(violation.id, 'Rejected') }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 border border-Mist/40 text-Branch text-xs font-bold rounded-xl hover:bg-Snowflake transition-all bg-white"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 border-[1.5px] border-Mist text-Pine text-xs font-bold rounded-md hover:bg-Snowflake hover:border-Pine transition-all duration-300 bg-transparent"
               >
                 <XCircle className="w-3.5 h-3.5 text-Mist" />
                 Bác bỏ cảnh báo
@@ -383,7 +383,7 @@ function ViolationCard({
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setExpanded(!expanded) }}
-        className="w-full py-1.5 flex items-center justify-center gap-1 text-[11px] font-bold text-Mist hover:text-Pine hover:bg-Snowflake/40 transition-colors border-t border-Mist/15"
+        className="w-full py-1.5 flex items-center justify-center gap-1 text-[11px] font-bold text-Mist hover:text-Pine hover:bg-Snowflake/50 transition-colors duration-200 border-t border-Mist/20"
       >
         {expanded ? <><ChevronUp className="w-3 h-3" />Thu gọn</> : <><ChevronDown className="w-3 h-3" />Xem chi tiết & Thẩm định</>}
       </button>
@@ -413,7 +413,7 @@ function SplitPDFViewer({
   }, [activePage, pdfUrl])
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-Pine">
+    <div className="flex-1 flex flex-col overflow-hidden bg-Pine rounded-lg border border-Mist/30 shadow-md">
       {/* Top PDF Control Header */}
       <div className="bg-Pine text-Snowflake px-4 py-2.5 flex items-center justify-between gap-2 border-b border-white/10">
         <div className="flex items-center gap-2 min-w-0">
@@ -422,7 +422,7 @@ function SplitPDFViewer({
             Trình đối chiếu Hợp đồng PDF (XAI Viewer)
           </span>
           {activePage && (
-            <span className="px-2 py-0.5 rounded-lg bg-Berry text-white text-[11px] font-extrabold">
+            <span className="px-2 py-0.5 rounded-md bg-Berry text-white text-[11px] font-extrabold shadow-xs">
               Trang {activePage}
             </span>
           )}
@@ -431,7 +431,7 @@ function SplitPDFViewer({
           href={pdfUrl}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-Snowflake text-[11px] font-bold transition-colors flex-shrink-0"
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/20 text-Snowflake text-[11px] font-bold transition-colors duration-200 flex-shrink-0 border border-white/10"
         >
           <ExternalLink className="w-3 h-3" />
           Mở rộng PDF
@@ -440,13 +440,13 @@ function SplitPDFViewer({
 
       {/* Active Evidence Banner */}
       {activeEvidence && (
-        <div className="bg-Frostysilver px-4 py-2 flex items-start gap-2 border-b-2 border-Berry">
+        <div className="bg-Frostysilver/30 backdrop-blur-md px-4 py-2.5 flex items-start gap-2 border-b-2 border-Berry">
           <MessageSquare className="w-3.5 h-3.5 text-Berry flex-shrink-0 mt-0.5" />
           <div className="text-xs text-Pine flex-1 line-clamp-2">
             <span className="font-extrabold text-Berry uppercase mr-1.5">
               Bằng chứng trích xuất:
             </span>
-            <span className="italic font-semibold bg-white/75 px-1.5 py-0.5 rounded text-Pine">
+            <span className="italic font-semibold bg-white/80 border border-Berry/30 px-2 py-0.5 rounded-md text-Pine">
               "{activeEvidence}"
             </span>
           </div>
@@ -462,9 +462,10 @@ function SplitPDFViewer({
           title="PDF Viewer"
         />
         {activeEvidence && (
-          <div className="absolute bottom-4 right-4 max-w-sm bg-white/95 backdrop-blur-md rounded-2xl shadow-lg border-2 border-Berry p-3.5">
+          <div className="absolute bottom-4 right-4 max-w-sm bg-white/95 backdrop-blur-md rounded-lg shadow-xl border-2 border-Berry p-3.5 animate-in fade-in duration-300">
             <div className="flex items-start justify-between gap-2 mb-1">
-              <p className="text-xs font-extrabold text-Berry">
+              <p className="text-xs font-extrabold text-Berry flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-Berry animate-pulse" />
                 Đoạn văn bản vi phạm {activePage ? `· Trang ${activePage}` : ''}
               </p>
               <button
@@ -473,13 +474,13 @@ function SplitPDFViewer({
                   navigator.clipboard.writeText(activeEvidence)
                   toast.success('Đã sao chép câu trích dẫn.')
                 }}
-                className="text-Mist hover:text-Pine"
+                className="text-Mist hover:text-Pine p-1 hover:bg-Snowflake rounded transition-colors"
                 title="Sao chép"
               >
                 <Copy className="w-3.5 h-3.5" />
               </button>
             </div>
-            <p className="text-xs text-Pine bg-Frostysilver/35 p-2 rounded-xl italic leading-relaxed">
+            <p className="text-xs text-Pine bg-Frostysilver/20 border border-Berry/20 p-2 rounded-md italic leading-relaxed">
               "{activeEvidence}"
             </p>
           </div>
@@ -669,9 +670,9 @@ export default function AuditWorkspacePage() {
         <button
           type="button"
           onClick={() => navigate('/documents')}
-          className="inline-flex items-center gap-2 text-xs font-extrabold text-Pine bg-white px-3.5 py-2 rounded-2xl border border-Mist/30 hover:bg-Snowflake transition-colors shadow-sm"
+          className="inline-flex items-center gap-2 text-xs font-extrabold text-Pine bg-white px-3.5 py-2 rounded-lg border border-Mist/30 hover:bg-Snowflake hover:border-Pine transition-all duration-300 shadow-xs"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-4 h-4 text-Pine" />
           Quay lại Kho hợp đồng PDF
         </button>
 
@@ -686,7 +687,7 @@ export default function AuditWorkspacePage() {
                 role || 'User'
               )
             }
-            className="inline-flex items-center gap-2 px-4 py-2 bg-Pine text-white text-xs font-extrabold rounded-2xl hover:bg-Pine/90 transition-all shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-Pine text-white text-xs font-extrabold rounded-lg hover:shadow-lg hover:shadow-Pine/30 hover:brightness-110 transition-all duration-300 shadow-xs"
             title="In Biên bản / Phiếu Kết quả Kiểm toán của riêng hợp đồng này"
           >
             <Printer className="w-3.5 h-3.5 text-Frostysilver" />
@@ -695,8 +696,8 @@ export default function AuditWorkspacePage() {
         )}
       </div>
 
-      {/* Mobile tabs */}
-      <div className="flex md:hidden mb-3 bg-white p-1 rounded-2xl border border-Mist/25">
+      {/* Mobile tabs (Dưới 768px hiển thị chuyển tab) */}
+      <div className="flex md:hidden mb-3 bg-white p-1 rounded-lg border border-Mist/30">
         {[
           { key: 'violations', label: `Cảnh báo AI (${filteredViolations.length})` },
           { key: 'pdf',        label: 'Tài liệu PDF' },
@@ -705,9 +706,9 @@ export default function AuditWorkspacePage() {
             key={tab.key}
             type="button"
             onClick={() => setActiveTab(tab.key as typeof activeTab)}
-            className={`flex-1 py-2 text-xs font-extrabold rounded-xl transition-all ${
+            className={`flex-1 py-2 text-xs font-extrabold rounded-md transition-all duration-300 ${
               activeTab === tab.key
-                ? 'bg-Pine text-white shadow-sm'
+                ? 'bg-Pine text-white shadow-xs'
                 : 'text-Branch hover:text-Pine'
             }`}
           >
@@ -721,7 +722,7 @@ export default function AuditWorkspacePage() {
         {/* ── Left Column: Violations ── */}
         <div className={`flex flex-col w-full md:w-1/2 ${activeTab === 'pdf' ? 'hidden md:flex' : 'flex'}`}>
           {/* Document info + risk score */}
-          <div className="bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] p-4 mb-3 flex-shrink-0">
+          <div className="bg-white rounded-lg border border-Mist/30 shadow-sm p-4 mb-3 flex-shrink-0">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -729,7 +730,7 @@ export default function AuditWorkspacePage() {
                   <h2 className="text-sm font-extrabold text-Pine truncate">{contractDoc.file_name}</h2>
                   <StatusBadge status={contractDoc.status} />
                 </div>
-                <p className="text-xs text-Mist">
+                <p className="text-xs text-Branch">
                   Đối tác: <strong className="text-Pine">{contractDoc.Suppliers?.company_name || '—'}</strong> · Loại: {contractDoc.Categories?.name || '—'}
                 </p>
                 {contractDoc.Suppliers && (
@@ -744,7 +745,7 @@ export default function AuditWorkspacePage() {
                   type="button"
                   onClick={handleAnalyze}
                   disabled={analyzing || contractDoc.status === 'Analyzing'}
-                  className="flex items-center gap-1.5 px-4 py-2.5 bg-Berry text-white text-xs font-extrabold rounded-2xl hover:bg-Berry/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all flex-shrink-0 shadow-sm"
+                  className="flex items-center gap-1.5 px-4 py-2.5 bg-Berry text-white text-xs font-extrabold rounded-lg hover:drop-shadow-[0_0_8px_rgba(107,33,44,0.6)] disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-300 flex-shrink-0 shadow-xs"
                 >
                   {analyzing ? (
                     <Spinner size="sm" />
@@ -763,7 +764,7 @@ export default function AuditWorkspacePage() {
                 { label: 'Chờ Manager duyệt', count: pendingCount, color: 'text-Branch' },
                 { label: 'Mức độ Cao (High)', count: violations.filter((v) => v.risk_level === 'High').length, color: 'text-Berry' },
               ].map(({ label, count, color }) => (
-                <div key={label} className="text-center bg-Snowflake/60 rounded-2xl py-1.5 border border-Mist/20">
+                <div key={label} className="text-center bg-Snowflake/50 rounded-md py-1.5 border border-Mist/20">
                   <div className={`text-lg font-extrabold ${color}`}>{count}</div>
                   <div className="text-[11px] font-semibold text-Mist">{label}</div>
                 </div>
@@ -780,7 +781,7 @@ export default function AuditWorkspacePage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm mã chuẩn, từ khóa bằng chứng..."
-                className="w-full pl-8 pr-3 py-2 border border-Mist/40 rounded-xl text-xs bg-white text-Pine focus:outline-none focus:border-Pine"
+                className="w-full pl-8 pr-3 py-2 border border-Mist/40 rounded-md text-xs bg-white text-Pine focus:outline-none focus:border-Pine transition-colors"
               />
             </div>
             <div className="flex gap-2">
@@ -790,7 +791,7 @@ export default function AuditWorkspacePage() {
               <select
                 value={filterRisk}
                 onChange={(e) => setFilterRisk(e.target.value)}
-                className="px-2.5 py-2 border border-Mist/40 rounded-xl text-xs font-bold bg-white text-Pine focus:outline-none focus:border-Pine"
+                className="px-2.5 py-2 border border-Mist/40 rounded-md text-xs font-bold bg-white text-Pine focus:outline-none focus:border-Pine transition-colors"
               >
                 <option value="">Mọi mức độ</option>
                 <option value="High">Cao (-10đ)</option>
@@ -800,7 +801,7 @@ export default function AuditWorkspacePage() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-2.5 py-2 border border-Mist/40 rounded-xl text-xs font-bold bg-white text-Pine focus:outline-none focus:border-Pine"
+                className="px-2.5 py-2 border border-Mist/40 rounded-md text-xs font-bold bg-white text-Pine focus:outline-none focus:border-Pine transition-colors"
               >
                 <option value="">Mọi trạng thái</option>
                 <option value="Pending">Chờ duyệt</option>
@@ -810,10 +811,17 @@ export default function AuditWorkspacePage() {
             </div>
           </div>
 
+          {/* Mobile Notice (Ẩn khung xem PDF trên thiết bị di động nhỏ) */}
+          <div className="block md:hidden mb-2 text-center">
+            <span className="text-[11px] text-Mist font-medium">
+              Vui lòng truy cập bằng máy tính để xem định vị trực quan trên tài liệu gốc.
+            </span>
+          </div>
+
           {/* Violation list */}
-          <div className="flex-1 overflow-y-auto pr-1">
+          <div className="flex-1 overflow-y-auto pr-1 space-y-1">
             {filteredViolations.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 bg-white rounded-3xl border border-Mist/20 text-Mist px-4 text-center">
+              <div className="flex flex-col items-center justify-center py-12 bg-white rounded-lg border border-Mist/30 text-Mist px-4 text-center">
                 <AlertTriangle className="w-10 h-10 mb-3 text-Pine/40" />
                 <p className="text-sm font-bold text-Pine">
                   {violations.length === 0
@@ -837,7 +845,7 @@ export default function AuditWorkspacePage() {
         </div>
 
         {/* ── Right Column: PDF Viewer ── */}
-        <div className={`flex-1 rounded-3xl overflow-hidden border border-Mist/30 shadow-[0_10px_28px_rgba(39,54,63,0.08)] ${activeTab === 'violations' ? 'hidden md:flex md:flex-col' : 'flex flex-col'}`}>
+        <div className={`flex-1 ${activeTab === 'violations' ? 'hidden md:flex md:flex-col' : 'flex flex-col'}`}>
           {pdfUrl ? (
             <SplitPDFViewer
               pdfUrl={pdfUrl}
@@ -845,8 +853,8 @@ export default function AuditWorkspacePage() {
               activePage={activePage}
             />
           ) : (
-            <div className="flex-1 flex items-center justify-center bg-Snowflake">
-              <p className="text-sm text-Mist">Không tìm thấy đường dẫn file PDF</p>
+            <div className="flex-1 flex items-center justify-center bg-Snowflake rounded-lg border border-Mist/30">
+              <p className="text-sm text-Mist font-medium">Không tìm thấy đường dẫn file PDF</p>
             </div>
           )}
         </div>
@@ -867,7 +875,7 @@ export default function AuditWorkspacePage() {
         onCancel={() => setConfirmReview(null)}
       />
       {reviewLoading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-Pine/20 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-Pine/20 backdrop-blur-xs">
           <Spinner size="lg" />
         </div>
       )}
