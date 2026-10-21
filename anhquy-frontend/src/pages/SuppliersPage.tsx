@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import {
   Plus, Search, Edit2, Trash2, RotateCcw, Lock, Building2,
   Eye, FileText, Mail, Phone, MapPin, ExternalLink, Ban,
-  Download, ShieldCheck, AlertTriangle
+  Download, ShieldCheck, AlertTriangle, Sparkles
 } from 'lucide-react'
 import { MainLayout } from '../components/MainLayout'
 import { ConfirmModal, Modal, Pagination, RiskScoreBar, StatusBadge, Spinner, EmptyState } from '../components/ui'
@@ -274,74 +274,91 @@ export default function SuppliersPage() {
 
   return (
     <MainLayout breadcrumb="Đối tác Cung ứng">
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-extrabold text-Pine tracking-tight">Đối tác Cung ứng</h1>
-            <p className="text-xs sm:text-sm text-Mist mt-0.5">
-              Quản lý hồ sơ pháp lý và điểm tín nhiệm RBA của các nhà cung cấp
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {hasPermission('EXPORT_REPORT') && (
-              <button
-                type="button"
-                onClick={handleExportSuppliersCSV}
-                className="flex items-center gap-1.5 px-3.5 py-2.5 bg-white border border-Mist/40 text-Pine text-xs font-extrabold rounded-2xl hover:bg-Snowflake transition-all shadow-sm"
-              >
-                <Download className="w-4 h-4" />
-                Xuất CSV
-              </button>
-            )}
-            {hasPermission('CREATE_SUPPLIER') && (
-              <button
-                type="button"
-                onClick={openCreate}
-                className="flex items-center gap-2 px-4 py-2.5 bg-Pine text-white text-xs font-extrabold rounded-2xl hover:bg-Pine/90 shadow-sm hover:shadow-md transition-all duration-200"
-              >
-                <Plus className="w-4 h-4" />
-                Thêm nhà cung ứng
-              </button>
-            )}
-          </div>
-        </div>
+      <div className="space-y-8 pb-16">
+        
+        {/* 🌟 Header Cao Cấp & Cân Đối */}
+        <div className="relative overflow-hidden rounded-[3rem] bg-gradient-to-r from-Pine via-[#1E2930] to-Branch p-8 sm:p-12 text-white shadow-2xl border border-white/20">
+          <div className="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-Berry/30 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-Frostysilver/20 rounded-full blur-2xl pointer-events-none" />
 
-        {/* Summary Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-3xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Pine text-white flex items-center justify-center flex-shrink-0">
-              <Building2 className="w-5 h-5" />
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2.5 px-4.5 py-1.5 rounded-full bg-white/10 backdrop-blur-xl text-Frostysilver text-xs font-black uppercase tracking-widest border border-white/15 shadow-inner">
+                <Sparkles className="w-4 h-4 text-emerald-400 animate-spin" />
+                <span>RBA SUPPLIER PORTAL</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                <span className="text-white/95">Secure Compliance</span>
+              </div>
+              <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white drop-shadow-md leading-tight">
+                Đối tác Cung ứng
+              </h1>
+              <p className="text-xs sm:text-sm text-Frostysilver/95 font-medium leading-relaxed max-w-2xl">
+                Quản lý hồ sơ pháp lý và điểm tín nhiệm RBA của các nhà cung cấp một cách toàn diện, bảo mật và chuẩn doanh nghiệp.
+              </p>
             </div>
-            <div>
-              <p className="text-xs font-bold text-Branch">Tổng hồ sơ đối tác</p>
-              <p className="text-xl font-extrabold text-Pine">{total}</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-3xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Mist text-Pine flex items-center justify-center flex-shrink-0">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-Branch">Đạt ngưỡng An toàn (80–100đ)</p>
-              <p className="text-xl font-extrabold text-Pine">{safeCount}</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-3xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Berry text-white flex items-center justify-center flex-shrink-0">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-Branch">Cảnh báo & Nguy hiểm (&lt;80đ)</p>
-              <p className="text-xl font-extrabold text-Berry">{riskCount}</p>
+            
+            <div className="flex flex-wrap items-center gap-3.5 flex-shrink-0">
+              {hasPermission('EXPORT_REPORT') && (
+                <button
+                  type="button"
+                  onClick={handleExportSuppliersCSV}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-white hover:bg-Snowflake text-Pine text-xs font-black rounded-2xl transition-all duration-300 shadow-xl whitespace-nowrap active:scale-95"
+                >
+                  <Download className="w-4 h-4 text-Pine flex-shrink-0" />
+                  <span>Xuất CSV</span>
+                </button>
+              )}
+              {hasPermission('CREATE_SUPPLIER') && (
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  className="inline-flex items-center justify-center gap-2 px-6.5 py-3.5 bg-gradient-to-r from-Berry to-[#872B38] hover:brightness-110 text-white text-xs font-black rounded-2xl transition-all duration-300 shadow-xl shadow-Berry/30 whitespace-nowrap active:scale-95"
+                >
+                  <Plus className="w-4 h-4 flex-shrink-0" />
+                  <span>Thêm nhà cung ứng</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Clean Filter Tabs + Search Bar */}
-        <div className="bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] p-4 sm:p-5 space-y-4">
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 border-b border-Mist/15 pb-3">
-            <div className="flex items-center gap-1 bg-Snowflake/60 p-1 rounded-2xl w-fit">
+        {/* 🌟 Summary Strip (3 Thẻ Thống Kê Ultra-Luxury) */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="bg-white/95 backdrop-blur-3xl rounded-[2.5rem] border border-white p-6 sm:p-7 shadow-[0_15px_45px_rgba(39,54,63,0.06)] flex items-center gap-5 group hover:border-Pine/60 hover:shadow-[0_24px_60px_rgba(39,54,63,0.20)] transition-all duration-500">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-Pine via-[#344854] to-[#1A252B] text-Snowflake flex items-center justify-center flex-shrink-0 shadow-xl shadow-Pine/30 group-hover:scale-110 transition-transform">
+              <Building2 className="w-6 h-6" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-Mist">Tổng hồ sơ đối tác</p>
+              <p className="text-3xl sm:text-4xl font-black text-Pine tracking-tight mt-1">{total}</p>
+            </div>
+          </div>
+
+          <div className="bg-white/95 backdrop-blur-3xl rounded-[2.5rem] border border-white p-6 sm:p-7 shadow-[0_15px_45px_rgba(39,54,63,0.06)] flex items-center gap-5 group hover:border-emerald-500/60 hover:shadow-[0_24px_60px_rgba(16,185,129,0.20)] transition-all duration-500">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-900 text-Snowflake flex items-center justify-center flex-shrink-0 shadow-xl shadow-emerald-600/30 group-hover:scale-110 transition-transform">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-Mist">Đạt ngưỡng An toàn (80–100đ)</p>
+              <p className="text-3xl sm:text-4xl font-black text-emerald-700 tracking-tight mt-1">{safeCount}</p>
+            </div>
+          </div>
+
+          <div className="bg-white/95 backdrop-blur-3xl rounded-[2.5rem] border border-white p-6 sm:p-7 shadow-[0_15px_45px_rgba(39,54,63,0.06)] flex items-center gap-5 group hover:border-Berry/60 hover:shadow-[0_24px_60px_rgba(107,33,44,0.20)] transition-all duration-500">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-Berry via-[#872B38] to-[#42141B] text-Snowflake flex items-center justify-center flex-shrink-0 shadow-xl shadow-Berry/30 group-hover:scale-110 transition-transform">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-Mist">Cảnh báo & Nguy hiểm (&lt;80đ)</p>
+              <p className="text-3xl sm:text-4xl font-black text-Berry tracking-tight mt-1">{riskCount}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* 🌟 Clean Filter Tabs + Search Bar & Main Content */}
+        <div className="bg-white/95 backdrop-blur-3xl rounded-[2.8rem] border border-white shadow-[0_20px_60px_rgba(39,54,63,0.08)] p-7 space-y-6">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-Mist/20 pb-5">
+            <div className="flex items-center gap-1.5 bg-Snowflake/80 p-1.5 rounded-2xl border border-Mist/20 w-fit">
               {[
                 { key: 'all',     label: 'Tất cả' },
                 { key: 'active',  label: 'Đang hoạt động' },
@@ -351,9 +368,9 @@ export default function SuppliersPage() {
                   key={tab.key}
                   type="button"
                   onClick={() => { setStatusTab(tab.key as typeof statusTab); setPage(1) }}
-                  className={`px-3.5 py-1.5 text-xs font-extrabold rounded-xl transition-all ${
+                  className={`px-4.5 py-2.5 text-xs font-black rounded-xl transition-all whitespace-nowrap ${
                     statusTab === tab.key
-                      ? 'bg-Pine text-white shadow-sm'
+                      ? 'bg-Pine text-white shadow-md'
                       : 'text-Branch hover:text-Pine'
                   }`}
                 >
@@ -362,21 +379,21 @@ export default function SuppliersPage() {
               ))}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 flex-1 xl:max-w-3xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 flex-1 xl:max-w-4xl">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-Mist" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-Mist" />
                 <input
                   type="text"
                   placeholder="Tìm công ty, MST, email..."
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                  className="w-full pl-9 pr-3 py-2 border border-Mist/40 rounded-xl text-xs bg-Snowflake/20 text-Pine placeholder-Mist focus:outline-none focus:border-Pine"
+                  className="w-full pl-11 pr-4 py-3.5 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-bold bg-Snowflake/40 text-Pine placeholder-Mist focus:outline-none focus:border-Pine shadow-inner"
                 />
               </div>
               <select
                 value={filterIndustry}
                 onChange={(e) => { setFilterIndustry(e.target.value); setPage(1) }}
-                className="px-3 py-2 border border-Mist/40 rounded-xl text-xs font-bold focus:outline-none focus:border-Pine bg-white text-Pine"
+                className="px-4.5 py-3.5 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-black bg-white text-Pine focus:outline-none focus:border-Pine cursor-pointer shadow-xs"
               >
                 <option value="">Tất cả ngành nghề</option>
                 {industries.map((ind) => (
@@ -386,7 +403,7 @@ export default function SuppliersPage() {
               <select
                 value={filterRiskLevel}
                 onChange={(e) => setFilterRiskLevel(e.target.value as typeof filterRiskLevel)}
-                className="px-3 py-2 border border-Mist/40 rounded-xl text-xs font-bold focus:outline-none focus:border-Pine bg-white text-Pine"
+                className="px-4.5 py-3.5 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-black bg-white text-Pine focus:outline-none focus:border-Pine cursor-pointer shadow-xs"
               >
                 <option value="">Mọi ngưỡng rủi ro</option>
                 <option value="Safe">An toàn (80–100đ)</option>
@@ -396,7 +413,7 @@ export default function SuppliersPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                className="px-3 py-2 border border-Mist/40 rounded-xl text-xs font-bold focus:outline-none focus:border-Pine bg-white text-Pine"
+                className="px-4.5 py-3.5 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-black bg-white text-Pine focus:outline-none focus:border-Pine cursor-pointer shadow-xs"
               >
                 <option value="default">Sắp xếp: Mặc định</option>
                 <option value="risk_asc">Điểm thấp → cao (Ưu tiên rà soát)</option>
@@ -407,18 +424,18 @@ export default function SuppliersPage() {
 
           {/* Content: Desktop Table + Mobile Cards */}
           {loading ? (
-            <div className="flex justify-center py-16"><Spinner size="lg" /></div>
+            <div className="flex justify-center py-20"><Spinner size="lg" /></div>
           ) : displayedSuppliers.length === 0 ? (
             <EmptyState message="Không tìm thấy nhà cung ứng nào phù hợp với bộ lọc" />
           ) : (
             <>
               {/* 1. DESKTOP TABLE VIEW */}
-              <div className="hidden md:block overflow-x-auto rounded-2xl border border-Mist/20">
-                <table className="min-w-full divide-y divide-Mist/15">
+              <div className="hidden md:block overflow-x-auto rounded-3xl border border-Mist/20 shadow-sm">
+                <table className="min-w-full divide-y divide-Mist/20">
                   <thead>
                     <tr className="bg-Pine text-white">
                       {['Đối tác Cung ứng', 'Mã số thuế', 'Liên hệ', 'Điểm Tín nhiệm', 'Trạng thái', 'Thao tác'].map((h) => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-extrabold uppercase tracking-wider whitespace-nowrap">
+                        <th key={h} className="px-5 py-4 text-left text-xs font-black uppercase tracking-wider whitespace-nowrap">
                           {h}
                         </th>
                       ))}
@@ -428,62 +445,63 @@ export default function SuppliersPage() {
                     {displayedSuppliers.map((s) => (
                       <tr
                         key={s.id}
-                        className={`transition-colors ${
+                        className={`transition-all duration-300 group ${
                           s.is_deleted
                             ? 'opacity-60 bg-Snowflake/50 cursor-not-allowed'
-                            : 'hover:bg-Snowflake/35'
+                            : 'hover:bg-Snowflake/60'
                         }`}
                       >
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-3">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3.5">
                             <div
-                              className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                              className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-xs group-hover:scale-105 transition-transform ${
                                 s.is_deleted ? 'bg-Berry/10 text-Berry' : 'bg-Pine/10 text-Pine'
                               }`}
                             >
-                              {s.is_deleted ? <Ban className="w-4 h-4" /> : <Building2 className="w-4 h-4" />}
+                              {s.is_deleted ? <Ban className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
                             </div>
-                            <div>
+                            <div className="min-w-0">
                               <button
                                 type="button"
                                 onClick={() => openDetail(s)}
-                                className={`text-sm font-bold text-left ${
-                                  s.is_deleted ? 'line-through text-Branch' : 'text-Pine hover:underline'
+                                className={`text-sm font-black text-left truncate block max-w-[240px] ${
+                                  s.is_deleted ? 'line-through text-Branch' : 'text-Pine hover:text-Berry transition-colors'
                                 }`}
+                                title={s.company_name}
                               >
                                 {s.company_name}
                               </button>
-                              <p className="text-xs text-Mist">
+                              <p className="text-xs font-medium text-Mist truncate max-w-[240px]">
                                 {s.industry?.name || s.Categories?.name || 'Chưa phân loại ngành'}
                               </p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3.5 text-xs font-mono font-bold text-Branch">
+                        <td className="px-5 py-4 text-xs font-mono font-bold text-Branch whitespace-nowrap">
                           {s.tax_code}
                         </td>
-                        <td className="px-4 py-3.5 text-xs text-Branch">
-                          <div>{s.contact_email || '—'}</div>
-                          {s.contact_phone && <div className="text-[11px] text-Mist">{s.contact_phone}</div>}
+                        <td className="px-5 py-4 text-xs text-Branch max-w-[200px]">
+                          <div className="truncate font-medium">{s.contact_email || '—'}</div>
+                          {s.contact_phone && <div className="text-[11px] font-mono text-Mist">{s.contact_phone}</div>}
                         </td>
-                        <td className="px-4 py-3.5">
+                        <td className="px-5 py-4 min-w-[160px]">
                           <RiskScoreBar score={s.risk_score} />
                         </td>
-                        <td className="px-4 py-3.5">
+                        <td className="px-5 py-4 whitespace-nowrap">
                           {s.is_deleted ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-Berry/10 text-Berry border border-Berry/20">
-                              <Ban className="w-3 h-3" /> Đã xóa mềm
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-black bg-Berry/10 text-Berry border border-Berry/20">
+                              <Ban className="w-3.5 h-3.5" /> Đã xóa mềm
                             </span>
                           ) : (
                             <StatusBadge status={getRiskStatus(s.risk_score)} />
                           )}
                         </td>
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-1.5">
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
                             <button
                               type="button"
                               onClick={() => openDetail(s)}
-                              className="p-1.5 text-Pine hover:bg-Snowflake rounded-xl transition-colors"
+                              className="p-2 text-Pine bg-Snowflake hover:bg-Pine hover:text-white rounded-xl transition-all shadow-2xs"
                               title="Xem hồ sơ chi tiết"
                             >
                               <Eye className="w-4 h-4" />
@@ -492,7 +510,7 @@ export default function SuppliersPage() {
                               <>
                                 <span
                                   title="Bản ghi đã xóa mềm — Không thể chỉnh sửa"
-                                  className="p-1.5 text-Berry/50 cursor-not-allowed rounded-xl"
+                                  className="p-2 text-Berry/50 cursor-not-allowed rounded-xl"
                                 >
                                   <Lock className="w-4 h-4" />
                                 </span>
@@ -501,9 +519,9 @@ export default function SuppliersPage() {
                                     type="button"
                                     onClick={() => setConfirmRestore(s)}
                                     title="Khôi phục nhà cung ứng"
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-Pine bg-Snowflake hover:bg-Mist/30 border border-Mist/40 rounded-xl transition-colors cursor-pointer"
+                                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-black text-Pine bg-Snowflake hover:bg-Mist/30 border border-Mist/40 rounded-xl transition-all cursor-pointer shadow-2xs"
                                   >
-                                    <RotateCcw className="w-3.5 h-3.5" />
+                                    <RotateCcw className="w-4 h-4" />
                                     Khôi phục
                                   </button>
                                 )}
@@ -514,7 +532,7 @@ export default function SuppliersPage() {
                                   <button
                                     type="button"
                                     onClick={() => openEdit(s)}
-                                    className="p-1.5 text-Pine hover:bg-Snowflake rounded-xl transition-colors"
+                                    className="p-2 text-Pine bg-Snowflake hover:bg-Pine hover:text-white rounded-xl transition-all shadow-2xs"
                                     title="Chỉnh sửa thông tin"
                                   >
                                     <Edit2 className="w-4 h-4" />
@@ -524,7 +542,7 @@ export default function SuppliersPage() {
                                   <button
                                     type="button"
                                     onClick={() => setConfirmDelete(s)}
-                                    className="p-1.5 text-Berry hover:bg-Berry/10 rounded-xl transition-colors"
+                                    className="p-2 text-Berry bg-Berry/10 hover:bg-Berry hover:text-white rounded-xl transition-all"
                                     title="Xóa mềm (Chuyển vào lưu trữ)"
                                   >
                                     <Trash2 className="w-4 h-4" />
@@ -541,20 +559,20 @@ export default function SuppliersPage() {
               </div>
 
               {/* 2. MOBILE CARD VIEW */}
-              <div className="md:hidden grid grid-cols-1 gap-3">
+              <div className="md:hidden grid grid-cols-1 gap-4">
                 {displayedSuppliers.map((s) => (
                   <div
                     key={s.id}
-                    className={`rounded-2xl border p-4 transition-all ${
+                    className={`rounded-3xl border p-5 transition-all space-y-4 ${
                       s.is_deleted
                         ? 'opacity-65 bg-Snowflake/60 border-Mist/30 cursor-not-allowed'
-                        : 'bg-white border-Mist/25 shadow-sm'
+                        : 'bg-white border-Mist/25 shadow-md'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                          className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-xs ${
                             s.is_deleted ? 'bg-Berry/10 text-Berry' : 'bg-Pine/10 text-Pine'
                           }`}
                         >
@@ -564,17 +582,17 @@ export default function SuppliersPage() {
                           <button
                             type="button"
                             onClick={() => openDetail(s)}
-                            className={`text-sm font-bold truncate block text-left ${
+                            className={`text-sm font-black truncate block text-left ${
                               s.is_deleted ? 'line-through text-Branch' : 'text-Pine'
                             }`}
                           >
                             {s.company_name}
                           </button>
-                          <span className="text-xs font-mono text-Mist">MST: {s.tax_code}</span>
+                          <span className="text-xs font-mono text-Mist font-bold">MST: {s.tax_code}</span>
                         </div>
                       </div>
                       {s.is_deleted ? (
-                        <span className="px-2 py-0.5 rounded-lg bg-Berry/10 text-Berry text-[11px] font-bold">
+                        <span className="px-2.5 py-1 rounded-xl bg-Berry/10 text-Berry text-xs font-black">
                           Đã xóa
                         </span>
                       ) : (
@@ -582,19 +600,19 @@ export default function SuppliersPage() {
                       )}
                     </div>
 
-                    <div className="my-2.5">
+                    <div>
                       <RiskScoreBar score={s.risk_score} />
                     </div>
 
-                    <div className="flex items-center justify-between pt-2.5 border-t border-Mist/15 text-xs">
-                      <span className="text-Mist truncate max-w-[160px]">
+                    <div className="flex items-center justify-between pt-3 border-t border-Mist/15 text-xs">
+                      <span className="text-Mist truncate max-w-[160px] font-medium">
                         {s.Categories?.name || s.contact_email || '—'}
                       </span>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => openDetail(s)}
-                          className="px-2.5 py-1 bg-Snowflake text-Pine font-bold rounded-xl"
+                          className="px-3 py-1.5 bg-Snowflake text-Pine font-black rounded-xl text-xs"
                         >
                           Chi tiết
                         </button>
@@ -603,12 +621,12 @@ export default function SuppliersPage() {
                             <button
                               type="button"
                               onClick={() => setConfirmRestore(s)}
-                              className="px-2.5 py-1 bg-Snowflake text-Pine font-bold rounded-xl border border-Mist/40"
+                              className="px-3 py-1.5 bg-Snowflake text-Pine font-black rounded-xl border border-Mist/40 text-xs"
                             >
                               Khôi phục
                             </button>
                           ) : (
-                            <span className="text-Mist flex items-center gap-1">
+                            <span className="text-Mist flex items-center gap-1 text-xs">
                               <Lock className="w-3.5 h-3.5" /> Đã khóa
                             </span>
                           )
@@ -618,7 +636,7 @@ export default function SuppliersPage() {
                               <button
                                 type="button"
                                 onClick={() => openEdit(s)}
-                                className="p-1.5 text-Pine bg-Snowflake rounded-xl"
+                                className="p-2 text-Pine bg-Snowflake rounded-xl"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
@@ -627,7 +645,7 @@ export default function SuppliersPage() {
                               <button
                                 type="button"
                                 onClick={() => setConfirmDelete(s)}
-                                className="p-1.5 text-Berry bg-Berry/10 rounded-xl"
+                                className="p-2 text-Berry bg-Berry/10 rounded-xl"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -644,7 +662,7 @@ export default function SuppliersPage() {
 
           {/* Always-visible Pagination Bar */}
           {!loading && (
-            <div className="pt-2 border-t border-Mist/15">
+            <div className="pt-5 border-t border-Mist/20">
               <Pagination
                 page={page}
                 total={total}
@@ -668,70 +686,64 @@ export default function SuppliersPage() {
         size="lg"
       >
         {detailSupplier && (
-          <div className="space-y-5">
-            <div className="bg-Snowflake/50 rounded-2xl p-4 border border-Mist/25">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-                <div>
-                  <span className="text-xs text-Mist font-mono font-semibold">MST: {detailSupplier.tax_code}</span>
-                  <h4 className="text-base font-extrabold text-Pine">{detailSupplier.company_name}</h4>
-                  <p className="text-xs text-Branch">
-                    Ngành nghề: <strong>{detailSupplier.Categories?.name || detailSupplier.industry?.name || 'Chưa phân loại'}</strong>
+          <div className="space-y-6">
+            <div className="bg-Snowflake/50 rounded-3xl p-5 border border-Mist/25 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <span className="text-xs text-Mist font-mono font-black">MST: {detailSupplier.tax_code}</span>
+                  <h4 className="text-base sm:text-lg font-black text-Pine">{detailSupplier.company_name}</h4>
+                  <p className="text-xs text-Branch font-medium">
+                    Ngành nghề: <strong className="text-Pine">{detailSupplier.Categories?.name || detailSupplier.industry?.name || 'Chưa phân loại'}</strong>
                   </p>
                 </div>
                 <StatusBadge status={detailSupplier.is_deleted ? 'Error' : getRiskStatus(detailSupplier.risk_score)} />
               </div>
 
-              <div className="mb-3">
-                <p className="text-xs font-semibold text-Pine mb-1">Điểm tín nhiệm & Tuân thủ RBA:</p>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-Pine mb-2">Điểm tín nhiệm & Tuân thủ RBA:</p>
                 <RiskScoreBar score={detailSupplier.risk_score} />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2.5 border-t border-Mist/20 text-xs text-Branch">
-                <div className="flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-Pine flex-shrink-0" />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-Mist/20 text-xs text-Branch">
+                <div className="flex items-center gap-2 font-medium">
+                  <Mail className="w-4 h-4 text-Pine flex-shrink-0" />
                   <span className="truncate">{detailSupplier.contact_email || 'Chưa có email'}</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-Pine flex-shrink-0" />
+                <div className="flex items-center gap-2 font-medium">
+                  <Phone className="w-4 h-4 text-Pine flex-shrink-0" />
                   <span>{detailSupplier.contact_phone || 'Chưa có SĐT'}</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-Pine flex-shrink-0" />
+                <div className="flex items-center gap-2 font-medium">
+                  <MapPin className="w-4 h-4 text-Pine flex-shrink-0" />
                   <span className="truncate">{detailSupplier.address || 'Chưa cập nhật địa chỉ'}</span>
                 </div>
               </div>
             </div>
 
-            <div>
-              <h5 className="text-sm font-extrabold text-Pine mb-2 flex items-center gap-2">
+            <div className="space-y-3">
+              <h5 className="text-sm font-black text-Pine flex items-center gap-2">
                 <FileText className="w-4 h-4" />
                 Lịch sử Hợp đồng PDF đã tải lên
               </h5>
               {detailLoading ? (
                 <div className="flex justify-center py-6"><Spinner size="sm" /></div>
               ) : !detailSupplier.Documents || detailSupplier.Documents.length === 0 ? (
-                <p className="text-xs text-Mist italic py-5 text-center bg-Snowflake/30 rounded-2xl">
-                  Nhà cung ứng này chưa có hợp đồng nào được tải lên.
-                </p>
+                <p className="text-xs text-Mist italic bg-Snowflake p-4 rounded-2xl text-center">Chưa có hợp đồng nào được tải lên cho đối tác này.</p>
               ) : (
-                <div className="divide-y divide-Mist/15 border border-Mist/20 rounded-2xl overflow-hidden">
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                   {detailSupplier.Documents.map((doc) => (
-                    <div key={doc.id} className="px-4 py-3 flex items-center justify-between hover:bg-Snowflake/40 text-sm">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-bold text-Pine truncate text-xs">{doc.file_name}</p>
-                        <p className="text-[11px] text-Mist">
-                          Ngày tải: {new Date(doc.uploaded_at).toLocaleDateString('vi-VN')}
-                        </p>
+                    <div key={doc.id} className="flex items-center justify-between p-3.5 bg-white rounded-2xl border border-Mist/20 shadow-2xs">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FileText className="w-4 h-4 text-Pine flex-shrink-0" />
+                        <span className="text-xs font-black text-Pine truncate">{doc.file_name}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <StatusBadge status={doc.status} />
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <span className="text-[11px] font-mono text-Mist font-bold">{new Date(doc.uploaded_at).toLocaleDateString('vi-VN')}</span>
                         <Link
                           to={`/audit/${doc.id}`}
-                          onClick={() => setDetailSupplier(null)}
-                          className="inline-flex items-center gap-1 px-3 py-1 bg-Pine text-white text-xs font-extrabold rounded-xl hover:bg-Pine/90"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-Snowflake hover:bg-Pine hover:text-white text-Pine text-xs font-black rounded-xl transition-all"
                         >
-                          <ExternalLink className="w-3 h-3" />
-                          Kiểm toán
+                          Xem <ExternalLink className="w-3 h-3" />
                         </Link>
                       </div>
                     </div>
@@ -743,51 +755,91 @@ export default function SuppliersPage() {
         )}
       </Modal>
 
-      {/* Create / Edit Modal */}
+      {/* Supplier Create/Edit Modal */}
       <Modal
         isOpen={modalOpen}
-        title={editTarget ? 'Chỉnh sửa hồ sơ nhà cung ứng' : 'Thêm nhà cung ứng mới'}
+        title={editTarget ? 'Chỉnh sửa hồ sơ Đối tác' : 'Thêm nhà cung ứng mới'}
         onClose={() => setModalOpen(false)}
-        size="md"
+        size="lg"
       >
-        <div className="space-y-4">
-          {[
-            { label: 'Tên công ty *', key: 'company_name', placeholder: 'CÔNG TY TNHH ABC', type: 'text', disabled: false },
-            { label: 'Mã số thuế *', key: 'tax_code', placeholder: '0123456789', type: 'text', disabled: !!editTarget },
-            { label: 'Email liên hệ', key: 'contact_email', placeholder: 'contact@company.vn', type: 'email', disabled: false },
-            { label: 'Số điện thoại', key: 'contact_phone', placeholder: '0901234567', type: 'text', disabled: false },
-            { label: 'Địa chỉ trụ sở', key: 'address', placeholder: 'KCN Biên Hòa 2, Đồng Nai', type: 'text', disabled: false },
-          ].map(({ label, key, placeholder, type, disabled }) => (
-            <div key={key}>
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">{label}</label>
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-Pine mb-2">Tên công ty *</label>
               <input
-                type={type}
-                disabled={disabled}
-                value={form[key as keyof SupplierFormData]}
-                onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-                placeholder={placeholder}
-                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Pine placeholder-Mist transition-all disabled:bg-Snowflake disabled:cursor-not-allowed"
+                type="text"
+                value={form.company_name}
+                onChange={(e) => setForm({ ...form, company_name: e.target.value })}
+                placeholder="Ví dụ: Công ty TNHH ABC..."
+                className="w-full px-4.5 py-3.5 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-bold bg-white text-Pine focus:outline-none focus:border-Pine shadow-inner"
               />
             </div>
-          ))}
-          <div>
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Ngành nghề hoạt động</label>
-            <select
-              value={form.industry_id}
-              onChange={(e) => setForm((f) => ({ ...f, industry_id: e.target.value }))}
-              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Pine transition-all"
-            >
-              <option value="">-- Chọn ngành nghề --</option>
-              {industries.map((ind) => (
-                <option key={ind.id} value={ind.id}>{ind.name}</option>
-              ))}
-            </select>
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-Pine mb-2">Mã số thuế *</label>
+              <input
+                type="text"
+                value={form.tax_code}
+                onChange={(e) => setForm({ ...form, tax_code: e.target.value })}
+                placeholder="Ví dụ: 0312345678"
+                className="w-full px-4.5 py-3.5 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-mono font-bold bg-white text-Pine focus:outline-none focus:border-Pine shadow-inner"
+              />
+            </div>
           </div>
-          <div className="flex gap-3 pt-2">
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-Pine mb-2">Ngành nghề</label>
+              <select
+                value={form.industry_id}
+                onChange={(e) => setForm({ ...form, industry_id: e.target.value })}
+                className="w-full px-4.5 py-3.5 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-black bg-white text-Pine focus:outline-none focus:border-Pine cursor-pointer shadow-xs"
+              >
+                <option value="">-- Chọn ngành nghề --</option>
+                {industries.map((ind) => (
+                  <option key={ind.id} value={ind.id}>{ind.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-Pine mb-2">Email liên hệ</label>
+              <input
+                type="email"
+                value={form.contact_email}
+                onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
+                placeholder="contact@company.com"
+                className="w-full px-4.5 py-3.5 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-bold bg-white text-Pine focus:outline-none focus:border-Pine shadow-inner"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-Pine mb-2">Số điện thoại</label>
+              <input
+                type="text"
+                value={form.contact_phone}
+                onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
+                placeholder="0901234567"
+                className="w-full px-4.5 py-3.5 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-bold bg-white text-Pine focus:outline-none focus:border-Pine shadow-inner"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-Pine mb-2">Địa chỉ</label>
+              <input
+                type="text"
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                placeholder="Địa chỉ trụ sở công ty..."
+                className="w-full px-4.5 py-3.5 border border-Mist/30 rounded-2xl text-xs sm:text-sm font-bold bg-white text-Pine focus:outline-none focus:border-Pine shadow-inner"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-4 pt-2">
             <button
               type="button"
               onClick={() => setModalOpen(false)}
-              className="flex-1 py-2.5 border border-Mist/40 text-Branch text-xs font-bold rounded-xl hover:bg-Snowflake transition-all"
+              className="flex-1 py-3.5 border border-Mist/30 text-Branch text-xs font-black rounded-2xl hover:bg-Snowflake transition-all"
             >
               Hủy bỏ
             </button>
@@ -795,31 +847,31 @@ export default function SuppliersPage() {
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 py-2.5 bg-Pine text-white text-xs font-extrabold rounded-xl hover:bg-Pine/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-sm"
+              className="flex-1 py-3.5 bg-Pine text-white text-xs font-black rounded-2xl hover:bg-Berry disabled:opacity-60 transition-all flex items-center justify-center gap-2 shadow-xl shadow-Pine/30"
             >
               {saving ? <Spinner size="sm" /> : null}
-              {editTarget ? 'Lưu thay đổi' : 'Tạo hồ sơ đối tác'}
+              {editTarget ? 'Lưu thay đổi' : 'Thêm nhà cung ứng'}
             </button>
           </div>
         </div>
       </Modal>
 
-      {/* Confirm Soft Delete */}
+      {/* Confirm Delete Modal */}
       <ConfirmModal
         isOpen={!!confirmDelete}
         title="Xác nhận xóa mềm nhà cung ứng?"
-        message={`Bạn có chắc chắn muốn chuyển đối tác "${confirmDelete?.company_name}" vào danh sách lưu trữ? Bản ghi sau khi xóa sẽ bị khóa chỉnh sửa và đẩy xuống cuối bảng.`}
+        message={`Đối tác "${confirmDelete?.company_name}" sẽ bị chuyển vào trạng thái lưu trữ (xóa mềm) và hạn chế thao tác. Có thể khôi phục sau.`}
         confirmLabel="Đồng ý xóa mềm"
         variant="danger"
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(null)}
       />
 
-      {/* Confirm Restore */}
+      {/* Confirm Restore Modal */}
       <ConfirmModal
         isOpen={!!confirmRestore}
-        title="Khôi phục hoạt động nhà cung ứng?"
-        message={`Đối tác "${confirmRestore?.company_name}" sẽ được mở khóa và đưa trở lại danh sách hoạt động chính thức.`}
+        title="Khôi phục hồ sơ nhà cung ứng?"
+        message={`Đối tác "${confirmRestore?.company_name}" sẽ được kích hoạt trở lại trong danh sách hoạt động.`}
         confirmLabel="Khôi phục ngay"
         variant="info"
         onConfirm={handleRestore}
