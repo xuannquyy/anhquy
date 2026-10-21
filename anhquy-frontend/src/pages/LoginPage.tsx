@@ -333,7 +333,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 rounded-md bg-white/[0.06] border border-white/12 text-sm text-white placeholder-Mist/60 focus:outline-none focus:bg-white/[0.1] focus:border-Snowflake/60 focus:shadow-[0_0_15px_rgba(220,224,232,0.15)] transition-all"
-                placeholder="Email doanh nghiệp"
+                placeholder="Email"
                 autoComplete="email"
               />
             </div>

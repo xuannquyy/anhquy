@@ -18,8 +18,10 @@ import {
   ListChecks,
   Shield,
   ClipboardList,
-  Sparkles,
   ChevronRight,
+  Search,
+  Upload,
+  BarChart3,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useRealtime } from '../context/RealtimeContext'
@@ -59,10 +61,17 @@ const NAV_ITEMS: NavItem[] = [
     group: 'Không gian Kiểm toán',
   },
   {
-    label: 'Thẩm định & Báo cáo',
+    label: 'Thẩm định Vi phạm',
     path: '/violations',
     icon: <ShieldCheck className="w-4 h-4" />,
     permission: 'VIEW_VIOLATION',
+    group: 'Không gian Kiểm toán',
+  },
+  {
+    label: 'Xuất Báo cáo',
+    path: '/reports',
+    icon: <BarChart3 className="w-4 h-4" />,
+    permission: 'EXPORT_REPORT',
     group: 'Không gian Kiểm toán',
   },
   {
@@ -109,38 +118,36 @@ const NAV_ITEMS: NavItem[] = [
   },
 ]
 
-// ─── Brand Logo (Đế trắng nổi bật tuyệt đối trên nền Pine) ───────────────────
+// ─── Brand Logo (Nổi bật sắc nét trên nền Bluelight) ─────────────────────────
 
 function BrandLogo() {
   const [imgError, setImgError] = useState(false)
 
   return (
     <Link to="/dashboard" className="flex items-center gap-3 group">
-      <div className="w-10 h-10 rounded-lg bg-white shadow-md flex items-center justify-center p-1.5 border border-Frostysilver/50 group-hover:scale-105 transition-transform duration-200">
+      <div className="w-10 h-10 rounded-2xl bg-white shadow-md flex items-center justify-center p-1.5 border border-white group-hover:scale-105 transition-transform duration-300">
         {!imgError ? (
           <img
             src="/logo.png"
-            alt="ANHQUY Logo"
+            alt="ANHQUY"
             onError={() => setImgError(true)}
             className="w-full h-full object-contain"
           />
         ) : (
-          <ShieldCheck className="w-6 h-6 text-Pine" />
+          <ShieldCheck className="w-6 h-6 text-Merlot" />
         )}
       </div>
-      <div>
-        <span className="font-extrabold text-lg tracking-tight text-white block leading-none">
+      <div className="flex items-center gap-1">
+        <span className="font-extrabold text-xl tracking-widest text-Pine leading-none">
           ANHQUY
         </span>
-        <span className="text-[11px] font-medium text-Frostysilver block mt-1">
-          AI Supply Chain Audit
-        </span>
+        <span className="w-2 h-2 rounded-full bg-Merlot" />
       </div>
     </Link>
   )
 }
 
-// ─── Sidebar ─────────────────────────────────────────────────────────────────
+// ─── Sidebar (Nền Bluelight kết hợp chữ Pine & điểm nhấn Merlot) ─────────────
 
 function Sidebar({
   isOpen,
@@ -149,8 +156,9 @@ function Sidebar({
   isOpen: boolean
   onClose: () => void
 }) {
-  const { hasPermission, role, user } = useAuth()
+  const { hasPermission, role, user, logout } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
 
   const filteredNav = NAV_ITEMS.filter(
     (item) => !item.permission || hasPermission(item.permission)
@@ -158,12 +166,18 @@ function Sidebar({
 
   const groups = Array.from(new Set(filteredNav.map((i) => i.group || 'Chung')))
 
-  const roleConfig =
+  const roleBadge =
     role === 'Admin'
-      ? { label: 'Quản trị viên Hệ thống', dot: 'bg-Berry', badge: 'bg-Berry/30 text-white border-Berry/50' }
+      ? { label: 'Quản trị viên', cls: 'bg-Merlot text-white' }
       : role === 'Manager'
-      ? { label: 'Quản lý Pháp chế', dot: 'bg-emerald-400', badge: 'bg-white/10 text-Frostysilver border-white/15' }
-      : { label: 'Chuyên viên Kiểm toán', dot: 'bg-sky-400', badge: 'bg-white/10 text-Frostysilver border-white/15' }
+      ? { label: 'Quản lý Pháp chế', cls: 'bg-Pine text-white' }
+      : { label: 'Chuyên viên Kiểm toán', cls: 'bg-Branch text-white' }
+
+  const handleLogout = () => {
+    logout()
+    toast.success('Đã đăng xuất khỏi phiên làm việc.')
+    navigate('/login')
+  }
 
   return (
     <>
@@ -175,41 +189,44 @@ function Sidebar({
         />
       )}
 
-      {/* Sidebar panel */}
+      {/* Floating Island Sidebar trên nền Bluelight */}
       <aside
-        className={`fixed top-0 left-0 h-full w-64 bg-Pine text-white z-40 flex flex-col border-r border-white/10 shadow-lg
-          transform transition-transform duration-300 ease-in-out
+        className={`fixed top-0 left-0 h-full w-64 md:w-[256px] md:h-[calc(100vh-24px)] md:my-3 md:ml-3 bg-Bluelight text-Pine z-40 flex flex-col md:rounded-3xl border border-white/70 shadow-[0_18px_45px_rgba(39,54,63,0.18)]
+          transform transition-transform duration-300 ease-in-out overflow-hidden
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
           md:translate-x-0 md:relative md:z-auto`}
       >
+        {/* Ánh sáng trắng dịu ở góc trên */}
+        <div
+          className="pointer-events-none absolute -top-20 -right-20 w-44 h-44 rounded-full opacity-40 blur-2xl"
+          style={{ background: 'radial-gradient(circle, #FFFFFF 0%, transparent 70%)' }}
+        />
+
         {/* Top Brand */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+        <div className="relative z-10 flex items-center justify-between px-5 py-5 border-b border-Pine/10">
           <BrandLogo />
           <button
             type="button"
             onClick={onClose}
-            className="md:hidden text-white/60 hover:text-white transition-colors p-1 rounded-md"
+            className="md:hidden text-Pine/70 hover:text-Merlot transition-colors p-1 rounded-xl"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Role status pill */}
-        <div className="px-4 py-3 border-b border-white/10 bg-black/10">
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-semibold ${roleConfig.badge}`}>
-            <span className={`w-2 h-2 rounded-sm ${roleConfig.dot} animate-pulse`} />
-            <span className="truncate">{roleConfig.label}</span>
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
+        {/* Navigation Items */}
+        <nav className="relative z-10 flex-1 overflow-y-auto py-4 px-3.5 space-y-5">
           {groups.map((grp) => (
             <div key={grp}>
-              <p className="px-3 mb-2 text-[10px] font-extrabold uppercase tracking-widest text-Mist/70">
-                {grp}
-              </p>
-              <div className="space-y-1">
+              {/* Tiêu đề nhóm đậm nét, không bị chìm */}
+              <div className="flex items-center gap-1.5 px-3 mb-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-Merlot/80" />
+                <p className="text-[10px] font-extrabold uppercase tracking-widest text-Pine/75">
+                  {grp}
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
                 {filteredNav
                   .filter((i) => (i.group || 'Chung') === grp)
                   .map((item) => {
@@ -221,20 +238,26 @@ function Sidebar({
                         key={item.path}
                         to={item.path}
                         onClick={() => window.innerWidth < 768 && onClose()}
-                        className={`group flex items-center justify-between px-3 py-2.5 rounded-md text-xs font-semibold transition-all duration-200
+                        className={`group flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-extrabold transition-all duration-200
                           ${
                             isActive
-                              ? 'bg-gradient-to-r from-white/20 to-white/5 text-white border-l-4 border-Frostysilver shadow-sm'
-                              : 'text-Snowflake/70 hover:bg-white/10 hover:text-white'
+                              ? 'bg-white text-Merlot shadow-[0_8px_20px_rgba(39,54,63,0.14)] border border-white'
+                              : 'text-Pine hover:bg-white/55 hover:text-Merlot'
                           }`}
                       >
                         <div className="flex items-center gap-3">
-                          <span className={isActive ? 'text-Frostysilver' : 'text-Mist group-hover:text-white transition-colors'}>
+                          <span
+                            className={`p-1.5 rounded-xl transition-all duration-200 ${
+                              isActive
+                                ? 'bg-Merlot text-white shadow-sm'
+                                : 'bg-white/65 text-Pine border border-white/80 shadow-sm group-hover:bg-Merlot group-hover:text-white group-hover:border-Merlot'
+                            }`}
+                          >
                             {item.icon}
                           </span>
                           <span>{item.label}</span>
                         </div>
-                        {isActive && <ChevronRight className="w-3.5 h-3.5 text-Frostysilver" />}
+                        {isActive && <ChevronRight className="w-4 h-4 text-Merlot" />}
                       </Link>
                     )
                   })}
@@ -243,21 +266,34 @@ function Sidebar({
           ))}
         </nav>
 
-        {/* Bottom User Quick Card (Thay thế cho dòng chữ v1.0 cũ kỹ) */}
-        <div className="p-3 border-t border-white/10 bg-black/15">
-          <Link
-            to="/profile"
-            className="flex items-center gap-3 p-2 rounded-md hover:bg-white/10 transition-colors"
-          >
-            <div className="w-8 h-8 rounded-md bg-Frostysilver text-Pine font-extrabold text-xs flex items-center justify-center flex-shrink-0">
-              {user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-white truncate">{user?.full_name || 'Người dùng'}</p>
-              <p className="text-[11px] text-Mist truncate">{user?.email}</p>
-            </div>
-            <Settings className="w-3.5 h-3.5 text-Mist flex-shrink-0" />
-          </Link>
+        {/* Bottom User Profile Card (Thẻ kính trắng nổi bật trên nền Bluelight) */}
+        <div className="relative z-10 p-3.5 border-t border-Pine/10 bg-white/30 backdrop-blur-md">
+          <div className="p-3 rounded-2xl bg-white/85 border border-white shadow-sm flex items-center justify-between gap-2">
+            <Link to="/profile" className="flex items-center gap-3 min-w-0 flex-1 group">
+              <div className="relative flex-shrink-0">
+                <div className="w-10 h-10 rounded-2xl bg-Pine text-white font-extrabold text-sm flex items-center justify-center shadow-sm group-hover:bg-Merlot transition-colors">
+                  {user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-Merlot border-2 border-white" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-extrabold text-Pine truncate">
+                  {user?.full_name || 'Người dùng'}
+                </p>
+                <span className={`inline-block mt-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${roleBadge.cls}`}>
+                  {roleBadge.label}
+                </span>
+              </div>
+            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              title="Đăng xuất"
+              className="p-2 text-Pine/70 hover:text-white hover:bg-Merlot rounded-xl transition-colors flex-shrink-0"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </aside>
     </>
@@ -285,21 +321,21 @@ function NotificationBell() {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-Pine hover:bg-Snowflake rounded-md border border-transparent hover:border-Mist/30 transition-all duration-200"
+        className="relative w-10 h-10 flex items-center justify-center text-Pine bg-white hover:bg-Snowflake/60 rounded-2xl border border-Mist/30 shadow-sm transition-all duration-200"
         title="Thông báo thời gian thực"
       >
         <Bell className="w-4 h-4" />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-Berry text-white text-[10px] font-bold rounded-md flex items-center justify-center shadow-sm">
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-Merlot text-white text-[10px] font-extrabold rounded-full flex items-center justify-center shadow-md border-2 border-white">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-Mist/30 z-50 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 bg-Pine text-white">
-            <span className="font-bold text-xs uppercase tracking-wider">Thông báo Realtime</span>
+        <div className="absolute right-0 mt-2.5 w-80 bg-white rounded-2xl shadow-[0_20px_50px_rgba(39,54,63,0.2)] border border-Mist/30 z-50 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3.5 bg-Pine text-white">
+            <span className="font-extrabold text-xs uppercase tracking-wider">Thông báo hệ thống</span>
             {unreadCount > 0 && (
               <button
                 type="button"
@@ -312,7 +348,7 @@ function NotificationBell() {
           </div>
           <div className="max-h-80 overflow-y-auto divide-y divide-Mist/15">
             {notifications.length === 0 ? (
-              <p className="text-xs text-Mist text-center py-8">Chưa có thông báo mới</p>
+              <p className="text-xs text-Mist text-center py-10">Chưa có thông báo mới</p>
             ) : (
               notifications.slice(0, 20).map((n) => (
                 <div
@@ -324,8 +360,8 @@ function NotificationBell() {
                       navigate(`/audit/${n.documentId}`)
                     }
                   }}
-                  className={`px-4 py-3 cursor-pointer hover:bg-Snowflake/60 transition-colors ${
-                    !n.read ? 'bg-Pine/5 border-l-2 border-l-Berry' : ''
+                  className={`px-4 py-3 cursor-pointer hover:bg-Snowflake/50 transition-colors ${
+                    !n.read ? 'bg-Snowflake/40 border-l-4 border-l-Merlot' : ''
                   }`}
                 >
                   <p className={`text-xs font-bold ${!n.read ? 'text-Pine' : 'text-Branch'}`}>
@@ -354,9 +390,10 @@ function Topbar({
   onMenuClick: () => void
   breadcrumb: string
 }) {
-  const { user, logout, role } = useAuth()
+  const { user, logout, role, hasPermission } = useAuth()
   const navigate = useNavigate()
   const [profileOpen, setProfileOpen] = useState(false)
+  const [quickQuery, setQuickQuery] = useState('')
   const profileRef = useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
@@ -375,32 +412,59 @@ function Topbar({
     navigate('/login')
   }
 
+  const handleQuickSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!quickQuery.trim()) return
+    navigate('/documents')
+    setQuickQuery('')
+  }
+
   return (
-    <header className="h-16 bg-white/90 backdrop-blur-md border-b border-Mist/25 flex items-center justify-between px-4 md:px-6 sticky top-0 z-20 shadow-sm">
+    <header className="mx-3 mt-3 mb-1 px-4 md:px-6 py-3 bg-white/90 backdrop-blur-xl rounded-2xl border border-white shadow-[0_8px_24px_rgba(39,54,63,0.06)] flex items-center justify-between sticky top-3 z-20">
       {/* Left: menu + breadcrumb */}
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={onMenuClick}
-          className="md:hidden p-2 text-Pine hover:bg-Snowflake rounded-md transition-all"
+          className="md:hidden p-2 text-Pine hover:bg-Snowflake rounded-xl transition-all"
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div className="flex items-center gap-2 text-xs sm:text-sm">
-          <span className="font-bold text-Mist hidden sm:inline"> Không gian làm việc</span>
-          <ChevronRight className="w-4 h-4 text-Mist hidden sm:inline" />
-          <span className="font-extrabold text-Pine tracking-tight">{breadcrumb}</span>
+        <div>
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-Mist">
+            <span>ANHQUY</span>
+            <ChevronRight className="w-3 h-3" />
+            <span className="text-Merlot font-extrabold">{role}</span>
+          </div>
+          <h2 className="text-sm sm:text-base font-extrabold text-Pine tracking-tight leading-tight">
+            {breadcrumb}
+          </h2>
         </div>
       </div>
 
-      {/* Right: AI Engine status + bell + profile */}
+      {/* Center: Search Bar */}
+      <form onSubmit={handleQuickSearch} className="hidden lg:flex items-center w-80 relative">
+        <Search className="w-4 h-4 text-Mist absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <input
+          type="text"
+          value={quickQuery}
+          onChange={(e) => setQuickQuery(e.target.value)}
+          placeholder="Tìm nhanh hợp đồng, đối tác, tiêu chuẩn..."
+          className="w-full pl-9 pr-4 py-2 text-xs font-medium bg-Snowflake/60 hover:bg-Snowflake focus:bg-white border border-Mist/30 rounded-2xl text-Pine placeholder-Branch/60 focus:outline-none focus:border-Pine transition-all"
+        />
+      </form>
+
+      {/* Right: Quick Action + Bell + Profile */}
       <div className="flex items-center gap-2.5">
-        {/* AI Engine Live Status Badge */}
-        <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-Snowflake/70 border border-Mist/30 text-xs font-semibold text-Pine">
-          <Sparkles className="w-3.5 h-3.5 text-Berry" />
-          <span>AI Engine:</span>
-          <span className="text-emerald-700 font-bold">Sẵn sàng</span>
-        </div>
+        {hasPermission('UPLOAD_DOC') && (
+          <Link
+            to="/documents"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-Pine text-white text-xs font-bold shadow-sm hover:bg-Merlot transition-all"
+          >
+            <Upload className="w-3.5 h-3.5 text-Frostysilver" />
+            <span>Tải Hợp đồng</span>
+          </Link>
+        )}
 
         <NotificationBell />
 
@@ -409,38 +473,38 @@ function Topbar({
           <button
             type="button"
             onClick={() => setProfileOpen(!profileOpen)}
-            className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-md border border-Mist/30 bg-white hover:bg-Snowflake/60 transition-all duration-200"
+            className="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-2xl border border-Mist/30 bg-white hover:bg-Snowflake/50 shadow-sm transition-all duration-200"
           >
-            <div className="w-7 h-7 bg-Pine text-white rounded-md flex items-center justify-center text-xs font-extrabold">
+            <div className="w-8 h-8 bg-Pine text-white rounded-xl flex items-center justify-center text-xs font-extrabold">
               {user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
             </div>
             <div className="hidden sm:block text-left">
-              <p className="text-xs font-bold text-Pine leading-none max-w-[130px] truncate">
+              <p className="text-xs font-extrabold text-Pine leading-none max-w-[120px] truncate">
                 {user?.full_name || 'Người dùng'}
               </p>
-              <p className="text-[10px] font-semibold text-Mist mt-0.5">{role}</p>
+              <p className="text-[10px] font-bold text-Merlot mt-0.5">{role}</p>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-Mist" />
           </button>
 
           {profileOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-Mist/30 z-50 py-1.5 overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-Mist/15 bg-Snowflake/40">
-                <p className="text-xs font-bold text-Pine truncate">{user?.full_name}</p>
-                <p className="text-[11px] text-Mist truncate">{user?.email}</p>
+            <div className="absolute right-0 mt-2.5 w-56 bg-white rounded-2xl shadow-[0_20px_50px_rgba(39,54,63,0.2)] border border-Mist/30 z-50 py-1.5 overflow-hidden">
+              <div className="px-4 py-3 border-b border-Mist/15 bg-Snowflake/50">
+                <p className="text-xs font-extrabold text-Pine truncate">{user?.full_name}</p>
+                <p className="text-[11px] text-Branch truncate">{user?.email}</p>
               </div>
               <Link
                 to="/profile"
                 onClick={() => setProfileOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-Branch hover:bg-Snowflake transition-colors"
+                className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-Branch hover:bg-Snowflake/60 transition-colors"
               >
                 <User className="w-4 h-4 text-Pine" />
-                Hồ sơ & Quyền hạn cá nhân
+                Hồ sơ & Quyền hạn
               </Link>
               <Link
                 to="/profile?tab=password"
                 onClick={() => setProfileOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-Branch hover:bg-Snowflake transition-colors"
+                className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-Branch hover:bg-Snowflake/60 transition-colors"
               >
                 <Lock className="w-4 h-4 text-Pine" />
                 Đổi mật khẩu bảo mật
@@ -449,7 +513,7 @@ function Topbar({
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="flex items-center gap-2.5 w-full px-4 py-2 text-xs font-bold text-Berry hover:bg-Berry/10 transition-colors"
+                  className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-extrabold text-Merlot hover:bg-Merlot/10 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
                   Đăng xuất
@@ -474,11 +538,11 @@ export function MainLayout({ children, breadcrumb = 'Bảng điều khiển' }: 
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-screen overflow-hidden bg-Snowflake">
+    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-Snowflake via-[#D3DCE6] to-Mist/35">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Topbar onMenuClick={() => setSidebarOpen(true)} breadcrumb={breadcrumb} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto px-3 md:px-6 py-4">{children}</main>
       </div>
     </div>
   )

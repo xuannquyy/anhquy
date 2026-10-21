@@ -15,6 +15,7 @@ import DocumentsPage    from './pages/DocumentsPage'
 // ─── Phase 5 Pages ────────────────────────────────────────────────────────────
 import AuditWorkspacePage    from './pages/AuditWorkspacePage'
 import ViolationsPage        from './pages/ViolationsPage'
+import ReportsPage           from './pages/ReportsPage'
 import StandardsPage         from './pages/StandardsPage'
 import AdminUsersPage        from './pages/admin/AdminUsersPage'
 import AdminRolesMatrixPage  from './pages/admin/AdminRolesMatrixPage'
@@ -99,12 +100,20 @@ export default function App() {
               }
             />
 
-            {/* ── Module 4: Thẩm định vi phạm & Tiêu chuẩn ── */}
+            {/* ── Module 4: Thẩm định vi phạm, Báo cáo & Tiêu chuẩn ── */}
             <Route
               path="/violations"
               element={
                 <ProtectedRoute permission="VIEW_VIOLATION">
                   <ViolationsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reports"
+              element={
+                <ProtectedRoute permission="EXPORT_REPORT">
+                  <ReportsPage />
                 </ProtectedRoute>
               }
             />

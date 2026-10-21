@@ -12,6 +12,7 @@ import aiRouter from "./routes/ai.route";
 import violationRouter from "./routes/violation.route";
 import adminRouter from "./routes/admin.route";
 import dashboardRouter from "./routes/dashboard.route";
+import { cleanupOldAuditLogsService } from './services/admin.service';
 
 const app = express();
 const PORT = process.env.PORT ?? 3000;
@@ -71,6 +72,12 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   console.error("[GlobalError]", err);
   res.status(500).json({ message: "Lỗi máy chủ nội bộ." });
 });
+
+// ── Tự động quét dọn log cũ khi khởi động Server và lặp lại mỗi 24 giờ────────
+cleanupOldAuditLogsService(90);
+setInterval(() => {
+  cleanupOldAuditLogsService(90);
+}, 24 * 60 * 60 * 1000);
 
 // ── Start Server ─────────────────────────────────────────────────────────────
 app.listen(PORT, () => {

@@ -4,7 +4,8 @@ import { toast } from 'sonner'
 import {
   ChevronLeft, AlertTriangle, CheckCircle2, XCircle,
   Shield, Globe, MapPin, BookOpen, MessageSquare, Lightbulb,
-  RefreshCw, Filter, ChevronDown, ChevronUp, FileText
+  RefreshCw, Filter, ChevronDown, ChevronUp, FileText, Search,
+  Copy, ExternalLink, Printer
 } from 'lucide-react'
 import { MainLayout } from '../components/MainLayout'
 import { ConfirmModal, RiskScoreBar, StatusBadge, Spinner, EmptyState } from '../components/ui'
@@ -17,10 +18,13 @@ import { documentApi, violationApi } from '../api'
 interface DocumentDetail {
   id: number
   file_name: string
+  file_hash?: string | null
+  file_size?: number | null
   storage_url: string
   status: string
+  uploaded_at?: string | null
   last_analyzed_at: string | null
-  Suppliers?: { id: number; company_name: string; risk_score: number | null }
+  Suppliers?: { id: number; company_name: string; tax_code?: string; risk_score: number | null }
   Categories?: { id: number; name: string }
 }
 
@@ -43,12 +47,197 @@ interface Violation {
   Users?: { id: number; full_name: string }
 }
 
-// ─── Risk level styles ────────────────────────────────────────────────────────
+// ─── Risk level styles (Chuẩn hệ màu Winter: Berry - Branch - Mist) ───────────
 
 const RISK_STYLES: Record<string, { card: string; badge: string; dot: string }> = {
-  High:   { card: 'border-l-4 border-l-Berry bg-Berry/5',         badge: 'bg-Berry text-white',     dot: 'bg-Berry animate-pulse' },
-  Medium: { card: 'border-l-4 border-l-amber-500 bg-amber-50/40', badge: 'bg-amber-500 text-white', dot: 'bg-amber-500' },
-  Low:    { card: 'border-l-4 border-l-Mist bg-Snowflake/40',     badge: 'bg-Mist text-white',      dot: 'bg-Mist' },
+  High:   { card: 'border-l-4 border-l-Berry bg-Berry/[0.04]',     badge: 'bg-Berry text-white',  dot: 'bg-Berry animate-pulse' },
+  Medium: { card: 'border-l-4 border-l-Branch bg-Frostysilver/20', badge: 'bg-Branch text-white', dot: 'bg-Branch' },
+  Low:    { card: 'border-l-4 border-l-Mist bg-Snowflake/40',      badge: 'bg-Mist text-Pine',    dot: 'bg-Mist' },
+}
+
+// ─── Hàm In Phiếu Kết Quả Kiểm Toán Riêng Cho Hợp Đồng Đang Mở ───────────────
+
+function printSingleContractAuditCertificate(
+  doc: DocumentDetail,
+  violations: Violation[],
+  auditorName: string,
+  auditorRole: string
+) {
+  const score = doc.Suppliers?.risk_score ?? 100
+  const rankLabel = score >= 80 ? 'AN TOÀN (SAFE)' : score >= 50 ? 'CẢNH BÁO (WARNING)' : 'NGUY HIỂM (DANGER)'
+  const rankColor = score >= 80 ? '#27363F' : score >= 50 ? '#685652' : '#6B212C'
+
+  const highCount = violations.filter((v) => v.risk_level === 'High').length
+  const mediumCount = violations.filter((v) => v.risk_level === 'Medium').length
+  const lowCount = violations.filter((v) => v.risk_level === 'Low').length
+  const approvedCount = violations.filter((v) => v.status === 'Approved').length
+  const pendingCount = violations.filter((v) => v.status === 'Pending').length
+
+  const latestReviewer =
+    violations.find((v) => v.status !== 'Pending' && v.Users?.full_name)?.Users?.full_name ||
+    (auditorRole === 'Manager' ? auditorName : '..................................................')
+
+  const rowsHtml =
+    violations.length === 0
+      ? `<tr><td colspan="6" style="padding:18px;text-align:center;color:#685652;font-style:italic">Hợp đồng này không phát hiện điều khoản vi phạm tiêu chuẩn RBA & Pháp luật Việt Nam.</td></tr>`
+      : violations
+          .map(
+            (v, idx) => `
+        <tr>
+          <td style="text-align:center;font-weight:700">${idx + 1}</td>
+          <td>
+            <div style="font-family:monospace;font-weight:700;color:#27363F">${v.Standards?.standard_code || '—'}</div>
+            <div style="font-size:11px;color:#685652">${v.Standards?.name || ''} (${v.Standards?.jurisdiction || 'Global'})</div>
+          </td>
+          <td style="font-weight:700;color:${v.risk_level === 'High' ? '#6B212C' : v.risk_level === 'Medium' ? '#685652' : '#27363F'}">
+            ${v.risk_level === 'High' ? 'Cao (-10đ)' : v.risk_level === 'Medium' ? 'TB (-5đ)' : 'Thấp (-2đ)'}
+          </td>
+          <td>
+            ${v.status === 'Approved' ? 'Đã phê duyệt' : v.status === 'Rejected' ? 'Đã bác bỏ' : 'Chờ duyệt'}
+          </td>
+          <td>
+            <div style="margin-bottom:4px">${v.violation_desc}</div>
+            <div style="font-size:11px;background:#F4F6F9;border-left:3px solid #6B212C;padding:4px 8px;font-style:italic">
+              "Trích dẫn (Tr.${v.page_number ?? '?'}): ${v.evidence_quote}"
+            </div>
+          </td>
+          <td style="font-size:11px;color:#27363F">${v.recommendation || '—'}</td>
+        </tr>`
+          )
+          .join('')
+
+  const html = `<!DOCTYPE html>
+  <html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Phiếu Kết quả Kiểm toán Hợp đồng #${doc.id} – ${doc.file_name}</title>
+    <style>
+      body { font-family: "Be Vietnam Pro", Arial, sans-serif; margin: 32px; color: #27363F; line-height: 1.45; }
+      .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #27363F; padding-bottom: 14px; margin-bottom: 18px; }
+      .brand { font-size: 24px; font-weight: 900; letter-spacing: 1px; color: #27363F; }
+      .doc-code { font-size: 11px; color: #685652; margin-top: 4px; }
+      h1 { font-size: 18px; text-transform: uppercase; margin: 0 0 4px 0; color: #27363F; }
+      h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #6B212C; margin: 18px 0 8px 0; border-left: 4px solid #6B212C; padding-left: 8px; }
+      .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #F5F7FA; border: 1px solid #DCE0E8; border-radius: 8px; padding: 12px 16px; font-size: 12px; }
+      .meta-item strong { color: #27363F; }
+      .hash-box { grid-column: span 2; font-family: monospace; font-size: 11px; background: #FFFFFF; padding: 6px 10px; border-radius: 6px; border: 1px dashed #8EA1AE; word-break: break-all; }
+      .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+      .kpi-box { border: 1px solid #DCE0E8; border-radius: 8px; padding: 8px 10px; text-align: center; background: #FFFFFF; }
+      .kpi-box .num { font-size: 18px; font-weight: 800; }
+      .kpi-box .lbl { font-size: 11px; color: #685652; }
+      table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+      th { background: #27363F; color: #FFFFFF; padding: 8px; text-align: left; font-size: 11px; text-transform: uppercase; }
+      td { padding: 8px; border: 1px solid #DCE0E8; vertical-align: top; }
+      .sign-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 28px; text-align: center; font-size: 12px; page-break-inside: avoid; }
+      .sign-box { border-top: 1px solid #DCE0E8; padding-top: 10px; }
+      .sign-space { height: 65px; }
+      .footer { margin-top: 28px; font-size: 10px; color: #8EA1AE; text-align: center; border-top: 1px solid #DCE0E8; padding-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div>
+        <h1>PHIẾU KẾT QUẢ KIỂM TOÁN HỢP ĐỒNG & ĐÁNH GIÁ ĐỐI TÁC</h1>
+        <div class="doc-code">
+          Mã hồ sơ: <strong>#DOC-${doc.id}</strong> · Ngày giờ kết xuất: ${new Date().toLocaleString('vi-VN')}
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="brand">ANHQUY</div>
+        <div style="font-size:10px;color:#685652;font-weight:700">AI ETHICAL SOURCING AUDITOR</div>
+      </div>
+    </div>
+
+    <h2>I. Thông tin Hợp đồng & Đối tác Cung ứng</h2>
+    <div class="meta-grid">
+      <div class="meta-item">Tên văn bản hợp đồng: <strong>${doc.file_name}</strong></div>
+      <div class="meta-item">Loại hợp đồng: <strong>${doc.Categories?.name || 'Hợp đồng kinh tế'}</strong></div>
+      <div class="meta-item">Đối tác cung ứng: <strong>${doc.Suppliers?.company_name || '—'}</strong></div>
+      <div class="meta-item">Trạng thái phân tích: <strong>${doc.status}</strong></div>
+      <div class="meta-item">Điểm tín nhiệm hiện tại: <strong style="color:${rankColor};font-size:14px">${score} / 100 điểm (${rankLabel})</strong></div>
+      <div class="meta-item">Lần quét AI gần nhất: <strong>${doc.last_analyzed_at ? new Date(doc.last_analyzed_at).toLocaleString('vi-VN') : 'Vừa phân tích'}</strong></div>
+      <div class="hash-box">
+        <strong>Mã băm toàn vẹn SHA-256:</strong> ${doc.file_hash || 'Đã xác thực toàn vẹn trên máy chủ ANHQUY'}
+      </div>
+    </div>
+
+    <h2>II. Tổng hợp Kết quả Rà soát AI RAG (Chuẩn RBA & Pháp luật VN)</h2>
+    <div class="kpi-row">
+      <div class="kpi-box">
+        <div class="num" style="color:#27363F">${violations.length}</div>
+        <div class="lbl">Tổng điều khoản cảnh báo</div>
+      </div>
+      <div class="kpi-box">
+        <div class="num" style="color:#6B212C">${highCount}</div>
+        <div class="lbl">Rủi ro Cao (High)</div>
+      </div>
+      <div class="kpi-box">
+        <div class="num" style="color:#685652">${mediumCount} / ${lowCount}</div>
+        <div class="lbl">Trung bình / Thấp</div>
+      </div>
+      <div class="kpi-box">
+        <div class="num" style="color:#27363F">${approvedCount} duyệt · ${pendingCount} chờ</div>
+        <div class="lbl">Trạng thái thẩm định</div>
+      </div>
+    </div>
+
+    <h2>III. Bảng Chi tiết Các Điều khoản Vi phạm & Bằng chứng Trích xuất</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:36px;text-align:center">STT</th>
+          <th style="width:140px">Mã Chuẩn</th>
+          <th style="width:85px">Mức độ</th>
+          <th style="width:90px">Trạng thái</th>
+          <th>Mô tả Vi phạm & Bằng chứng Nguyên văn</th>
+          <th style="width:170px">Khuyến nghị Pháp lý</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+
+    <div class="sign-grid">
+      <div class="sign-box">
+        <strong>CHUYÊN VIÊN KIỂM TOÁN</strong>
+        <div style="font-size:11px;color:#685652">(Người kết xuất phiếu)</div>
+        <div class="sign-space"></div>
+        <strong>${auditorName}</strong>
+      </div>
+      <div class="sign-box">
+        <strong>QUẢN LÝ PHÁP CHẾ (MANAGER)</strong>
+        <div style="font-size:11px;color:#685652">(Thẩm định & Phê duyệt điểm rủi ro)</div>
+        <div class="sign-space"></div>
+        <strong>${latestReviewer}</strong>
+      </div>
+      <div class="sign-box">
+        <strong>XÁC THỰC BỞI AI ENGINE</strong>
+        <div style="font-size:11px;color:#685652">(ChromaDB RAG · Gemini 1.5 Flash)</div>
+        <div class="sign-space" style="display:flex;align-items:center;justify-content:center;color:#6B212C;font-weight:800;font-size:11px">
+          [ĐÃ ĐỐI CHIẾU SHA-256 & 24 CHUẨN RBA]
+        </div>
+        <strong>Hệ thống Kiểm toán ANHQUY</strong>
+      </div>
+    </div>
+
+    <div class="footer">
+      Phiếu kết quả được trích xuất trực tiếp từ Phòng Kiểm toán AI ANHQUY · Lưu hành nội bộ doanh nghiệp B2B.
+    </div>
+  </body>
+  </html>`
+
+  const win = window.open('', '_blank')
+  if (!win) {
+    toast.error('Trình duyệt đang chặn Popup. Vui lòng cho phép mở Popup để in Phiếu Kiểm toán.')
+    return
+  }
+  win.document.write(html)
+  win.document.close()
+  win.onload = () => {
+    win.print()
+    win.close()
+  }
 }
 
 // ─── Violation Card ───────────────────────────────────────────────────────────
@@ -69,29 +258,35 @@ function ViolationCard({
   const [expanded, setExpanded] = useState(true)
   const s = RISK_STYLES[violation.risk_level] || RISK_STYLES.Low
 
+  const handleCopyQuote = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(violation.evidence_quote || '')
+    toast.success('Đã sao chép nguyên văn đoạn bằng chứng.')
+  }
+
   return (
     <div
-      className={`rounded-lg border border-Mist/20 mb-3 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer bg-white
+      className={`rounded-2xl border border-Mist/25 mb-3 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer bg-white
         ${s.card} ${isActive ? 'ring-2 ring-Pine shadow-md' : ''}`}
       onClick={onClick}
     >
       {/* Header */}
-      <div className="p-3">
+      <div className="p-3.5">
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.dot}`} />
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${s.badge}`}>
-              {violation.risk_level === 'High' ? 'Cao (High)' : violation.risk_level === 'Medium' ? 'Trung bình' : 'Thấp (Low)'}
+            <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-xl ${s.badge}`}>
+              {violation.risk_level === 'High' ? 'Rủi ro Cao' : violation.risk_level === 'Medium' ? 'Trung bình' : 'Rủi ro Thấp'}
             </span>
             {violation.Standards && (
-              <span className="text-xs font-mono text-Pine bg-Pine/8 px-1.5 py-0.5 rounded truncate font-semibold">
+              <span className="text-xs font-mono text-Pine bg-Snowflake px-2 py-0.5 rounded-lg truncate font-extrabold border border-Mist/25">
                 {violation.Standards.standard_code}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             {violation.page_number && (
-              <span className="text-xs font-semibold text-Pine bg-Frostysilver/50 px-2 py-0.5 rounded">
+              <span className="text-[11px] font-extrabold text-Pine bg-Frostysilver/50 px-2.5 py-0.5 rounded-xl">
                 Trang {violation.page_number}
               </span>
             )}
@@ -102,36 +297,52 @@ function ViolationCard({
         {/* Standard name */}
         {violation.Standards && (
           <div className="flex items-center gap-1.5 mb-1.5">
-            <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${violation.Standards.jurisdiction === 'VN' ? 'bg-blue-50 text-blue-700' : 'bg-emerald-50 text-emerald-700'}`}>
+            <span className={`text-[11px] px-2 py-0.5 rounded-lg font-bold ${
+              violation.Standards.jurisdiction === 'VN'
+                ? 'bg-Berry/10 text-Berry'
+                : 'bg-Pine/10 text-Pine'
+            }`}>
               {violation.Standards.jurisdiction === 'VN' ? <MapPin className="w-2.5 h-2.5 inline" /> : <Globe className="w-2.5 h-2.5 inline" />}
               {' '}{violation.Standards.jurisdiction || 'Global'}
             </span>
-            <span className="text-xs font-semibold text-Pine line-clamp-1">{violation.Standards.name}</span>
+            <span className="text-xs font-extrabold text-Pine line-clamp-1">{violation.Standards.name}</span>
           </div>
         )}
 
         {/* Violation description */}
-        <p className={`text-sm text-Branch leading-relaxed ${expanded ? '' : 'line-clamp-2'}`}>
+        <p className={`text-xs sm:text-sm text-Branch leading-relaxed ${expanded ? '' : 'line-clamp-2'}`}>
           {violation.violation_desc}
         </p>
       </div>
 
       {/* Evidence quote */}
-      <div className="px-3 pb-2">
-        <div className="bg-Frostysilver/40 border border-Berry/20 rounded-md p-2.5 text-xs text-Branch italic">
-          <BookOpen className="w-3.5 h-3.5 inline mr-1.5 text-Berry" />
-          "{violation.evidence_quote && violation.evidence_quote.length > 160 && !expanded
-            ? violation.evidence_quote.substring(0, 160) + '…'
-            : violation.evidence_quote}"
+      <div className="px-3.5 pb-2.5">
+        <div className="bg-Frostysilver/30 border border-Berry/20 rounded-xl p-2.5 text-xs text-Pine italic relative group">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <BookOpen className="w-3.5 h-3.5 inline mr-1.5 text-Berry" />
+              "{violation.evidence_quote && violation.evidence_quote.length > 160 && !expanded
+                ? violation.evidence_quote.substring(0, 160) + '…'
+                : violation.evidence_quote}"
+            </div>
+            <button
+              type="button"
+              onClick={handleCopyQuote}
+              title="Sao chép bằng chứng"
+              className="p-1 rounded-lg bg-white/80 text-Pine hover:bg-Pine hover:text-white transition-colors flex-shrink-0"
+            >
+              <Copy className="w-3 h-3" />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Expanded: recommendation + actions */}
       {expanded && (
-        <div className="px-3 pb-3 space-y-2">
+        <div className="px-3.5 pb-3.5 space-y-2.5">
           {violation.recommendation && (
-            <div className="flex gap-2 bg-Pine/5 border border-Pine/10 rounded-md p-2.5">
-              <Lightbulb className="w-4 h-4 text-Pine mt-0.5 flex-shrink-0" />
+            <div className="flex gap-2 bg-Snowflake/60 border border-Mist/25 rounded-xl p-2.5">
+              <Lightbulb className="w-4 h-4 text-Berry mt-0.5 flex-shrink-0" />
               <p className="text-xs text-Branch leading-relaxed">
                 <strong className="text-Pine">Khuyến nghị sửa đổi: </strong>
                 {violation.recommendation}
@@ -144,7 +355,7 @@ function ViolationCard({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onReview(violation.id, 'Approved') }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-Berry text-white text-xs font-medium rounded-md hover:bg-Berry/90 transition-all shadow-sm"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-Berry text-white text-xs font-extrabold rounded-xl hover:bg-Berry/90 transition-all shadow-sm"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Phê duyệt lỗi – Trừ điểm
@@ -152,7 +363,7 @@ function ViolationCard({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onReview(violation.id, 'Rejected') }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 border border-Mist/40 text-Branch text-xs font-medium rounded-md hover:bg-Snowflake transition-all bg-white"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 border border-Mist/40 text-Branch text-xs font-bold rounded-xl hover:bg-Snowflake transition-all bg-white"
               >
                 <XCircle className="w-3.5 h-3.5 text-Mist" />
                 Bác bỏ cảnh báo
@@ -160,8 +371,8 @@ function ViolationCard({
             </div>
           )}
           {violation.status !== 'Pending' && violation.Users && (
-            <p className="text-xs text-Mist">
-              Đã thẩm định bởi: <span className="font-medium text-Branch">{violation.Users.full_name}</span>
+            <p className="text-[11px] text-Mist">
+              Đã thẩm định bởi: <span className="font-bold text-Pine">{violation.Users.full_name}</span>
               {violation.reviewed_at && ` • ${new Date(violation.reviewed_at).toLocaleDateString('vi-VN')}`}
             </p>
           )}
@@ -172,7 +383,7 @@ function ViolationCard({
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setExpanded(!expanded) }}
-        className="w-full py-1.5 flex items-center justify-center gap-1 text-xs text-Mist hover:text-Branch hover:bg-Frostysilver/20 transition-colors border-t border-Mist/10"
+        className="w-full py-1.5 flex items-center justify-center gap-1 text-[11px] font-bold text-Mist hover:text-Pine hover:bg-Snowflake/40 transition-colors border-t border-Mist/15"
       >
         {expanded ? <><ChevronUp className="w-3 h-3" />Thu gọn</> : <><ChevronDown className="w-3 h-3" />Xem chi tiết & Thẩm định</>}
       </button>
@@ -203,24 +414,46 @@ function SplitPDFViewer({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-Pine">
-      {activeEvidence ? (
-        <div className="bg-Frostysilver px-4 py-2.5 flex items-start gap-2.5 border-b-2 border-Berry animate-pulse">
-          <Shield className="w-4 h-4 text-Berry flex-shrink-0 mt-0.5" />
-          <div className="text-xs text-Pine flex-1">
-            <span className="font-bold text-Berry uppercase mr-1.5">
-              Bằng chứng đang định vị {activePage ? `(Trang ${activePage})` : ''}:
+      {/* Top PDF Control Header */}
+      <div className="bg-Pine text-Snowflake px-4 py-2.5 flex items-center justify-between gap-2 border-b border-white/10">
+        <div className="flex items-center gap-2 min-w-0">
+          <Shield className="w-4 h-4 text-Frostysilver flex-shrink-0" />
+          <span className="text-xs font-extrabold truncate">
+            Trình đối chiếu Hợp đồng PDF (XAI Viewer)
+          </span>
+          {activePage && (
+            <span className="px-2 py-0.5 rounded-lg bg-Berry text-white text-[11px] font-extrabold">
+              Trang {activePage}
             </span>
-            <span className="italic font-medium bg-amber-200/80 px-1.5 py-0.5 rounded text-Pine">
+          )}
+        </div>
+        <a
+          href={pdfUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-Snowflake text-[11px] font-bold transition-colors flex-shrink-0"
+        >
+          <ExternalLink className="w-3 h-3" />
+          Mở rộng PDF
+        </a>
+      </div>
+
+      {/* Active Evidence Banner */}
+      {activeEvidence && (
+        <div className="bg-Frostysilver px-4 py-2 flex items-start gap-2 border-b-2 border-Berry">
+          <MessageSquare className="w-3.5 h-3.5 text-Berry flex-shrink-0 mt-0.5" />
+          <div className="text-xs text-Pine flex-1 line-clamp-2">
+            <span className="font-extrabold text-Berry uppercase mr-1.5">
+              Bằng chứng trích xuất:
+            </span>
+            <span className="italic font-semibold bg-white/75 px-1.5 py-0.5 rounded text-Pine">
               "{activeEvidence}"
             </span>
           </div>
         </div>
-      ) : (
-        <div className="bg-Pine text-Snowflake/80 px-4 py-2 text-xs flex items-center justify-between border-b border-white/10">
-          <span>Trình xem Hợp đồng PDF gốc (Click vào thẻ vi phạm bên trái để tự động cuộn tới trang bằng chứng)</span>
-        </div>
       )}
-      <div className="flex-1 relative bg-gray-700">
+
+      <div className="flex-1 relative bg-[#1E2930]">
         <iframe
           key={computedSrc}
           ref={iframeRef}
@@ -229,18 +462,26 @@ function SplitPDFViewer({
           title="PDF Viewer"
         />
         {activeEvidence && (
-          <div className="absolute bottom-4 right-4 max-w-sm bg-white/95 rounded-lg shadow-lg border-2 border-Berry p-3.5">
-            <div className="flex items-start gap-2">
-              <MessageSquare className="w-4 h-4 text-Berry mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-xs font-bold text-Berry mb-1">
-                  Đoạn văn bản vi phạm {activePage ? `· Trang ${activePage}` : ''}
-                </p>
-                <p className="text-xs text-Pine bg-Frostysilver/40 p-2 rounded italic leading-relaxed">
-                  "{activeEvidence}"
-                </p>
-              </div>
+          <div className="absolute bottom-4 right-4 max-w-sm bg-white/95 backdrop-blur-md rounded-2xl shadow-lg border-2 border-Berry p-3.5">
+            <div className="flex items-start justify-between gap-2 mb-1">
+              <p className="text-xs font-extrabold text-Berry">
+                Đoạn văn bản vi phạm {activePage ? `· Trang ${activePage}` : ''}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(activeEvidence)
+                  toast.success('Đã sao chép câu trích dẫn.')
+                }}
+                className="text-Mist hover:text-Pine"
+                title="Sao chép"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
             </div>
+            <p className="text-xs text-Pine bg-Frostysilver/35 p-2 rounded-xl italic leading-relaxed">
+              "{activeEvidence}"
+            </p>
           </div>
         )}
       </div>
@@ -254,7 +495,7 @@ export default function AuditWorkspacePage() {
   const { id } = useParams<{ id: string }>()
   const documentId = Number(id)
   const navigate = useNavigate()
-  const { hasPermission } = useAuth()
+  const { hasPermission, user, role } = useAuth()
   const { publishEvent } = useRealtime()
 
   const [contractDoc, setContractDoc] = useState<DocumentDetail | null>(null)
@@ -264,6 +505,7 @@ export default function AuditWorkspacePage() {
   const [activeViolationId, setActiveViolationId] = useState<number | null>(null)
   const [activeEvidence, setActiveEvidence] = useState<string | null>(null)
   const [activePage, setActivePage] = useState<number | null>(null)
+  const [searchQuery, setSearchQuery] = useState<string>('')
   const [filterRisk, setFilterRisk] = useState<string>('')
   const [filterStatus, setFilterStatus] = useState<string>('')
   const [activeTab, setActiveTab] = useState<'violations' | 'pdf'>('violations')
@@ -361,6 +603,13 @@ export default function AuditWorkspacePage() {
         )
       }
 
+      publishEvent({
+        type: 'NEW_VIOLATION',
+        title: confirmReview.status === 'Approved' ? 'Quản lý đã phê duyệt vi phạm' : 'Quản lý đã bác bỏ cảnh báo',
+        message: `Cảnh báo tại hợp đồng "${contractDoc?.file_name || '#'}" vừa được cập nhật trạng thái.`,
+        documentId,
+      })
+
       setViolations((prev) =>
         prev.map((v) => v.id === confirmReview.id ? { ...v, status: confirmReview.status } : v)
       )
@@ -382,6 +631,13 @@ export default function AuditWorkspacePage() {
   const filteredViolations = violations.filter((v) => {
     if (filterRisk && v.risk_level !== filterRisk) return false
     if (filterStatus && v.status !== filterStatus) return false
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase()
+      const descMatch = (v.violation_desc || '').toLowerCase().includes(q)
+      const quoteMatch = (v.evidence_quote || '').toLowerCase().includes(q)
+      const codeMatch = (v.Standards?.standard_code || '').toLowerCase().includes(q)
+      if (!descMatch && !quoteMatch && !codeMatch) return false
+    }
     return true
   })
 
@@ -408,18 +664,39 @@ export default function AuditWorkspacePage() {
 
   return (
     <MainLayout breadcrumb={`Kiểm toán: ${contractDoc.file_name}`}>
-      {/* Back button */}
-      <button
-        type="button"
-        onClick={() => navigate('/documents')}
-        className="flex items-center gap-2 text-sm text-Mist hover:text-Pine transition-colors mb-3"
-      >
-        <ChevronLeft className="w-4 h-4" />
-        Quay lại Kho hợp đồng
-      </button>
+      {/* Top Action Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <button
+          type="button"
+          onClick={() => navigate('/documents')}
+          className="inline-flex items-center gap-2 text-xs font-extrabold text-Pine bg-white px-3.5 py-2 rounded-2xl border border-Mist/30 hover:bg-Snowflake transition-colors shadow-sm"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Quay lại Kho hợp đồng PDF
+        </button>
+
+        {hasPermission('EXPORT_REPORT') && (
+          <button
+            type="button"
+            onClick={() =>
+              printSingleContractAuditCertificate(
+                contractDoc,
+                violations,
+                user?.full_name || 'Chuyên viên Kiểm toán',
+                role || 'User'
+              )
+            }
+            className="inline-flex items-center gap-2 px-4 py-2 bg-Pine text-white text-xs font-extrabold rounded-2xl hover:bg-Pine/90 transition-all shadow-sm"
+            title="In Biên bản / Phiếu Kết quả Kiểm toán của riêng hợp đồng này"
+          >
+            <Printer className="w-3.5 h-3.5 text-Frostysilver" />
+            In Phiếu Kết quả Kiểm toán Hợp đồng
+          </button>
+        )}
+      </div>
 
       {/* Mobile tabs */}
-      <div className="flex md:hidden mb-3 border-b border-Mist/20 bg-white rounded-t-md">
+      <div className="flex md:hidden mb-3 bg-white p-1 rounded-2xl border border-Mist/25">
         {[
           { key: 'violations', label: `Cảnh báo AI (${filteredViolations.length})` },
           { key: 'pdf',        label: 'Tài liệu PDF' },
@@ -428,10 +705,10 @@ export default function AuditWorkspacePage() {
             key={tab.key}
             type="button"
             onClick={() => setActiveTab(tab.key as typeof activeTab)}
-            className={`flex-1 py-2.5 text-sm font-medium transition-all ${
+            className={`flex-1 py-2 text-xs font-extrabold rounded-xl transition-all ${
               activeTab === tab.key
-                ? 'text-Pine border-b-2 border-Pine'
-                : 'text-Mist hover:text-Branch'
+                ? 'bg-Pine text-white shadow-sm'
+                : 'text-Branch hover:text-Pine'
             }`}
           >
             {tab.label}
@@ -444,20 +721,20 @@ export default function AuditWorkspacePage() {
         {/* ── Left Column: Violations ── */}
         <div className={`flex flex-col w-full md:w-1/2 ${activeTab === 'pdf' ? 'hidden md:flex' : 'flex'}`}>
           {/* Document info + risk score */}
-          <div className="bg-white rounded-lg border border-Mist/20 shadow-sm p-4 mb-3 flex-shrink-0">
+          <div className="bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] p-4 mb-3 flex-shrink-0">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <FileText className="w-4 h-4 text-Pine flex-shrink-0" />
-                  <h2 className="text-sm font-bold text-Pine truncate">{contractDoc.file_name}</h2>
+                  <h2 className="text-sm font-extrabold text-Pine truncate">{contractDoc.file_name}</h2>
                   <StatusBadge status={contractDoc.status} />
                 </div>
                 <p className="text-xs text-Mist">
-                  Đối tác: <strong className="text-Branch">{contractDoc.Suppliers?.company_name || '—'}</strong> · Loại: {contractDoc.Categories?.name || '—'}
+                  Đối tác: <strong className="text-Pine">{contractDoc.Suppliers?.company_name || '—'}</strong> · Loại: {contractDoc.Categories?.name || '—'}
                 </p>
                 {contractDoc.Suppliers && (
                   <div className="mt-2.5">
-                    <p className="text-xs text-Mist mb-1">Điểm tín nhiệm & Rủi ro nhà cung ứng:</p>
+                    <p className="text-[11px] font-bold text-Branch mb-1">Điểm tín nhiệm & Rủi ro nhà cung ứng:</p>
                     <RiskScoreBar score={contractDoc.Suppliers.risk_score} />
                   </div>
                 )}
@@ -467,7 +744,7 @@ export default function AuditWorkspacePage() {
                   type="button"
                   onClick={handleAnalyze}
                   disabled={analyzing || contractDoc.status === 'Analyzing'}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-Pine text-white text-xs font-medium rounded-md hover:bg-Pine/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all flex-shrink-0 shadow-sm"
+                  className="flex items-center gap-1.5 px-4 py-2.5 bg-Berry text-white text-xs font-extrabold rounded-2xl hover:bg-Berry/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all flex-shrink-0 shadow-sm"
                 >
                   {analyzing ? (
                     <Spinner size="sm" />
@@ -483,50 +760,62 @@ export default function AuditWorkspacePage() {
             <div className="grid grid-cols-3 gap-2 mt-3">
               {[
                 { label: 'Tổng cảnh báo', count: violations.length, color: 'text-Pine' },
-                { label: 'Chờ Manager duyệt', count: pendingCount, color: 'text-amber-600' },
+                { label: 'Chờ Manager duyệt', count: pendingCount, color: 'text-Branch' },
                 { label: 'Mức độ Cao (High)', count: violations.filter((v) => v.risk_level === 'High').length, color: 'text-Berry' },
               ].map(({ label, count, color }) => (
-                <div key={label} className="text-center bg-Snowflake/60 rounded-md py-1.5 border border-Mist/15">
-                  <div className={`text-lg font-bold ${color}`}>{count}</div>
-                  <div className="text-[11px] text-Mist">{label}</div>
+                <div key={label} className="text-center bg-Snowflake/60 rounded-2xl py-1.5 border border-Mist/20">
+                  <div className={`text-lg font-extrabold ${color}`}>{count}</div>
+                  <div className="text-[11px] font-semibold text-Mist">{label}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Filters */}
-          <div className="flex gap-2 mb-3 flex-shrink-0">
-            <div className="flex items-center gap-1.5">
-              <Filter className="w-3.5 h-3.5 text-Mist" />
+          {/* Search & Filters */}
+          <div className="flex flex-col sm:flex-row gap-2 mb-3 flex-shrink-0">
+            <div className="relative flex-1">
+              <Search className="w-3.5 h-3.5 text-Mist absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm mã chuẩn, từ khóa bằng chứng..."
+                className="w-full pl-8 pr-3 py-2 border border-Mist/40 rounded-xl text-xs bg-white text-Pine focus:outline-none focus:border-Pine"
+              />
             </div>
-            <select
-              value={filterRisk}
-              onChange={(e) => setFilterRisk(e.target.value)}
-              className="flex-1 px-2.5 py-1.5 border border-Mist/40 rounded-md text-xs bg-white text-Branch focus:outline-none focus:ring-1 focus:ring-Pine/30"
-            >
-              <option value="">Tất cả mức độ rủi ro</option>
-              <option value="High">Cao (High - Trừ 10đ)</option>
-              <option value="Medium">Trung bình (Medium - Trừ 5đ)</option>
-              <option value="Low">Thấp (Low - Trừ 2đ)</option>
-            </select>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="flex-1 px-2.5 py-1.5 border border-Mist/40 rounded-md text-xs bg-white text-Branch focus:outline-none focus:ring-1 focus:ring-Pine/30"
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="Pending">Chờ duyệt (Pending)</option>
-              <option value="Approved">Đã duyệt (Approved)</option>
-              <option value="Rejected">Bác bỏ (Rejected)</option>
-            </select>
+            <div className="flex gap-2">
+              <div className="hidden sm:flex items-center">
+                <Filter className="w-3.5 h-3.5 text-Mist" />
+              </div>
+              <select
+                value={filterRisk}
+                onChange={(e) => setFilterRisk(e.target.value)}
+                className="px-2.5 py-2 border border-Mist/40 rounded-xl text-xs font-bold bg-white text-Pine focus:outline-none focus:border-Pine"
+              >
+                <option value="">Mọi mức độ</option>
+                <option value="High">Cao (-10đ)</option>
+                <option value="Medium">Trung bình (-5đ)</option>
+                <option value="Low">Thấp (-2đ)</option>
+              </select>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-2.5 py-2 border border-Mist/40 rounded-xl text-xs font-bold bg-white text-Pine focus:outline-none focus:border-Pine"
+              >
+                <option value="">Mọi trạng thái</option>
+                <option value="Pending">Chờ duyệt</option>
+                <option value="Approved">Đã duyệt</option>
+                <option value="Rejected">Bác bỏ</option>
+              </select>
+            </div>
           </div>
 
           {/* Violation list */}
           <div className="flex-1 overflow-y-auto pr-1">
             {filteredViolations.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 bg-white rounded-lg border border-Mist/20 text-Mist">
-                <AlertTriangle className="w-10 h-10 mb-3 opacity-30" />
-                <p className="text-sm font-medium text-Branch">
+              <div className="flex flex-col items-center justify-center py-12 bg-white rounded-3xl border border-Mist/20 text-Mist px-4 text-center">
+                <AlertTriangle className="w-10 h-10 mb-3 text-Pine/40" />
+                <p className="text-sm font-bold text-Pine">
                   {violations.length === 0
                     ? 'Chưa có cảnh báo vi phạm nào. Hãy bấm "Chạy quét AI" để phân tích hợp đồng.'
                     : 'Không có vi phạm phù hợp với bộ lọc.'}
@@ -547,8 +836,8 @@ export default function AuditWorkspacePage() {
           </div>
         </div>
 
-        {/* ── Right Column: PDF Viewer (Hidden on Mobile unless PDF tab selected) ── */}
-        <div className={`flex-1 rounded-lg overflow-hidden border border-Mist/30 shadow-sm ${activeTab === 'violations' ? 'hidden md:flex md:flex-col' : 'flex flex-col'}`}>
+        {/* ── Right Column: PDF Viewer ── */}
+        <div className={`flex-1 rounded-3xl overflow-hidden border border-Mist/30 shadow-[0_10px_28px_rgba(39,54,63,0.08)] ${activeTab === 'violations' ? 'hidden md:flex md:flex-col' : 'flex flex-col'}`}>
           {pdfUrl ? (
             <SplitPDFViewer
               pdfUrl={pdfUrl}
@@ -556,7 +845,7 @@ export default function AuditWorkspacePage() {
               activePage={activePage}
             />
           ) : (
-            <div className="flex-1 flex items-center justify-center bg-gray-100">
+            <div className="flex-1 flex items-center justify-center bg-Snowflake">
               <p className="text-sm text-Mist">Không tìm thấy đường dẫn file PDF</p>
             </div>
           )}

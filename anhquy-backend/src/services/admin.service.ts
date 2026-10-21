@@ -168,6 +168,11 @@ export const updateUserService = async (
       ...(data.full_name !== undefined && { full_name: data.full_name.trim() }),
       ...(data.role_id !== undefined && { role_id: data.role_id }),
       ...(data.is_active !== undefined && { is_active: data.is_active }),
+      // Tự động gỡ khóa Brute-force khi Admin kích hoạt hoặc bấm Gỡ khóa
+      ...(data.is_active === true && {
+        failed_login_attempts: 0,
+        locked_until: null,
+      }),
       updated_at: new Date(),
     },
     select: { id: true, full_name: true, role_id: true, is_active: true },
@@ -410,3 +415,36 @@ export const updateRiskThresholdService = async (
   return { oldValue, newValue };
 };
 
+/**
+ * Tự động dọn dẹp Audit_Logs cũ để tối ưu dung lượng Database.
+ * - Xóa các bản ghi cũ hơn retentionDays (mặc định 90 ngày).
+ * - Được gọi tự động định kỳ bởi Server mà không làm chậm request của người dùng.
+ */
+export const cleanupOldAuditLogsService = async (retentionDays = 90): Promise<number> => {
+  try {
+    // Đọc cấu hình số ngày lưu log từ System_Configs (nếu có), mặc định 90 ngày
+    const config = await prisma.system_Configs.findUnique({
+      where: { config_key: 'AUDIT_LOG_RETENTION_DAYS' },
+    });
+    const days = config ? Math.max(7, Number(config.config_value) || retentionDays) : retentionDays;
+
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+
+    const result = await prisma.audit_Logs.deleteMany({
+      where: {
+        created_at: {
+          lt: cutoffDate,
+        },
+      },
+    });
+
+    if (result.count > 0) {
+      console.log(`[Auto-Cleanup] Đã tự động dọn dẹp ${result.count} bản ghi Audit_Logs cũ hơn ${days} ngày.`);
+    }
+    return result.count;
+  } catch (error) {
+    console.error('[Auto-Cleanup] Lỗi khi dọn dẹp Audit_Logs:', error);
+    return 0;
+  }
+};

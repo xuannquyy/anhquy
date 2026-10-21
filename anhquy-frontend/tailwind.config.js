@@ -7,13 +7,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Hệ màu Winter (60-30-10)
-        Snowflake:    '#DCE0E8', // Nền chính toàn trang (60%)
-        Frostysilver: '#BEB3AC', // Nền phụ, hover bảng, highlight PDF (30%)
-        Pine:         '#27363F', // Sidebar, tiêu đề, Primary Button (10%)
-        Branch:       '#685652', // Văn bản nội dung, Secondary elements
-        Mist:         '#8EA1AE', // Viền, text phụ, disabled
-        Berry:        '#6B212C', // Cảnh báo High risk, nút nguy hiểm
+        // Hệ màu Winter + Mở rộng Bluelight & Merlot
+        Snowflake:    '#DCE0E8', // Nền chính toàn trang
+        Frostysilver: '#BEB3AC', // Nền phụ, highlight PDF
+        Pine:         '#27363F', // Tiêu đề, chữ đậm chủ đạo
+        Branch:       '#685652', // Văn bản nội dung
+        Mist:         '#8EA1AE', // Viền, text phụ
+        Berry:        '#6B212C', // Cảnh báo High risk
+        Bluelight:    '#A4B9CE', // Xanh băng sáng (Sidebar)
+        Merlot:       '#51121A', // Đỏ rượu vang đậm (Điểm nhấn Active)
       },
       fontFamily: {
         sans: ['"Be Vietnam Pro"', 'ui-sans-serif', 'system-ui', 'sans-serif'],

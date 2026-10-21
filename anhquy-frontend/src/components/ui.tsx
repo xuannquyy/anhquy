@@ -28,18 +28,18 @@ export function ConfirmModal({
 
   const variantConfig = {
     danger: {
-      btn: 'bg-Berry text-white hover:bg-Berry/90 shadow-sm',
-      iconBg: 'bg-Berry/10 text-Berry border-Berry/20',
+      btn: 'bg-gradient-to-r from-Berry to-[#8B2B39] text-white hover:opacity-95 shadow-[0_6px_20px_rgba(107,33,44,0.3)]',
+      iconBg: 'bg-Berry/10 text-Berry border-Berry/20 shadow-inner',
       icon: <AlertTriangle className="w-6 h-6" />,
     },
     warning: {
-      btn: 'bg-amber-600 text-white hover:bg-amber-700 shadow-sm',
-      iconBg: 'bg-amber-50 text-amber-600 border-amber-200',
+      btn: 'bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:opacity-95 shadow-[0_6px_20px_rgba(245,158,11,0.3)]',
+      iconBg: 'bg-amber-50 text-amber-600 border-amber-200 shadow-inner',
       icon: <AlertTriangle className="w-6 h-6" />,
     },
     info: {
-      btn: 'bg-Pine text-white hover:bg-Pine/90 shadow-sm',
-      iconBg: 'bg-Pine/10 text-Pine border-Pine/20',
+      btn: 'bg-gradient-to-r from-Pine to-[#364954] text-white hover:opacity-95 shadow-[0_6px_20px_rgba(39,54,63,0.25)]',
+      iconBg: 'bg-Pine/10 text-Pine border-Pine/20 shadow-inner',
       icon: <CheckCircle2 className="w-6 h-6" />,
     },
   }[variant]
@@ -47,33 +47,34 @@ export function ConfirmModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-Pine/60 backdrop-blur-sm transition-opacity"
+        className="absolute inset-0 bg-Pine/60 backdrop-blur-md transition-opacity"
         onClick={onCancel}
       />
-      <div className="relative z-10 bg-white rounded-lg shadow-lg border border-Mist/30 w-full max-w-md overflow-hidden transition-all duration-300">
+      <div className="relative z-10 bg-white/95 backdrop-blur-xl rounded-2xl shadow-[0_24px_60px_rgba(39,54,63,0.22)] border border-white w-full max-w-md overflow-hidden transition-all duration-300">
+        <div className="h-1.5 w-full bg-gradient-to-r from-Pine via-Mist to-Berry" />
         <div className="p-6">
           <div className="flex items-start gap-4">
-            <div className={`w-12 h-12 rounded-lg border flex items-center justify-center flex-shrink-0 ${variantConfig.iconBg}`}>
+            <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center flex-shrink-0 ${variantConfig.iconBg}`}>
               {variantConfig.icon}
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-base font-bold text-Pine mb-1.5">{title}</h3>
+              <h3 className="text-base font-extrabold text-Pine mb-1.5 tracking-tight">{title}</h3>
               <p className="text-Branch text-sm leading-relaxed">{message}</p>
             </div>
           </div>
         </div>
-        <div className="px-6 py-3.5 bg-Snowflake/50 border-t border-Mist/20 flex gap-2.5 justify-end">
+        <div className="px-6 py-4 bg-Snowflake/40 border-t border-Mist/15 flex gap-2.5 justify-end">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-xs font-semibold text-Branch bg-white border border-Mist/40 rounded-md hover:bg-Snowflake transition-all duration-200"
+            className="px-4 py-2 text-xs font-bold text-Branch bg-white border border-Mist/30 rounded-xl hover:bg-Snowflake transition-all duration-200 shadow-sm"
           >
             {cancelLabel}
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className={`px-4 py-2 text-xs font-semibold rounded-md transition-all duration-200 ${variantConfig.btn}`}
+            className={`px-5 py-2 text-xs font-bold rounded-xl transition-all duration-200 ${variantConfig.btn}`}
           >
             {confirmLabel}
           </button>
@@ -105,17 +106,19 @@ export function Modal({ isOpen, title, onClose, children, size = 'md' }: ModalPr
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-Pine/60 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative z-10 bg-white rounded-lg shadow-lg border border-Mist/30 w-full ${sizeMap[size]} max-h-[90vh] flex flex-col overflow-hidden`}>
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-Pine to-Pine/95 text-white">
+      <div className="absolute inset-0 bg-Pine/60 backdrop-blur-md" onClick={onClose} />
+      <div className={`relative z-10 bg-white rounded-2xl shadow-[0_25px_70px_rgba(39,54,63,0.25)] border border-white/80 w-full ${sizeMap[size]} max-h-[90vh] flex flex-col overflow-hidden`}>
+        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-Pine via-[#2F414C] to-Pine text-white">
           <div className="flex items-center gap-2.5">
-            <Info className="w-4 h-4 text-Frostysilver" />
-            <h3 className="text-base font-bold tracking-tight">{title}</h3>
+            <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
+              <Info className="w-4 h-4 text-Frostysilver" />
+            </div>
+            <h3 className="text-base font-extrabold tracking-tight">{title}</h3>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-white/70 hover:text-white hover:bg-white/10 transition-colors p-1.5 rounded-md"
+            className="text-white/70 hover:text-white hover:bg-white/15 transition-colors p-1.5 rounded-xl"
           >
             <X className="w-4 h-4" />
           </button>
@@ -126,7 +129,7 @@ export function Modal({ isOpen, title, onClose, children, size = 'md' }: ModalPr
   )
 }
 
-// ─── Pagination (Luôn hiển thị rõ ràng kể cả khi chỉ có 1 trang) ──────────────
+// ─── Pagination (Soft Pill Bento Style) ───────────────────────────────────────
 
 interface PaginationProps {
   page: number
@@ -158,15 +161,15 @@ export function Pagination({ page, total, limit, onPageChange, onLimitChange }: 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 py-3 text-xs">
       <div className="flex items-center gap-3 text-Mist">
-        <span>
-          Hiển thị <strong className="text-Pine">{startRecord}–{endRecord}</strong> trong tổng số{' '}
+        <span className="bg-Snowflake/50 px-3 py-1.5 rounded-xl border border-Mist/20">
+          Hiển thị <strong className="text-Pine">{startRecord}–{endRecord}</strong> /{' '}
           <strong className="text-Pine">{total}</strong> bản ghi
         </span>
         {onLimitChange && (
           <select
             value={limit}
             onChange={(e) => onLimitChange(Number(e.target.value))}
-            className="px-2 py-1 bg-Snowflake/70 border border-Mist/30 rounded-md text-xs text-Pine font-medium focus:outline-none focus:border-Pine"
+            className="px-3 py-1.5 bg-white border border-Mist/30 rounded-xl text-xs text-Pine font-bold focus:outline-none focus:border-Pine shadow-sm"
           >
             {[5, 10, 15, 20, 50].map((size) => (
               <option key={size} value={size}>
@@ -178,14 +181,11 @@ export function Pagination({ page, total, limit, onPageChange, onLimitChange }: 
       </div>
 
       <div className="flex items-center gap-1.5">
-        <span className="text-Mist mr-2 hidden md:inline">
-          Trang <strong className="text-Pine">{page}</strong> / {totalPages}
-        </span>
         <button
           type="button"
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md border border-Mist/40 bg-white text-Branch disabled:opacity-40 disabled:cursor-not-allowed hover:bg-Snowflake transition-all duration-200"
+          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-xl border border-Mist/30 bg-white text-Branch disabled:opacity-40 disabled:cursor-not-allowed hover:bg-Snowflake transition-all duration-200 shadow-sm"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
           Trước
@@ -198,10 +198,10 @@ export function Pagination({ page, total, limit, onPageChange, onLimitChange }: 
               key={p}
               type="button"
               onClick={() => onPageChange(p as number)}
-              className={`min-w-[30px] py-1.5 px-2.5 text-xs font-bold rounded-md border transition-all duration-200 ${
+              className={`min-w-[32px] py-1.5 px-2.5 text-xs font-extrabold rounded-xl border transition-all duration-200 ${
                 p === page
-                  ? 'bg-Pine text-white border-Pine shadow-sm'
-                  : 'bg-white border-Mist/40 text-Branch hover:bg-Snowflake'
+                  ? 'bg-Pine text-white border-Pine shadow-[0_4px_12px_rgba(39,54,63,0.25)] scale-105'
+                  : 'bg-white border-Mist/30 text-Branch hover:bg-Snowflake'
               }`}
             >
               {p}
@@ -212,7 +212,7 @@ export function Pagination({ page, total, limit, onPageChange, onLimitChange }: 
           type="button"
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md border border-Mist/40 bg-white text-Branch disabled:opacity-40 disabled:cursor-not-allowed hover:bg-Snowflake transition-all duration-200"
+          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-xl border border-Mist/30 bg-white text-Branch disabled:opacity-40 disabled:cursor-not-allowed hover:bg-Snowflake transition-all duration-200 shadow-sm"
         >
           Sau
           <ChevronRight className="w-3.5 h-3.5" />
@@ -222,27 +222,27 @@ export function Pagination({ page, total, limit, onPageChange, onLimitChange }: 
   )
 }
 
-// ─── StatusBadge ─────────────────────────────────────────────────────────────
+// ─── StatusBadge (Modern Soft Pill with Glowing Dot) ──────────────────────────
 
 interface StatusBadgeProps {
   status: string
 }
 
 export function StatusBadge({ status }: StatusBadgeProps) {
-  const map: Record<string, string> = {
-    Uploaded:  'bg-sky-50 text-sky-700 border border-sky-200',
-    Analyzing: 'bg-amber-50 text-amber-700 border border-amber-200',
-    Analyzed:  'bg-emerald-50 text-emerald-700 border border-emerald-200',
-    Error:     'bg-Berry/10 text-Berry border border-Berry/20',
-    Pending:   'bg-amber-50 text-amber-700 border border-amber-200',
-    Approved:  'bg-emerald-50 text-emerald-700 border border-emerald-200',
-    Rejected:  'bg-Snowflake text-Branch border border-Mist/30',
-    High:      'bg-Berry text-white shadow-sm',
-    Medium:    'bg-amber-500 text-white shadow-sm',
-    Low:       'bg-Pine/10 text-Pine border border-Pine/20',
-    Safe:      'bg-emerald-50 text-emerald-700 border border-emerald-200',
-    Warning:   'bg-amber-50 text-amber-700 border border-amber-200',
-    Danger:    'bg-Berry/10 text-Berry border border-Berry/25',
+  const map: Record<string, { wrap: string; dot: string }> = {
+    Uploaded:  { wrap: 'bg-sky-50 text-sky-700 border-sky-200/80',         dot: 'bg-sky-500' },
+    Analyzing: { wrap: 'bg-amber-50 text-amber-700 border-amber-200/80',   dot: 'bg-amber-500 animate-ping' },
+    Analyzed:  { wrap: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+    Error:     { wrap: 'bg-Berry/10 text-Berry border-Berry/25',           dot: 'bg-Berry' },
+    Pending:   { wrap: 'bg-amber-50 text-amber-700 border-amber-200/80',   dot: 'bg-amber-500' },
+    Approved:  { wrap: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+    Rejected:  { wrap: 'bg-Snowflake/80 text-Branch border-Mist/30',       dot: 'bg-Mist' },
+    High:      { wrap: 'bg-Berry text-white border-Berry shadow-sm',       dot: 'bg-white animate-pulse' },
+    Medium:    { wrap: 'bg-amber-500 text-white border-amber-500 shadow-sm', dot: 'bg-white' },
+    Low:       { wrap: 'bg-Pine/10 text-Pine border-Pine/20',              dot: 'bg-Pine' },
+    Safe:      { wrap: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+    Warning:   { wrap: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500' },
+    Danger:    { wrap: 'bg-Berry/10 text-Berry border-Berry/25',           dot: 'bg-Berry animate-pulse' },
   }
   const labelMap: Record<string, string> = {
     Uploaded:  'Đã tải lên',
@@ -260,14 +260,17 @@ export function StatusBadge({ status }: StatusBadgeProps) {
     Danger:    'Nguy hiểm',
   }
 
+  const style = map[status] || { wrap: 'bg-Snowflake text-Branch border-Mist/30', dot: 'bg-Branch' }
+
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold whitespace-nowrap ${map[status] || 'bg-Snowflake text-Branch border border-Mist/30'}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold border whitespace-nowrap ${style.wrap}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
       {labelMap[status] || status}
     </span>
   )
 }
 
-// ─── RiskScoreBar (Đồng bộ chuẩn ngưỡng 80 - 50 với Database) ────────────────
+// ─── RiskScoreBar (Glowing Gradient Bar + Badge) ──────────────────────────────
 
 interface RiskScoreBarProps {
   score: number | null
@@ -275,18 +278,30 @@ interface RiskScoreBarProps {
 
 export function RiskScoreBar({ score }: RiskScoreBarProps) {
   const s = score ?? 100
-  const color = s >= 80 ? 'bg-emerald-500' : s >= 50 ? 'bg-amber-500' : 'bg-Berry'
-  const textColor = s >= 80 ? 'text-emerald-700' : s >= 50 ? 'text-amber-700' : 'text-Berry'
+  const gradient =
+    s >= 80
+      ? 'bg-gradient-to-r from-emerald-400 to-emerald-600'
+      : s >= 50
+      ? 'bg-gradient-to-r from-amber-400 to-amber-600'
+      : 'bg-gradient-to-r from-Berry to-rose-700'
+  const textColor =
+    s >= 80
+      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+      : s >= 50
+      ? 'text-amber-700 bg-amber-50 border-amber-200'
+      : 'text-Berry bg-Berry/10 border-Berry/20'
 
   return (
-    <div className="flex items-center gap-2.5 min-w-[140px]">
-      <div className="flex-1 bg-Snowflake rounded-md h-2.5 overflow-hidden border border-Mist/25 p-0.5">
+    <div className="flex items-center gap-2.5 min-w-[145px]">
+      <div className="flex-1 bg-Snowflake/80 rounded-xl h-2.5 overflow-hidden border border-Mist/20 p-0.5 shadow-inner">
         <div
-          className={`h-full rounded-sm transition-all duration-500 ${color}`}
-          style={{ width: `${Math.max(4, Math.min(100, s))}%` }}
+          className={`h-full rounded-lg transition-all duration-500 ${gradient}`}
+          style={{ width: `${Math.max(5, Math.min(100, s))}%` }}
         />
       </div>
-      <span className={`text-xs font-extrabold w-11 text-right ${textColor}`}>{s}/100</span>
+      <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded-lg border ${textColor}`}>
+        {s}đ
+      </span>
     </div>
   )
 }
@@ -296,7 +311,7 @@ export function RiskScoreBar({ score }: RiskScoreBarProps) {
 export function Spinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   const sizeClass = { sm: 'w-4 h-4', md: 'w-8 h-8', lg: 'w-11 h-11' }[size]
   return (
-    <div className={`${sizeClass} border-2 border-Mist/40 border-t-Pine rounded-md animate-spin`} />
+    <div className={`${sizeClass} border-2 border-Mist/30 border-t-Pine rounded-full animate-spin`} />
   )
 }
 
@@ -305,10 +320,10 @@ export function Spinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
 export function EmptyState({ message = 'Không có dữ liệu hiển thị' }: { message?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-14 px-4 text-center">
-      <div className="w-14 h-14 rounded-lg bg-Snowflake/80 border border-Mist/20 flex items-center justify-center text-Mist mb-3">
-        <Inbox className="w-7 h-7" />
+      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-Snowflake to-white border border-Mist/25 shadow-sm flex items-center justify-center text-Mist mb-3">
+        <Inbox className="w-8 h-8 text-Pine/50" />
       </div>
-      <p className="text-sm font-medium text-Branch">{message}</p>
+      <p className="text-sm font-bold text-Pine">{message}</p>
     </div>
   )
 }

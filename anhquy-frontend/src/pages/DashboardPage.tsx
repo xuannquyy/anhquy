@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { toast } from 'sonner'
 import { MainLayout } from '../components/MainLayout'
-import { Modal, RiskScoreBar, Spinner, StatusBadge } from '../components/ui'
+import { RiskScoreBar, Spinner, StatusBadge } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import {
   dashboardApi,
@@ -13,9 +12,10 @@ import {
   standardApi,
 } from '../api'
 import {
-  TrendingUp, FileText, AlertTriangle, Building2, Activity, ExternalLink,
-  ShieldCheck, Users, ClipboardList, Download, Printer, Upload, Sparkles,
-  CheckCircle2, Lock, SlidersHorizontal, ArrowUpRight, Calendar, Filter
+  FileText, AlertTriangle, Building2, Activity, ExternalLink,
+  Users, ClipboardList, Upload, Sparkles,
+  CheckCircle2, SlidersHorizontal, ArrowUpRight, Calendar as CalendarIcon,
+  BarChart3, Layers, ChevronLeft, ChevronRight, ListChecks
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -64,6 +64,13 @@ interface SupplierItem {
   Categories?: { name: string } | null
 }
 
+interface StandardGroupStat {
+  id: number
+  group_code: string
+  group_name: string
+  Standards?: Array<{ id: number }>
+}
+
 interface AdminSummary {
   totalUsers: number
   activeUsers: number
@@ -82,97 +89,167 @@ interface UserStandardSummary {
   excludedCount: number
 }
 
-// ─── SVG Donut Chart Component (Luôn hiển thị đẹp kể cả khi = 0) ──────────────
+// ─── 1. Thẻ KPI Bento chuẩn tông màu Winter (Không còn các nhãn vô nghĩa) ────
 
-function DonutChart({
-  segments,
-  centerTitle,
-  centerSub,
+function BentoKpiCard({
+  title,
+  value,
+  sub,
+  icon,
+  chartType,
+  tone,
+  to,
 }: {
-  segments: Array<{ label: string; value: number; color: string; badgeClass: string }>
-  centerTitle: string | number
-  centerSub: string
+  title: string
+  value: number | string
+  sub: string
+  icon: React.ReactNode
+  chartType: 'bars' | 'equalizer' | 'sparkline' | 'ring'
+  tone: 'pine' | 'berry' | 'mist' | 'branch'
+  to?: string
 }) {
-  const total = segments.reduce((acc, s) => acc + s.value, 0)
-  const radius = 54
-  const circumference = 2 * Math.PI * radius
-  let cumulativePercent = 0
+  // Chỉ sử dụng đúng 6 mã màu của bangtongmau.jpg & image_1ab65a.jpg
+  const palette = {
+    pine:   { iconBg: 'bg-Pine text-Snowflake',       stroke: '#27363F', fill: '#8EA1AE' },
+    berry:  { iconBg: 'bg-Berry text-Snowflake',      stroke: '#6B212C', fill: '#BEB3AC' },
+    mist:   { iconBg: 'bg-Mist text-Pine',            stroke: '#8EA1AE', fill: '#27363F' },
+    branch: { iconBg: 'bg-Branch text-Snowflake',     stroke: '#685652', fill: '#BEB3AC' },
+  }[tone]
 
-  return (
-    <div className="flex flex-col sm:flex-row items-center gap-6 py-2">
-      {/* SVG Ring */}
-      <div className="relative w-36 h-36 flex items-center justify-center flex-shrink-0">
-        <svg className="w-full h-full -rotate-90" viewBox="0 0 128 128">
-          <circle
-            cx="64"
-            cy="64"
-            r={radius}
-            fill="transparent"
-            stroke="#DCE0E8"
-            strokeWidth="14"
-          />
-          {total === 0 ? (
-            <circle
-              cx="64"
-              cy="64"
-              r={radius}
-              fill="transparent"
-              stroke="#10B981"
-              strokeWidth="14"
-              strokeDasharray={`${circumference} ${circumference}`}
-              strokeOpacity={0.35}
-            />
-          ) : (
-            segments.map((seg) => {
-              if (seg.value <= 0) return null
-              const pct = seg.value / total
-              const dashArray = `${pct * circumference} ${circumference}`
-              const dashOffset = -cumulativePercent * circumference
-              cumulativePercent += pct
-              return (
-                <circle
-                  key={seg.label}
-                  cx="64"
-                  cy="64"
-                  r={radius}
-                  fill="transparent"
-                  stroke={seg.color}
-                  strokeWidth="14"
-                  strokeDasharray={dashArray}
-                  strokeDashoffset={dashOffset}
-                  className="transition-all duration-700"
-                />
-              )
-            })
-          )}
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span className="text-2xl font-extrabold text-Pine leading-none">{centerTitle}</span>
-          <span className="text-[11px] font-semibold text-Mist mt-1">{centerSub}</span>
+  const content = (
+    <div className="group bg-white/95 backdrop-blur-md rounded-3xl border border-white p-5 shadow-[0_10px_28px_rgba(39,54,63,0.06)] hover:shadow-[0_16px_36px_rgba(39,54,63,0.12)] hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-between gap-3">
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-extrabold text-Branch mb-2.5 truncate">
+          {title}
+        </div>
+
+        <div className="flex items-center gap-3.5">
+          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0 ${palette.iconBg}`}>
+            {icon}
+          </div>
+          <div className="min-w-0">
+            <div className="text-2xl sm:text-3xl font-extrabold text-Pine tracking-tight leading-none">
+              {typeof value === 'number' ? value.toLocaleString('vi-VN') : value}
+            </div>
+            <p className="text-[11px] font-semibold text-Mist mt-1 truncate">{sub}</p>
+          </div>
         </div>
       </div>
 
-      {/* Legend & Progress Bars */}
-      <div className="flex-1 w-full space-y-3">
-        {segments.map((seg) => {
-          const pct = total > 0 ? Math.round((seg.value / total) * 100) : 0
-          return (
-            <div key={seg.label} className="space-y-1">
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: seg.color }} />
-                  <span className="font-semibold text-Pine">{seg.label}</span>
-                </div>
-                <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${seg.badgeClass}`}>
-                  {seg.value} ({pct}%)
-                </span>
-              </div>
-              <div className="h-2 bg-Snowflake rounded-md overflow-hidden">
+      {/* Đồ họa Mini chuẩn bảng màu Winter */}
+      <div className="w-20 h-14 flex items-end justify-end flex-shrink-0">
+        {chartType === 'bars' && (
+          <div className="flex items-end gap-1.5 h-12">
+            {[40, 65, 50, 85, 100].map((h, i) => (
+              <div
+                key={i}
+                className="w-2.5 rounded-t-md transition-all duration-500 group-hover:scale-y-110 origin-bottom"
+                style={{
+                  height: `${h}%`,
+                  backgroundColor: i === 4 ? palette.stroke : '#DCE0E8',
+                }}
+              />
+            ))}
+          </div>
+        )}
+        {chartType === 'equalizer' && (
+          <div className="flex items-center gap-1.5 h-12">
+            {[75, 95, 60, 100, 80, 90].map((h, i) => (
+              <div key={i} className="w-1.5 h-full bg-Snowflake rounded-full overflow-hidden flex flex-col justify-end">
                 <div
-                  className="h-full rounded-md transition-all duration-700"
-                  style={{ width: `${total === 0 ? 0 : Math.max(pct, seg.value > 0 ? 6 : 0)}%`, backgroundColor: seg.color }}
+                  className="w-full rounded-full transition-all duration-500"
+                  style={{ height: `${h}%`, backgroundColor: i % 2 === 0 ? palette.stroke : palette.fill }}
                 />
               </div>
+            ))}
+          </div>
+        )}
+        {chartType === 'sparkline' && (
+          <svg className="w-20 h-12 overflow-visible" viewBox="0 0 80 48">
+            <path
+              d="M 4 38 Q 20 18, 34 28 T 62 12 L 76 18"
+              fill="none"
+              stroke={palette.stroke}
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            />
+            <circle cx="34" cy="28" r="3" fill={palette.fill} />
+            <circle cx="62" cy="12" r="3.5" fill={palette.stroke} />
+          </svg>
+        )}
+        {chartType === 'ring' && (
+          <div className="relative w-12 h-12 flex items-center justify-center">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 48 48">
+              <circle cx="24" cy="24" r="18" fill="none" stroke="#DCE0E8" strokeWidth="5" />
+              <circle
+                cx="24"
+                cy="24"
+                r="18"
+                fill="none"
+                stroke={palette.stroke}
+                strokeWidth="5"
+                strokeDasharray="88 113"
+                strokeLinecap="round"
+              />
+            </svg>
+            <ArrowUpRight className="w-4 h-4 text-Pine absolute" />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  return to ? <Link to={to}>{content}</Link> : content
+}
+
+// ─── 2. Biểu đồ Cột 4 Nhóm Tiêu chuẩn RBA & Pháp luật VN (Chuẩn logic 100%) ──
+
+function StandardGroupsChart({
+  groups,
+}: {
+  groups: Array<{ code: string; shortName: string; fullName: string; count: number }>
+}) {
+  const [hoveredIdx, setHoveredIdx] = useState<number>(0)
+  const maxVal = Math.max(8, ...groups.map((g) => g.count))
+  const totalStds = groups.reduce((acc, g) => acc + g.count, 0)
+
+  return (
+    <div className="pt-6 pb-2 flex flex-col justify-between flex-1">
+      <div className="grid grid-cols-4 gap-4 items-end h-40 px-3">
+        {groups.map((item, idx) => {
+          const heightPct = Math.max(25, Math.round((item.count / maxVal) * 100))
+          const isFocus = hoveredIdx === idx
+          return (
+            <div
+              key={item.code}
+              onMouseEnter={() => setHoveredIdx(idx)}
+              className="relative flex flex-col items-center justify-end h-full cursor-pointer group"
+            >
+              {/* Tooltip nổi khi rê chuột */}
+              {isFocus && (
+                <div className="absolute -top-9 z-10 bg-Pine text-white px-3 py-1 rounded-xl text-[11px] font-extrabold whitespace-nowrap shadow-lg flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3 text-Frostysilver" />
+                  <span>{item.count} tiêu chuẩn ({totalStds > 0 ? Math.round((item.count / totalStds) * 100) : 0}%)</span>
+                </div>
+              )}
+
+              {/* Cột Pill mang sắc thái Berry & Pine của image_1ab65a.jpg */}
+              <div className="w-8 sm:w-10 h-full bg-Snowflake/70 rounded-2xl flex flex-col justify-end p-1 border border-Mist/20">
+                <div
+                  className={`w-full rounded-xl transition-all duration-500 ${
+                    isFocus
+                      ? 'bg-gradient-to-t from-Pine via-Branch to-Berry shadow-[0_6px_18px_rgba(107,33,44,0.35)]'
+                      : 'bg-Pine/85 group-hover:bg-Berry'
+                  }`}
+                  style={{ height: `${heightPct}%` }}
+                />
+              </div>
+              <span className={`text-xs mt-2.5 font-extrabold ${isFocus ? 'text-Berry' : 'text-Pine'}`}>
+                {item.shortName}
+              </span>
+              <span className="text-[10px] font-semibold text-Mist">
+                {item.count} chuẩn
+              </span>
             </div>
           )
         })}
@@ -181,44 +258,222 @@ function DonutChart({
   )
 }
 
-// ─── KPI Card Pro ─────────────────────────────────────────────────────────────
+// ─── 3. Đồng hồ Đo Tín nhiệm Chia Vạch (Winter Palette) ─────────────────────
 
-function KpiCardPro({
-  title,
-  value,
-  sub,
-  icon,
-  accentClass,
-  to,
+function SegmentedSpeedometer({
+  avgScore,
+  totalSuppliers,
 }: {
-  title: string
-  value: number | string
-  sub: string
-  icon: React.ReactNode
-  accentClass: string
-  to?: string
+  avgScore: number
+  totalSuppliers: number
 }) {
-  const cardContent = (
-    <div className="group bg-white rounded-lg border border-Mist/25 p-5 shadow-sm hover:shadow-md hover:border-Pine/30 transition-all duration-300 relative overflow-hidden">
-      <div className="flex items-start justify-between mb-3">
-        <div className={`w-11 h-11 rounded-lg flex items-center justify-center text-white shadow-sm ${accentClass}`}>
-          {icon}
-        </div>
-        {to && (
-          <span className="p-1.5 rounded-md bg-Snowflake/60 text-Mist group-hover:bg-Pine group-hover:text-white transition-colors">
-            <ArrowUpRight className="w-4 h-4" />
+  const totalTicks = 28
+  const activeTicks = Math.round((Math.max(0, Math.min(100, avgScore)) / 100) * totalTicks)
+
+  return (
+    <div className="flex flex-col items-center justify-center py-2">
+      <div className="relative w-44 h-44 flex items-center justify-center">
+        <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
+          {Array.from({ length: totalTicks }).map((_, idx) => {
+            const angle = (idx / totalTicks) * 360
+            const isFilled = idx < activeTicks
+            const tickColor =
+              idx < activeTicks
+                ? avgScore >= 80
+                  ? '#27363F'
+                  : avgScore >= 50
+                  ? '#685652'
+                  : '#6B212C'
+                : '#DCE0E8'
+            return (
+              <g key={idx} transform={`rotate(${angle} 80 80)`}>
+                <rect
+                  x="77"
+                  y="8"
+                  width="6"
+                  height="16"
+                  rx="3"
+                  fill={tickColor}
+                  opacity={isFilled ? 1 : 0.55}
+                />
+                <rect
+                  x="78"
+                  y="28"
+                  width="4"
+                  height="8"
+                  rx="2"
+                  fill={isFilled ? '#8EA1AE' : '#DCE0E8'}
+                  opacity={isFilled ? 0.85 : 0.35}
+                />
+              </g>
+            )
+          })}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+          <span className="text-3xl font-extrabold text-Pine tracking-tight">{avgScore}</span>
+          <span className="text-[11px] font-bold text-Mist uppercase tracking-wider mt-0.5">
+            Điểm TB / 100
           </span>
-        )}
+          <span className="mt-1 px-2.5 py-0.5 rounded-lg bg-Snowflake text-[10px] font-bold text-Pine">
+            {totalSuppliers} đối tác
+          </span>
+        </div>
       </div>
-      <div className="text-3xl font-extrabold text-Pine tracking-tight">
-        {typeof value === 'number' ? value.toLocaleString('vi-VN') : value}
-      </div>
-      <div className="text-xs font-bold text-Branch mt-1">{title}</div>
-      <div className="text-[11px] text-Mist mt-1 flex items-center gap-1">{sub}</div>
     </div>
   )
+}
 
-  return to ? <Link to={to}>{cardContent}</Link> : cardContent
+// ─── 4. Biểu đồ Sóng Khu vực Mượt (Pine & Berry Editorial Contrast) ──────────
+
+function SmoothAreaWaveChart({
+  docsCount,
+  violsCount,
+}: {
+  docsCount: number
+  violsCount: number
+}) {
+  const months = ['T5', 'T6', 'T7', 'T8', 'T9', 'T10']
+
+  return (
+    <div className="pt-2">
+      <div className="relative h-44 w-full">
+        <svg className="w-full h-full overflow-visible" viewBox="0 0 480 160" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="pineWaveGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#8EA1AE" stopOpacity="0.45" />
+              <stop offset="100%" stopColor="#DCE0E8" stopOpacity="0.0" />
+            </linearGradient>
+            <linearGradient id="berryWaveGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#6B212C" stopOpacity="0.32" />
+              <stop offset="100%" stopColor="#6B212C" stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
+
+          {[30, 70, 110, 145].map((y) => (
+            <line
+              key={y}
+              x1="0"
+              y1={y}
+              x2="480"
+              y2={y}
+              stroke="#DCE0E8"
+              strokeDasharray="4 4"
+              strokeWidth="1"
+            />
+          ))}
+
+          {/* Sóng 1: Hợp đồng (Pine / Mist) */}
+          <path
+            d="M 0 120 C 60 110, 95 65, 160 75 C 225 85, 270 40, 340 48 C 395 55, 435 24, 480 28 L 480 150 L 0 150 Z"
+            fill="url(#pineWaveGrad)"
+          />
+          <path
+            d="M 0 120 C 60 110, 95 65, 160 75 C 225 85, 270 40, 340 48 C 395 55, 435 24, 480 28"
+            fill="none"
+            stroke="#27363F"
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+
+          {/* Sóng 2: Cảnh báo Rủi ro (Berry) */}
+          <path
+            d="M 0 138 C 70 130, 120 105, 190 95 C 250 86, 300 115, 365 82 C 415 60, 445 70, 480 62 L 480 150 L 0 150 Z"
+            fill="url(#berryWaveGrad)"
+          />
+          <path
+            d="M 0 138 C 70 130, 120 105, 190 95 C 250 86, 300 115, 365 82 C 415 60, 445 70, 480 62"
+            fill="none"
+            stroke="#6B212C"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          />
+
+          <circle cx="340" cy="48" r="5" fill="#27363F" stroke="#FFFFFF" strokeWidth="2" />
+          <rect x="292" y="14" width="96" height="22" rx="6" fill="#27363F" />
+          <text x="340" y="29" textAnchor="middle" fill="#FFFFFF" fontSize="10" fontWeight="bold">
+            {docsCount} Hợp đồng PDF
+          </text>
+
+          <circle cx="190" cy="95" r="4.5" fill="#6B212C" stroke="#FFFFFF" strokeWidth="2" />
+          <rect x="145" y="64" width="90" height="20" rx="6" fill="#6B212C" />
+          <text x="190" y="78" textAnchor="middle" fill="#FFFFFF" fontSize="10" fontWeight="bold">
+            {violsCount} Cảnh báo
+          </text>
+        </svg>
+      </div>
+      <div className="flex justify-between px-3 pt-1 text-[11px] font-bold text-Mist">
+        {months.map((m) => (
+          <span key={m}>{m}/2026</span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── 5. Lịch Kiểm toán Mini ──────────────────────────────────────────────────
+
+function MiniAuditCalendar({ activeDays }: { activeDays: Set<number> }) {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth()
+  const today = now.getDate()
+
+  const firstDayOfWeek = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+  const blanks = Array.from({ length: (firstDayOfWeek + 6) % 7 })
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-extrabold text-Pine uppercase tracking-wider">
+          Tháng {month + 1}, {year}
+        </span>
+        <div className="flex items-center gap-1 text-Mist">
+          <span className="w-6 h-6 rounded-lg bg-Snowflake/60 flex items-center justify-center">
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </span>
+          <span className="w-6 h-6 rounded-lg bg-Snowflake/60 flex items-center justify-center">
+            <ChevronRight className="w-3.5 h-3.5" />
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-extrabold text-Mist mb-1.5">
+        {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((d) => (
+          <span key={d}>{d}</span>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 gap-1 text-center text-xs">
+        {blanks.map((_, idx) => (
+          <span key={`b-${idx}`} className="h-7" />
+        ))}
+        {days.map((d) => {
+          const isToday = d === today
+          const hasEvent = activeDays.has(d)
+          return (
+            <div
+              key={d}
+              className={`h-7 rounded-xl flex items-center justify-center font-bold transition-all relative ${
+                isToday
+                  ? 'bg-Berry text-white shadow-md scale-105'
+                  : hasEvent
+                  ? 'bg-Pine/15 text-Pine font-extrabold'
+                  : 'text-Branch hover:bg-Snowflake/60'
+              }`}
+            >
+              {d}
+              {hasEvent && !isToday && (
+                <span className="w-1 h-1 rounded-full bg-Berry absolute bottom-1" />
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 // ─── Main Dashboard Page ──────────────────────────────────────────────────────
@@ -228,8 +483,16 @@ export default function DashboardPage() {
 
   const [stats, setStats] = useState<NormalizedStats | null>(null)
   const [recentDocs, setRecentDocs] = useState<RecentDocument[]>([])
-  const [recentViolations, setRecentViolations] = useState<RecentViolation[]>([])
+  const [allViolations, setAllViolations] = useState<RecentViolation[]>([])
   const [suppliersList, setSuppliersList] = useState<SupplierItem[]>([])
+  const [standardGroups, setStandardGroups] = useState<
+    Array<{ code: string; shortName: string; fullName: string; count: number }>
+  >([
+    { code: 'GRP-LABOR',  shortName: 'Lao động',   fullName: 'Tiêu chuẩn Lao động', count: 8 },
+    { code: 'GRP-OHS',    shortName: 'An toàn SK', fullName: 'An toàn & Sức khỏe',  count: 6 },
+    { code: 'GRP-ENV',    shortName: 'Môi trường', fullName: 'Bảo vệ Môi trường',   count: 5 },
+    { code: 'GRP-ETHICS', shortName: 'Đạo đức',    fullName: 'Đạo đức Kinh doanh',  count: 5 },
+  ])
   const [adminSummary, setAdminSummary] = useState<AdminSummary>({
     totalUsers: 0,
     activeUsers: 0,
@@ -242,23 +505,15 @@ export default function DashboardPage() {
   })
   const [loading, setLoading] = useState(true)
 
-  // Report Studio Modal State
-  const [exportOpen, setExportOpen] = useState(false)
-  const [reportScope, setReportScope] = useState<'all' | 'violations' | 'suppliers'>('all')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
-  const [reportRiskFilter, setReportRiskFilter] = useState('')
-  const [reportStatusFilter, setReportStatusFilter] = useState('')
-  const [exporting, setExporting] = useState(false)
-
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [statsRes, docsRes, violationsRes, supRes] = await Promise.all([
+        const [statsRes, docsRes, violationsRes, supRes, grpRes] = await Promise.all([
           dashboardApi.getStats().catch(() => ({ data: null })),
-          documentApi.getAll({ page: 1, limit: 6 }).catch(() => ({ data: null })),
-          violationApi.getAll({ page: 1, limit: 6 }).catch(() => ({ data: null })),
+          documentApi.getAll({ page: 1, limit: 10 }).catch(() => ({ data: null })),
+          violationApi.getAll({ page: 1, limit: 10 }).catch(() => ({ data: null })),
           supplierApi.getAll({ page: 1, limit: 50, is_deleted: false }).catch(() => ({ data: null })),
+          standardApi.getGroups().catch(() => ({ data: null })),
         ])
 
         const raw = statsRes?.data?.stats || statsRes?.data?.data || statsRes?.data || {}
@@ -295,16 +550,34 @@ export default function DashboardPage() {
         setRecentDocs((docsData as { items?: RecentDocument[] })?.items || [])
 
         const vData = violationsRes?.data?.data || violationsRes?.data || {}
-        setRecentViolations((vData as { items?: RecentViolation[] })?.items || [])
+        setAllViolations((vData as { items?: RecentViolation[] })?.items || [])
 
         const sData = supRes?.data?.data || supRes?.data || {}
         setSuppliersList((sData as { items?: SupplierItem[] })?.items || [])
 
-        // Role-specific data fetching
+        // Lấy đúng 4 Nhóm Tiêu chuẩn từ DB
+        const rawGroups: StandardGroupStat[] = grpRes?.data?.groups || grpRes?.data?.data || []
+        if (Array.isArray(rawGroups) && rawGroups.length > 0) {
+          const shortMap: Record<string, string> = {
+            'GRP-LABOR':  'Lao động',
+            'GRP-OHS':    'An toàn SK',
+            'GRP-ENV':    'Môi trường',
+            'GRP-ETHICS': 'Đạo đức',
+          }
+          setStandardGroups(
+            rawGroups.map((g) => ({
+              code: g.group_code,
+              shortName: shortMap[g.group_code] || g.group_name,
+              fullName: g.group_name,
+              count: Array.isArray(g.Standards) ? g.Standards.length : 6,
+            }))
+          )
+        }
+
         if (role === 'Admin') {
           const [uRes, lRes] = await Promise.all([
             adminApi.getUsers({ page: 1, limit: 100 }).catch(() => ({ data: null })),
-            adminApi.getAuditLogs({ page: 1, limit: 6 }).catch(() => ({ data: null })),
+            adminApi.getAuditLogs({ page: 1, limit: 8 }).catch(() => ({ data: null })),
           ])
           const uPayload = uRes?.data?.data || uRes?.data || {}
           const uItems = (uPayload as { items?: Array<{ is_active: boolean }> })?.items || []
@@ -337,151 +610,24 @@ export default function DashboardPage() {
     fetchAll()
   }, [role])
 
-  // ─── Hàm xử lý Xuất Báo Cáo Đa Năng (Lọc theo Thời gian, Mức độ, Loại) ──────
-  const filterByDate = (dateStr?: string) => {
-    if (!dateStr) return true
-    const t = new Date(dateStr).getTime()
-    if (dateFrom) {
-      const fromT = new Date(`${dateFrom}T00:00:00`).getTime()
-      if (t < fromT) return false
-    }
-    if (dateTo) {
-      const toT = new Date(`${dateTo}T23:59:59`).getTime()
-      if (t > toT) return false
-    }
-    return true
-  }
+  const avgSupplierScore = useMemo(() => {
+    if (suppliersList.length === 0) return 100
+    const sum = suppliersList.reduce((acc, s) => acc + (s.risk_score ?? 100), 0)
+    return Math.round(sum / suppliersList.length)
+  }, [suppliersList])
 
-  const handleRunExport = async (mode: 'csv' | 'print') => {
-    setExporting(true)
-    try {
-      const params: Record<string, string | number | undefined> = { limit: 1000 }
-      if (reportRiskFilter) params.risk_level = reportRiskFilter
-      if (reportStatusFilter) params.status = reportStatusFilter
-
-      const [vRes, sRes] = await Promise.all([
-        violationApi.getAll(params).catch(() => ({ data: { items: [] } })),
-        supplierApi.getAll({ limit: 500, is_deleted: false }).catch(() => ({ data: { items: [] } })),
-      ])
-
-      const allViols: RecentViolation[] = (
-        (vRes.data?.data || vRes.data || {}) as { items?: RecentViolation[] }
-      ).items || []
-      const allSups: SupplierItem[] = (
-        (sRes.data?.data || sRes.data || {}) as { items?: SupplierItem[] }
-      ).items || []
-
-      const filteredViols = allViols.filter((v) => filterByDate(v.created_at))
-      const filteredSups = allSups.filter((s) => filterByDate(s.created_at))
-
-      if (mode === 'csv') {
-        const BOM = '\uFEFF'
-        let csvContent = BOM
-
-        if (reportScope === 'suppliers' || reportScope === 'all') {
-          csvContent += '=== BẢNG TỔNG HỢP ĐIỂM TÍN NHIỆM & RỦI RO NHÀ CUNG ỨNG ===\r\n'
-          csvContent += 'ID,Tên Công Ty,Mã Số Thuế,Ngành Nghề,Điểm Tín Nhiệm,Xếp Loại,Ngày Tạo\r\n'
-          filteredSups.forEach((s) => {
-            const sc = s.risk_score ?? 100
-            const rank = sc >= 80 ? 'An toàn' : sc >= 50 ? 'Cảnh báo' : 'Nguy hiểm'
-            csvContent += `${s.id},"${s.company_name.replace(/"/g, '""')}",${s.tax_code},"${s.Categories?.name || ''}",${sc},${rank},${new Date(s.created_at).toLocaleDateString('vi-VN')}\r\n`
-          })
-          csvContent += '\r\n'
-        }
-
-        if (reportScope === 'violations' || reportScope === 'all') {
-          csvContent += '=== BẢNG CHI TIẾT CẢNH BÁO VI PHẠM HỢP ĐỒNG ===\r\n'
-          csvContent += 'ID,Nhà Cung Ứng,Hợp Đồng,Mã Tiêu Chuẩn,Mức Độ Rủi Ro,Trạng Thái,Mô Tả Vi Phạm,Ngày Phát Hiện\r\n'
-          filteredViols.forEach((v) => {
-            csvContent += `${v.id},"${(v.Documents?.Suppliers?.company_name || '').replace(/"/g, '""')}","${(v.Documents?.file_name || '').replace(/"/g, '""')}",${v.Standards?.standard_code || ''},${v.risk_level},${v.status},"${(v.violation_desc || '').replace(/"/g, '""')}",${new Date(v.created_at).toLocaleDateString('vi-VN')}\r\n`
-          })
-        }
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `Bao-Cao-Kiem-Toan-ANHQUY-${new Date().toISOString().slice(0, 10)}.csv`
-        a.click()
-        URL.revokeObjectURL(url)
-        toast.success('Đã xuất file Báo cáo Excel/CSV thành công!')
-        setExportOpen(false)
-      } else {
-        const win = window.open('', '_blank')
-        if (!win) {
-          toast.error('Vui lòng cho phép mở Popup để in báo cáo PDF.')
-          return
-        }
-        const supRows = filteredSups
-          .map(
-            (s) => `
-          <tr>
-            <td>${s.company_name}</td>
-            <td>${s.tax_code}</td>
-            <td>${s.Categories?.name || '—'}</td>
-            <td><strong>${s.risk_score ?? 100}/100</strong></td>
-            <td>${(s.risk_score ?? 100) >= 80 ? 'An toàn' : (s.risk_score ?? 100) >= 50 ? 'Cảnh báo' : 'Nguy hiểm'}</td>
-          </tr>`
-          )
-          .join('')
-
-        const violRows = filteredViols
-          .map(
-            (v) => `
-          <tr>
-            <td>${v.Documents?.Suppliers?.company_name || '—'}</td>
-            <td>${v.Documents?.file_name || '—'}</td>
-            <td>${v.Standards?.standard_code || '—'}</td>
-            <td><strong>${v.risk_level}</strong></td>
-            <td>${v.status}</td>
-            <td>${v.violation_desc}</td>
-          </tr>`
-          )
-          .join('')
-
-        win.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8">
-          <title>Báo cáo Kiểm toán Hệ thống ANHQUY</title>
-          <style>
-            body{font-family:"Be Vietnam Pro",sans-serif;margin:36px;color:#27363F}
-            h1{font-size:20px;margin:0}h2{font-size:14px;margin:24px 0 8px;text-transform:uppercase;color:#6B212C}
-            table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:12px}
-            th{background:#27363F;color:#fff;padding:8px;text-align:left}
-            td{padding:8px;border-bottom:1px solid #DCE0E8}
-          </style></head><body>
-          <div style="border-bottom:2px solid #27363F;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between">
-            <div>
-              <h1>BÁO CÁO TỔNG HỢP KIỂM TOÁN CHUỖI CUNG ỨNG (ANHQUY)</h1>
-              <p style="font-size:12px;color:#685652;margin:4px 0 0">
-                Người xuất: ${user?.full_name || ''} (${role}) · Ngày xuất: ${new Date().toLocaleString('vi-VN')}
-                ${dateFrom || dateTo ? ` · Kỳ lọc: ${dateFrom || 'Đầu'} đến ${dateTo || 'Hiện tại'}` : ' · Phạm vi: Toàn bộ thời gian'}
-              </p>
-            </div>
-            <div style="font-weight:900;font-size:24px">ANHQUY</div>
-          </div>
-          ${
-            reportScope !== 'violations'
-              ? `<h2>1. Danh sách & Điểm tín nhiệm Nhà cung ứng (${filteredSups.length})</h2>
-                 <table><thead><tr><th>Tên Công ty</th><th>MST</th><th>Ngành nghề</th><th>Điểm</th><th>Mức độ</th></tr></thead><tbody>${supRows || '<tr><td colspan="5">Không có dữ liệu</td></tr>'}</tbody></table>`
-              : ''
-          }
-          ${
-            reportScope !== 'suppliers'
-              ? `<h2>2. Chi tiết Cảnh báo Vi phạm Hợp đồng (${filteredViols.length})</h2>
-                 <table><thead><tr><th>Đối tác</th><th>Hợp đồng</th><th>Mã Chuẩn</th><th>Rủi ro</th><th>Trạng thái</th><th>Nội dung</th></tr></thead><tbody>${violRows || '<tr><td colspan="6">Không có vi phạm nào</td></tr>'}</tbody></table>`
-              : ''
-          }
-        </body></html>`)
-        win.document.close()
-        win.onload = () => {
-          win.print()
-          win.close()
-        }
-        setExportOpen(false)
-      }
-    } finally {
-      setExporting(false)
-    }
-  }
+  const activeCalendarDays = useMemo(() => {
+    const set = new Set<number>()
+    recentDocs.forEach((d) => {
+      const dt = new Date(d.uploaded_at || d.created_at || '')
+      if (!isNaN(dt.getTime())) set.add(dt.getDate())
+    })
+    allViolations.forEach((v) => {
+      const dt = new Date(v.created_at)
+      if (!isNaN(dt.getTime())) set.add(dt.getDate())
+    })
+    return set
+  }, [recentDocs, allViolations])
 
   if (loading) {
     return (
@@ -493,440 +639,407 @@ export default function DashboardPage() {
     )
   }
 
-  const todayStr = new Date().toLocaleDateString('vi-VN', {
-    weekday: 'long',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
+  const complianceRate =
+    stats && stats.total_suppliers > 0
+      ? Math.round((stats.supplier_risk_distribution.Safe / stats.total_suppliers) * 100)
+      : 100
+  const auditCoverageRate =
+    stats && stats.total_documents > 0
+      ? Math.round((stats.analyzed_documents / stats.total_documents) * 100)
+      : 100
+  const resolutionRate =
+    stats && stats.total_violations > 0
+      ? Math.round(((stats.approved_violations + stats.rejected_violations) / stats.total_violations) * 100)
+      : 100
 
-  const roleBannerInfo =
-    role === 'Admin'
-      ? {
-          badge: 'TRUNG TÂM QUẢN TRỊ HỆ THỐNG (IAM & GOVERNANCE)',
-          subtitle: 'Giám sát toàn vẹn phân quyền RBAC, nhật ký bảo mật, cấu hình AI và bộ tiêu chuẩn gốc.',
-        }
-      : role === 'Manager'
-      ? {
-          badge: 'TRUNG TÂM THẨM ĐỊNH PHÁP CHẾ & QUẢN TRỊ RỦI RO (MANAGER)',
-          subtitle: 'Phê duyệt cảnh báo vi phạm do AI phát hiện, kiểm soát điểm tín nhiệm đối tác và kết xuất báo cáo.',
-        }
-      : {
-          badge: 'KHÔNG GIAN KIỂM TOÁN HỢP ĐỒNG AI (AUDITOR WORKSPACE)',
-          subtitle: 'Tải lên hợp đồng PDF, tùy chỉnh bộ tiêu chuẩn rà soát và kích hoạt AI RAG trích xuất bằng chứng.',
-        }
+  const totalStandardsCount = standardGroups.reduce((acc, g) => acc + g.count, 0)
 
   return (
     <MainLayout breadcrumb="Bảng điều khiển">
-      <div className="space-y-6">
-        {/* ─── 1. Executive Hero Banner (Sang trọng, phân biệt rõ từng Role) ── */}
-        <div className="bg-gradient-to-r from-Pine via-Pine to-Branch rounded-lg p-6 text-white shadow-md relative overflow-hidden">
-          <div
-            className="absolute -right-12 -bottom-16 w-72 h-72 rounded-lg opacity-20 pointer-events-none blur-2xl"
-            style={{ background: 'radial-gradient(circle, #BEB3AC 0%, transparent 70%)' }}
-          />
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div>
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                <span className="px-2.5 py-0.5 rounded bg-white/15 text-Frostysilver text-[11px] font-extrabold tracking-wider uppercase">
-                  {roleBannerInfo.badge}
-                </span>
-                <span className="text-xs text-Snowflake/70 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5" /> {todayStr}
-                </span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                Xin chào, {user?.full_name || 'Quản trị viên'}!
-              </h1>
-              <p className="text-xs sm:text-sm text-Snowflake/80 mt-1 max-w-2xl">
-                {roleBannerInfo.subtitle}
-              </p>
-            </div>
+      <div className="space-y-5">
+        {/* ─── Top Greeting Bar + Link sang Trang Xuất Báo Cáo (/reports) ──── */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-1">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-Pine tracking-tight">
+              Xin chào, {user?.full_name || 'Quản trị viên'}
+            </h1>
+            <p className="text-xs sm:text-sm text-Branch mt-0.5">
+              Hệ thống đang giám sát <strong className="text-Pine">{stats?.total_suppliers ?? 0} đối tác</strong> và{' '}
+              <strong className="text-Pine">{stats?.total_documents ?? 0} hợp đồng PDF</strong> theo thời gian thực.
+            </p>
+          </div>
 
-            {/* Quick Action Buttons theo đúng Role */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              {hasPermission('UPLOAD_DOC') && (
-                <Link
-                  to="/documents"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-Pine text-xs font-extrabold rounded-md hover:bg-Snowflake transition-all shadow-sm"
-                >
-                  <Upload className="w-4 h-4 text-Berry" />
-                  Tải lên & Quét AI Hợp đồng
-                </Link>
-              )}
-              {role === 'Admin' && (
-                <Link
-                  to="/admin/users"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-Pine text-xs font-extrabold rounded-md hover:bg-Snowflake transition-all shadow-sm"
-                >
-                  <Users className="w-4 h-4 text-Berry" />
-                  Quản lý Tài khoản ({adminSummary.totalUsers})
-                </Link>
-              )}
-              {hasPermission('EXPORT_REPORT') && (
-                <button
-                  type="button"
-                  onClick={() => setExportOpen(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-Berry text-white text-xs font-extrabold rounded-md hover:bg-Berry/90 transition-all shadow-sm border border-white/15"
-                >
-                  <Download className="w-4 h-4" />
-                  Trung tâm Xuất Báo cáo
-                </button>
-              )}
-            </div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {role === 'Admin' && (
+              <Link
+                to="/admin/users"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-Pine border border-Mist/40 text-xs font-extrabold rounded-2xl hover:bg-Snowflake transition-all shadow-sm"
+              >
+                <Users className="w-4 h-4 text-Berry" />
+                Tài khoản ({adminSummary.totalUsers})
+              </Link>
+            )}
+            {hasPermission('EXPORT_REPORT') && (
+              <Link
+                to="/reports"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-Berry text-white text-xs font-extrabold rounded-2xl hover:bg-Berry/90 transition-all shadow-[0_8px_20px_rgba(107,33,44,0.28)]"
+              >
+                <BarChart3 className="w-4 h-4" />
+                Xuất Báo Cáo Kiểm Toán
+              </Link>
+            )}
           </div>
         </div>
 
-        {/* ─── 2. Role-Adaptive KPI Cards (4 thẻ chính + Chỉ số theo Role) ─── */}
+        {/* ─── Hàng 1: 4 Thẻ KPI Bento chuẩn tông màu Winter (Không gắn nhãn thừa) ─ */}
         {role === 'Admin' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <KpiCardPro
-              title="Tổng Tài khoản Hệ thống"
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <BentoKpiCard
+              title="Tài khoản Hệ thống"
               value={adminSummary.totalUsers}
-              sub={`${adminSummary.activeUsers} đang hoạt động · ${adminSummary.lockedUsers} đã khóa`}
+              sub={`${adminSummary.activeUsers} hoạt động · ${adminSummary.lockedUsers} khóa`}
               icon={<Users className="w-5 h-5" />}
-              accentClass="bg-Pine"
+              chartType="bars"
+              tone="pine"
               to="/admin/users"
             />
-            <KpiCardPro
-              title="Đối tác Chuỗi cung ứng"
+            <BentoKpiCard
+              title="Đối tác Cung ứng"
               value={stats?.total_suppliers ?? 0}
-              sub={`${stats?.supplier_risk_distribution.Safe ?? 0} đối tác đạt ngưỡng An toàn`}
+              sub={`${stats?.supplier_risk_distribution.Safe ?? 0} đối tác đạt mức An toàn`}
               icon={<Building2 className="w-5 h-5" />}
-              accentClass="bg-Branch"
+              chartType="equalizer"
+              tone="mist"
               to="/suppliers"
             />
-            <KpiCardPro
-              title="Hợp đồng lưu trữ (SHA-256)"
+            <BentoKpiCard
+              title="Kho Hợp đồng PDF"
               value={stats?.total_documents ?? 0}
               sub={`${stats?.analyzed_documents ?? 0} hợp đồng đã quét AI`}
               icon={<FileText className="w-5 h-5" />}
-              accentClass="bg-emerald-600"
+              chartType="sparkline"
+              tone="branch"
               to="/documents"
             />
-            <KpiCardPro
-              title="Sự kiện Nhật ký Kiểm toán"
-              value={adminSummary.recentLogs.length > 0 ? `${adminSummary.recentLogs[0]?.action_type}` : 'An toàn'}
-              sub="Ghi vết tự động mọi thao tác nhạy cảm"
+            <BentoKpiCard
+              title="Nhật ký Bảo mật"
+              value={adminSummary.recentLogs.length}
+              sub="Ghi vết tự động mọi thao tác"
               icon={<ClipboardList className="w-5 h-5" />}
-              accentClass="bg-Berry"
+              chartType="ring"
+              tone="berry"
               to="/admin/audit-logs"
             />
           </div>
-        ) : role === 'Manager' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <KpiCardPro
-              title="Vi phạm Chờ Thẩm định"
-              value={stats?.pending_violations ?? 0}
-              sub="Cần Manager phê duyệt hoặc bác bỏ"
-              icon={<Activity className="w-5 h-5" />}
-              accentClass="bg-Berry"
-              to="/violations"
-            />
-            <KpiCardPro
-              title="Tổng Cảnh báo AI Phát hiện"
-              value={stats?.total_violations ?? 0}
-              sub={`${stats?.approved_violations ?? 0} đã duyệt · ${stats?.rejected_violations ?? 0} đã bác bỏ`}
-              icon={<AlertTriangle className="w-5 h-5" />}
-              accentClass="bg-amber-500"
-              to="/violations"
-            />
-            <KpiCardPro
-              title="Nhà cung ứng Đang giám sát"
-              value={stats?.total_suppliers ?? 0}
-              sub={`${stats?.supplier_risk_distribution.Danger ?? 0} đối tác vùng Nguy hiểm (<50đ)`}
-              icon={<Building2 className="w-5 h-5" />}
-              accentClass="bg-Pine"
-              to="/suppliers"
-            />
-            <KpiCardPro
-              title="Hợp đồng PDF Đã kiểm toán"
-              value={stats?.analyzed_documents ?? 0}
-              sub={`Trên tổng số ${stats?.total_documents ?? 0} hợp đồng tải lên`}
-              icon={<FileText className="w-5 h-5" />}
-              accentClass="bg-Branch"
-              to="/documents"
-            />
-          </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <KpiCardPro
-              title="Kho Hợp đồng PDF"
-              value={stats?.total_documents ?? 0}
-              sub={`${stats?.analyzed_documents ?? 0} đã quét AI · ${stats?.analyzing_documents ?? 0} đang xử lý`}
-              icon={<FileText className="w-5 h-5" />}
-              accentClass="bg-Pine"
-              to="/documents"
-            />
-            <KpiCardPro
-              title="Bộ Tiêu chuẩn Quét AI"
-              value={userStdSummary.totalActiveStandards - userStdSummary.excludedCount}
-              sub={`Đang bật (${userStdSummary.excludedCount} tiêu chuẩn đang tạm tắt)`}
-              icon={<SlidersHorizontal className="w-5 h-5" />}
-              accentClass="bg-emerald-600"
-              to="/standards"
-            />
-            <KpiCardPro
-              title="Cảnh báo AI Phát hiện"
-              value={stats?.total_violations ?? 0}
-              sub={`${stats?.pending_violations ?? 0} cảnh báo đang chờ Manager duyệt`}
-              icon={<Sparkles className="w-5 h-5" />}
-              accentClass="bg-Berry"
-              to="/violations"
-            />
-            <KpiCardPro
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <BentoKpiCard
               title="Đối tác Cung ứng"
               value={stats?.total_suppliers ?? 0}
-              sub="Hồ sơ nhà cung cấp đang hoạt động"
+              sub={`${stats?.supplier_risk_distribution.Safe ?? 0} đối tác vùng An toàn`}
               icon={<Building2 className="w-5 h-5" />}
-              accentClass="bg-Branch"
+              chartType="bars"
+              tone="pine"
               to="/suppliers"
+            />
+            <BentoKpiCard
+              title="Hợp đồng Đã tải"
+              value={stats?.total_documents ?? 0}
+              sub={`${stats?.analyzed_documents ?? 0} đã phân tích bằng AI`}
+              icon={<FileText className="w-5 h-5" />}
+              chartType="equalizer"
+              tone="mist"
+              to="/documents"
+            />
+            <BentoKpiCard
+              title="Cảnh báo Phát hiện"
+              value={stats?.total_violations ?? 0}
+              sub={`${stats?.violation_risk_distribution.High ?? 0} lỗi mức độ Cao`}
+              icon={<AlertTriangle className="w-5 h-5" />}
+              chartType="sparkline"
+              tone="berry"
+              to="/violations"
+            />
+            <BentoKpiCard
+              title={role === 'Manager' ? 'Vi phạm Chờ duyệt' : 'Tiêu chuẩn Quét AI'}
+              value={
+                role === 'Manager'
+                  ? stats?.pending_violations ?? 0
+                  : userStdSummary.totalActiveStandards - userStdSummary.excludedCount
+              }
+              sub={
+                role === 'Manager'
+                  ? 'Cần phê duyệt hoặc bác bỏ'
+                  : `Đang bật (${userStdSummary.excludedCount} tạm tắt)`
+              }
+              icon={role === 'Manager' ? <Activity className="w-5 h-5" /> : <SlidersHorizontal className="w-5 h-5" />}
+              chartType="ring"
+              tone="branch"
+              to={role === 'Manager' ? '/violations' : '/standards'}
             />
           </div>
         )}
 
-        {/* ─── 3. Visual Donut Charts (Trực quan sinh động ngay cả khi = 0) ─── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Donut 1: Phân bổ Rủi ro Đối tác */}
-          <div className="bg-white rounded-lg border border-Mist/25 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-Mist/15">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-Pine" />
-                <h3 className="font-bold text-Pine text-sm">
-                  Cơ cấu Tín nhiệm & Rủi ro Nhà cung ứng
+        {/* ─── Hàng 2: Bento Grid 3 Cột (4 Nhóm Tiêu chuẩn + Sóng Xu hướng + 3 Vòng tròn) ─── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Khối 1 (4 cột): Phân bổ 4 Nhóm Tiêu chuẩn RBA & Pháp luật VN */}
+          <div className="lg:col-span-4 bg-white rounded-3xl border border-white p-5 shadow-[0_10px_28px_rgba(39,54,63,0.06)] flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-extrabold text-Pine flex items-center gap-1.5">
+                  <ListChecks className="w-4 h-4 text-Berry" />
+                  Phân bổ Bộ Tiêu chuẩn RBA & VN
                 </h3>
+                <p className="text-[11px] text-Mist font-semibold mt-0.5">
+                  Cơ cấu {totalStandardsCount} tiêu chuẩn theo 4 nhóm pháp lý
+                </p>
               </div>
-              <Link to="/suppliers" className="text-xs font-semibold text-Pine hover:underline">
-                Chi tiết →
+              <Link
+                to="/standards"
+                className="px-2.5 py-1 rounded-xl bg-Snowflake text-[11px] font-extrabold text-Pine hover:bg-Mist/30 transition-colors"
+              >
+                {totalStandardsCount} Chuẩn →
               </Link>
             </div>
-            <DonutChart
-              centerTitle={stats?.total_suppliers ?? 0}
-              centerSub="Đối tác"
-              segments={[
-                {
-                  label: 'An toàn (80–100đ)',
-                  value: stats?.supplier_risk_distribution.Safe ?? 0,
-                  color: '#10B981',
-                  badgeClass: 'bg-emerald-50 text-emerald-700',
-                },
-                {
-                  label: 'Cảnh báo (50–79đ)',
-                  value: stats?.supplier_risk_distribution.Warning ?? 0,
-                  color: '#F59E0B',
-                  badgeClass: 'bg-amber-50 text-amber-700',
-                },
-                {
-                  label: 'Nguy hiểm (<50đ)',
-                  value: stats?.supplier_risk_distribution.Danger ?? 0,
-                  color: '#6B212C',
-                  badgeClass: 'bg-Berry/10 text-Berry',
-                },
-              ]}
-            />
+
+            <StandardGroupsChart groups={standardGroups} />
+
+            <div className="pt-2.5 border-t border-Mist/15 flex items-center justify-between text-[11px] text-Branch font-medium">
+              <span>Chuẩn RBA 8.0 & Bộ luật Lao động VN</span>
+              <span className="font-extrabold text-Berry">Đang kích hoạt</span>
+            </div>
           </div>
 
-          {/* Donut 2: Phân bổ Mức độ Cảnh báo Vi phạm */}
-          <div className="bg-white rounded-lg border border-Mist/25 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-Mist/15">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-Berry" />
-                <h3 className="font-bold text-Pine text-sm">
-                  Phân tích Mức độ Vi phạm Hợp đồng (AI RAG)
-                </h3>
+          {/* Khối 2 (5 cột): Smooth Area Wave Chart */}
+          <div className="lg:col-span-5 bg-white rounded-3xl border border-white p-5 shadow-[0_10px_28px_rgba(39,54,63,0.06)] flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-extrabold text-Pine">Xu hướng Kiểm toán & Phát hiện Rủi ro</h3>
+                <p className="text-[11px] text-Mist font-semibold mt-0.5">
+                  Biểu đồ đối sánh Hợp đồng tải lên và Cảnh báo AI
+                </p>
               </div>
-              <Link to="/violations" className="text-xs font-semibold text-Pine hover:underline">
-                Thẩm định →
+              <div className="flex items-center gap-3 text-[11px] font-bold">
+                <span className="flex items-center gap-1 text-Pine">
+                  <span className="w-2.5 h-2.5 rounded-full bg-Pine" /> Hợp đồng
+                </span>
+                <span className="flex items-center gap-1 text-Berry">
+                  <span className="w-2.5 h-2.5 rounded-full bg-Berry" /> Cảnh báo
+                </span>
+              </div>
+            </div>
+
+            <SmoothAreaWaveChart
+              docsCount={stats?.total_documents ?? 0}
+              violsCount={stats?.total_violations ?? 0}
+            />
+
+            <div className="pt-2.5 border-t border-Mist/15 flex items-center justify-between text-[11px] text-Branch font-medium">
+              <span>Phân tích ngữ nghĩa hợp đồng PDF tự động</span>
+              <Link to="/documents" className="font-extrabold text-Pine hover:underline">
+                Mở Kho PDF →
               </Link>
             </div>
-            <DonutChart
-              centerTitle={stats?.total_violations === 0 ? '100%' : stats?.total_violations ?? 0}
-              centerSub={stats?.total_violations === 0 ? 'Tuân thủ' : 'Cảnh báo'}
-              segments={[
-                {
-                  label: 'Rủi ro Cao (-10đ)',
-                  value: stats?.violation_risk_distribution.High ?? 0,
-                  color: '#6B212C',
-                  badgeClass: 'bg-Berry/10 text-Berry',
-                },
-                {
-                  label: 'Trung bình (-5đ)',
-                  value: stats?.violation_risk_distribution.Medium ?? 0,
-                  color: '#F59E0B',
-                  badgeClass: 'bg-amber-50 text-amber-700',
-                },
-                {
-                  label: 'Rủi ro Thấp (-2đ)',
-                  value: stats?.violation_risk_distribution.Low ?? 0,
-                  color: '#27363F',
-                  badgeClass: 'bg-Snowflake text-Pine',
-                },
-              ]}
-            />
+          </div>
+
+          {/* Khối 3 (3 cột): 3 Vòng tròn Sức khỏe Hệ thống (Phối màu Berry + Mist + Frostysilver) */}
+          <div className="lg:col-span-3 bg-gradient-to-b from-Pine via-[#2E404B] to-Pine rounded-3xl p-4 text-white shadow-[0_15px_35px_rgba(39,54,63,0.22)] flex flex-col justify-between gap-2.5">
+            <div className="px-1 flex items-center justify-between">
+              <span className="text-xs font-extrabold tracking-wide text-Snowflake">Chỉ số Sức khỏe Hệ thống</span>
+              <Layers className="w-4 h-4 text-Frostysilver" />
+            </div>
+
+            {[
+              { label: 'Tỷ lệ Đối tác An toàn', pct: complianceRate, stroke: '#DCE0E8' },
+              { label: 'Độ phủ Quét AI PDF', pct: auditCoverageRate, stroke: '#8EA1AE' },
+              { label: 'Tỷ lệ Xử lý Cảnh báo', pct: resolutionRate, stroke: '#BEB3AC' },
+            ].map((ring) => {
+              const r = 20
+              const c = 2 * Math.PI * r
+              const dash = `${(ring.pct / 100) * c} ${c}`
+              return (
+                <div
+                  key={ring.label}
+                  className="bg-white/[0.08] backdrop-blur-md border border-white/10 rounded-2xl px-3.5 py-2.5 flex items-center justify-between"
+                >
+                  <div>
+                    <p className="text-[11px] font-bold text-Snowflake/80">{ring.label}</p>
+                    <p className="text-lg font-extrabold text-white mt-0.5">{ring.pct}%</p>
+                  </div>
+                  <div className="relative w-12 h-12 flex items-center justify-center">
+                    <svg className="w-full h-full -rotate-90" viewBox="0 0 48 48">
+                      <circle cx="24" cy="24" r={r} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="4.5" />
+                      <circle
+                        cx="24"
+                        cy="24"
+                        r={r}
+                        fill="none"
+                        stroke={ring.stroke}
+                        strokeWidth="4.5"
+                        strokeDasharray={dash}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <span className="text-[10px] font-extrabold text-Snowflake">{ring.pct}%</span>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
 
-        {/* ─── 4. Khu vực Chuyên biệt theo từng Role (Admin vs Manager/User) ── */}
-        {role === 'Admin' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {/* Admin Box 1: Nhật ký Kiểm toán Bảo mật Mới nhất */}
-            <div className="bg-white rounded-lg border border-Mist/25 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-Mist/15 flex items-center justify-between bg-Snowflake/30">
-                <div className="flex items-center gap-2">
-                  <ClipboardList className="w-4 h-4 text-Pine" />
-                  <h3 className="font-bold text-Pine text-sm">Nhật ký Kiểm toán Hệ thống Mới nhất</h3>
-                </div>
-                <Link to="/admin/audit-logs" className="text-xs font-semibold text-Pine hover:underline">
-                  Xem toàn bộ →
-                </Link>
+        {/* ─── Hàng 3: Đồng hồ Điểm Tín nhiệm + Xếp hạng Đối tác + Lịch Kiểm toán ─── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Cột 1: Đồng hồ Điểm Tín nhiệm */}
+          <div className="lg:col-span-4 bg-white rounded-3xl border border-white p-5 shadow-[0_10px_28px_rgba(39,54,63,0.06)] flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-extrabold text-Pine">Đồng hồ Điểm Tín nhiệm</h3>
+                <p className="text-[11px] text-Mist font-semibold mt-0.5">Trung bình cộng toàn chuỗi cung ứng</p>
               </div>
-              <div className="divide-y divide-Mist/15">
-                {adminSummary.recentLogs.length === 0 ? (
-                  <p className="text-xs text-Mist text-center py-10">Chưa có bản ghi nhật ký nào</p>
-                ) : (
-                  adminSummary.recentLogs.map((log) => (
-                    <div key={log.id} className="px-5 py-3 flex items-center justify-between hover:bg-Snowflake/40 transition-colors">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded bg-Pine/10 text-Pine font-mono text-[11px] font-bold">
-                            {log.action_type}
-                          </span>
-                          <span className="text-xs font-semibold text-Branch">
-                            bảng <code className="font-mono text-Pine">{log.target_table}</code>
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-Mist mt-0.5">
-                          Thực hiện bởi: <strong className="text-Branch">{log.Users?.full_name || 'Hệ thống'}</strong>
-                        </p>
-                      </div>
-                      <span className="text-[11px] text-Mist whitespace-nowrap">
-                        {new Date(log.created_at).toLocaleTimeString('vi-VN')}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
+              <StatusBadge status={avgSupplierScore >= 80 ? 'Safe' : avgSupplierScore >= 50 ? 'Warning' : 'Danger'} />
             </div>
 
-            {/* Admin Box 2: Lối tắt Quản trị & Ma trận RBAC */}
-            <div className="bg-white rounded-lg border border-Mist/25 shadow-sm p-5 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <ShieldCheck className="w-4 h-4 text-Berry" />
-                  <h3 className="font-bold text-Pine text-sm">Trạng thái Quản trị & Phân quyền RBAC</h3>
-                </div>
-                <p className="text-xs text-Branch leading-relaxed mb-4">
-                  Hệ thống vận hành với 3 Vai trò (<strong className="text-Pine">Admin, Manager, User</strong>) và{' '}
-                  <strong className="text-Pine">19 Mã quyền hạn</strong> kiểm soát thời gian thực tới từng API.
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Link
-                    to="/admin/roles"
-                    className="p-3.5 rounded-lg border border-Mist/30 hover:border-Pine bg-Snowflake/30 hover:bg-Snowflake/70 transition-all"
-                  >
-                    <p className="text-xs font-bold text-Pine">Ma trận Phân quyền RBAC</p>
-                    <p className="text-[11px] text-Mist mt-1">Cấp / thu hồi quyền áp dụng tức thì</p>
-                  </Link>
-                  <Link
-                    to="/admin/system-configs"
-                    className="p-3.5 rounded-lg border border-Mist/30 hover:border-Pine bg-Snowflake/30 hover:bg-Snowflake/70 transition-all"
-                  >
-                    <p className="text-xs font-bold text-Pine">Cấu hình Tham số & Điểm trừ</p>
-                    <p className="text-[11px] text-Mist mt-1">Điều chỉnh AI, Brute-force & Ngưỡng rủi ro</p>
-                  </Link>
-                  <Link
-                    to="/standards"
-                    className="p-3.5 rounded-lg border border-Mist/30 hover:border-Pine bg-Snowflake/30 hover:bg-Snowflake/70 transition-all"
-                  >
-                    <p className="text-xs font-bold text-Pine">24 Tiêu chuẩn RBA & VN Gốc</p>
-                    <p className="text-[11px] text-Mist mt-1">Quản lý bộ quy chuẩn pháp lý nền tảng</p>
-                  </Link>
-                  <Link
-                    to="/categories"
-                    className="p-3.5 rounded-lg border border-Mist/30 hover:border-Pine bg-Snowflake/30 hover:bg-Snowflake/70 transition-all"
-                  >
-                    <p className="text-xs font-bold text-Pine">Danh mục Ngành & Hợp đồng</p>
-                    <p className="text-[11px] text-Mist mt-1">Tự động ánh xạ Category_Standards</p>
-                  </Link>
-                </div>
+            <SegmentedSpeedometer
+              avgScore={avgSupplierScore}
+              totalSuppliers={stats?.total_suppliers ?? 0}
+            />
+
+            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-Mist/15 text-center text-[11px]">
+              <div className="bg-Snowflake/70 rounded-xl py-1.5">
+                <span className="font-extrabold text-Pine block">{stats?.supplier_risk_distribution.Safe ?? 0}</span>
+                <span className="text-Branch text-[10px]">An toàn</span>
               </div>
-              <div className="mt-4 pt-3 border-t border-Mist/15 flex items-center justify-between text-xs text-Mist">
-                <span className="flex items-center gap-1.5 text-emerald-700 font-semibold">
-                  <CheckCircle2 className="w-4 h-4" /> Cơ sở dữ liệu 15 bảng chuẩn 3NF
-                </span>
-                <span className="font-mono">SQL Server + ChromaDB</span>
+              <div className="bg-Frostysilver/35 rounded-xl py-1.5">
+                <span className="font-extrabold text-Branch block">{stats?.supplier_risk_distribution.Warning ?? 0}</span>
+                <span className="text-Branch text-[10px]">Cảnh báo</span>
+              </div>
+              <div className="bg-Berry/10 rounded-xl py-1.5">
+                <span className="font-extrabold text-Berry block">{stats?.supplier_risk_distribution.Danger ?? 0}</span>
+                <span className="text-Berry text-[10px]">Nguy hiểm</span>
               </div>
             </div>
           </div>
-        ) : null}
 
-        {/* ─── 5. Bảng Xếp hạng Tín nhiệm Đối tác & Hợp đồng / Vi phạm Mới ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Cột 1: Bảng theo dõi điểm tín nhiệm Nhà cung ứng */}
-          <div className="bg-white rounded-lg border border-Mist/25 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-Mist/15 flex items-center justify-between bg-Snowflake/30">
-              <h3 className="font-bold text-Pine text-sm">Bảng Tín nhiệm Nhà cung ứng</h3>
-              <Link to="/suppliers" className="text-xs font-semibold text-Pine hover:underline">
+          {/* Cột 2: Xếp hạng Điểm Nhà cung ứng */}
+          <div className="lg:col-span-4 bg-white rounded-3xl border border-white p-5 shadow-[0_10px_28px_rgba(39,54,63,0.06)] flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-sm font-extrabold text-Pine">Xếp hạng Điểm Nhà cung ứng</h3>
+                <p className="text-[11px] text-Mist font-semibold mt-0.5">Theo dõi điểm tuân thủ RBA từng đơn vị</p>
+              </div>
+              <Link to="/suppliers" className="text-xs font-extrabold text-Pine hover:underline">
                 Tất cả →
               </Link>
             </div>
-            <div className="divide-y divide-Mist/15">
+
+            <div className="space-y-3 my-auto">
               {suppliersList.length === 0 ? (
-                <p className="text-xs text-Mist text-center py-10">Chưa có nhà cung ứng nào</p>
+                <p className="text-xs text-Mist text-center py-8">Chưa có nhà cung ứng</p>
               ) : (
-                suppliersList.slice(0, 5).map((sup) => (
-                  <div key={sup.id} className="px-5 py-3 hover:bg-Snowflake/40 transition-colors">
+                suppliersList.slice(0, 4).map((sup) => (
+                  <div key={sup.id} className="p-2.5 rounded-2xl bg-Snowflake/40 hover:bg-Snowflake/80 transition-colors">
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-bold text-Pine truncate pr-2">{sup.company_name}</span>
-                      <span className="text-[11px] font-mono text-Mist">{sup.tax_code}</span>
+                      <span className="text-xs font-extrabold text-Pine truncate pr-2">{sup.company_name}</span>
+                      <span className="text-[10px] font-mono text-Branch">{sup.tax_code}</span>
                     </div>
                     <RiskScoreBar score={sup.risk_score} />
                   </div>
                 ))
               )}
             </div>
+
+            <div className="pt-3 mt-2 border-t border-Mist/15 flex items-center justify-between text-[11px] text-Branch font-medium">
+              <span>Khởi tạo mặc định: 100 điểm</span>
+              <span className="font-bold text-Berry">Trừ điểm khi Manager duyệt</span>
+            </div>
           </div>
 
-          {/* Cột 2: Hợp đồng mới tải lên */}
-          <div className="bg-white rounded-lg border border-Mist/25 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-Mist/15 flex items-center justify-between bg-Snowflake/30">
-              <h3 className="font-bold text-Pine text-sm">Hợp đồng PDF Gần đây</h3>
-              <Link to="/documents" className="text-xs font-semibold text-Pine hover:underline">
+          {/* Cột 3: Lịch Kiểm toán */}
+          <div className="lg:col-span-4 bg-white rounded-3xl border border-white p-5 shadow-[0_10px_28px_rgba(39,54,63,0.06)] flex flex-col justify-between">
+            <MiniAuditCalendar activeDays={activeCalendarDays} />
+
+            <div className="mt-3 pt-3 border-t border-Mist/15 space-y-2">
+              <p className="text-[11px] font-extrabold uppercase tracking-wider text-Pine flex items-center gap-1.5">
+                <CalendarIcon className="w-3.5 h-3.5 text-Berry" />
+                Hoạt động mới nhất
+              </p>
+              {recentDocs.length === 0 ? (
+                <div className="flex items-center justify-between bg-Snowflake/40 px-3 py-2 rounded-xl text-xs">
+                  <span className="text-Branch font-medium">Sẵn sàng nhận hợp đồng PDF mới</span>
+                  <Link to="/documents" className="text-Pine font-extrabold hover:underline">
+                    + Tải lên
+                  </Link>
+                </div>
+              ) : (
+                recentDocs.slice(0, 2).map((doc) => (
+                  <Link
+                    key={doc.id}
+                    to={`/audit/${doc.id}`}
+                    className="flex items-center justify-between bg-Snowflake/40 hover:bg-Snowflake/80 px-3 py-2 rounded-xl transition-colors"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <p className="text-xs font-extrabold text-Pine truncate">{doc.file_name}</p>
+                      <p className="text-[10px] text-Mist truncate">{doc.Suppliers?.company_name}</p>
+                    </div>
+                    <StatusBadge status={doc.status} />
+                  </Link>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ─── Hàng 4: Hợp đồng PDF gần đây & Cảnh báo / Nhật ký ────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* Bảng trái: Hợp đồng PDF gần đây */}
+          <div className="bg-white rounded-3xl border border-white p-5 shadow-[0_10px_28px_rgba(39,54,63,0.06)]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-extrabold text-Pine">Hợp đồng PDF Đang theo dõi</h3>
+              <Link to="/documents" className="text-xs font-extrabold text-Pine hover:underline">
                 Kho hợp đồng →
               </Link>
             </div>
-            <div className="divide-y divide-Mist/15">
+            <div className="space-y-2.5">
               {recentDocs.length === 0 ? (
-                <div className="text-center py-10 px-4">
-                  <FileText className="w-8 h-8 text-Mist/50 mx-auto mb-2" />
-                  <p className="text-xs text-Branch font-medium">Chưa có hợp đồng PDF nào được tải lên</p>
+                <div className="text-center py-8 bg-Snowflake/30 rounded-2xl">
+                  <FileText className="w-8 h-8 text-Mist mx-auto mb-2" />
+                  <p className="text-xs font-bold text-Pine">Chưa có hợp đồng PDF nào</p>
                   {hasPermission('UPLOAD_DOC') && (
                     <Link
                       to="/documents"
-                      className="inline-block mt-2 px-3 py-1.5 bg-Pine text-white text-xs font-semibold rounded-md hover:bg-Pine/90"
+                      className="inline-flex items-center gap-1.5 mt-2 px-3.5 py-1.5 bg-Pine text-white text-xs font-bold rounded-xl"
                     >
-                      + Tải hợp đồng đầu tiên
+                      <Upload className="w-3.5 h-3.5" /> Tải lên ngay
                     </Link>
                   )}
                 </div>
               ) : (
-                recentDocs.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between px-5 py-3 hover:bg-Snowflake/40 transition-colors gap-2">
-                    <div className="flex-1 min-w-0">
-                      <Link
-                        to={`/audit/${doc.id}`}
-                        className="text-xs font-bold text-Pine hover:underline truncate block"
-                      >
-                        {doc.file_name}
-                      </Link>
-                      <p className="text-[11px] text-Mist truncate">{doc.Suppliers?.company_name}</p>
+                recentDocs.slice(0, 4).map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-center justify-between p-3 rounded-2xl bg-Snowflake/35 hover:bg-Snowflake/70 transition-colors gap-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-Pine text-white flex items-center justify-center flex-shrink-0">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <Link
+                          to={`/audit/${doc.id}`}
+                          className="text-xs font-extrabold text-Pine hover:underline truncate block"
+                        >
+                          {doc.file_name}
+                        </Link>
+                        <p className="text-[11px] text-Mist truncate">{doc.Suppliers?.company_name}</p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2">
                       <StatusBadge status={doc.status} />
                       <Link
                         to={`/audit/${doc.id}`}
+                        className="p-1.5 rounded-xl bg-white text-Pine hover:bg-Pine hover:text-white transition-colors shadow-sm"
                         title="Mở Phòng Kiểm toán Split-view"
-                        className="p-1 text-Mist hover:text-Pine rounded transition-colors"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                       </Link>
@@ -937,171 +1050,79 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Cột 3: Cảnh báo Vi phạm gần đây */}
-          <div className="bg-white rounded-lg border border-Mist/25 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-Mist/15 flex items-center justify-between bg-Snowflake/30">
-              <h3 className="font-bold text-Pine text-sm">Cảnh báo Vi phạm Mới nhất</h3>
-              <Link to="/violations" className="text-xs font-semibold text-Pine hover:underline">
-                Thẩm định →
-              </Link>
-            </div>
-            <div className="divide-y divide-Mist/15">
-              {recentViolations.length === 0 ? (
-                <div className="text-center py-10 px-4">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-500/70 mx-auto mb-2" />
-                  <p className="text-xs font-semibold text-Pine">Hệ thống hiện không có cảnh báo tồn đọng</p>
-                  <p className="text-[11px] text-Mist mt-0.5">Các đối tác đang duy trì mức tuân thủ tốt</p>
-                </div>
-              ) : (
-                recentViolations.map((v) => (
-                  <div key={v.id} className="flex items-center justify-between px-5 py-3 hover:bg-Snowflake/40 transition-colors gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-Pine truncate">{v.violation_desc}</p>
-                      <p className="text-[11px] text-Mist truncate">
-                        {v.Documents?.Suppliers?.company_name || v.Documents?.file_name}
-                      </p>
-                    </div>
-                    <StatusBadge status={v.risk_level} />
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── Modal Trung tâm Kết xuất Báo cáo Đa năng (Query & Full Export) ── */}
-      <Modal
-        isOpen={exportOpen}
-        title="Trung tâm Kết xuất Báo cáo Kiểm toán (Report Studio)"
-        onClose={() => setExportOpen(false)}
-        size="md"
-      >
-        <div className="space-y-4">
-          <p className="text-xs text-Branch leading-relaxed">
-            Tùy chọn xuất <strong>Toàn bộ dữ liệu</strong> hoặc lọc chi tiết theo <strong>Khoảng thời gian, Mức độ rủi ro và Trạng thái thẩm định</strong>.
-          </p>
-
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-Pine mb-1.5">
-              1. Phạm vi nội dung báo cáo
-            </label>
-            <select
-              value={reportScope}
-              onChange={(e) => setReportScope(e.target.value as typeof reportScope)}
-              className="w-full px-3 py-2.5 border border-Mist/40 rounded-md text-sm bg-white text-Pine font-medium focus:outline-none focus:border-Pine"
-            >
-              <option value="all">Báo cáo Toàn diện (Điểm tín nhiệm Đối tác + Chi tiết Vi phạm)</option>
-              <option value="suppliers">Chỉ xuất Bảng Xếp hạng Rủi ro Nhà cung ứng</option>
-              <option value="violations">Chỉ xuất Danh sách Cảnh báo Vi phạm Hợp đồng</option>
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-Pine mb-1.5">
-                Từ ngày (Tùy chọn)
-              </label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full px-3 py-2 border border-Mist/40 rounded-md text-sm bg-white text-Branch"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-Pine mb-1.5">
-                Đến ngày (Tùy chọn)
-              </label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="w-full px-3 py-2 border border-Mist/40 rounded-md text-sm bg-white text-Branch"
-              />
-            </div>
-          </div>
-
-          {reportScope !== 'suppliers' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-Pine mb-1.5">
-                  Lọc Mức độ rủi ro
-                </label>
-                <select
-                  value={reportRiskFilter}
-                  onChange={(e) => setReportRiskFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-Mist/40 rounded-md text-sm bg-white text-Branch"
-                >
-                  <option value="">Tất cả mức độ (High, Medium, Low)</option>
-                  <option value="High">Chỉ mức Cao (High)</option>
-                  <option value="Medium">Chỉ mức Trung bình (Medium)</option>
-                  <option value="Low">Chỉ mức Thấp (Low)</option>
-                </select>
+          {/* Bảng phải: Nhật ký Admin hoặc Cảnh báo Vi phạm */}
+          {role === 'Admin' ? (
+            <div className="bg-white rounded-3xl border border-white p-5 shadow-[0_10px_28px_rgba(39,54,63,0.06)]">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-extrabold text-Pine">Nhật ký Kiểm toán Bảo mật Gần đây</h3>
+                <Link to="/admin/audit-logs" className="text-xs font-extrabold text-Pine hover:underline">
+                  Xem toàn bộ →
+                </Link>
               </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-Pine mb-1.5">
-                  Lọc Trạng thái duyệt
-                </label>
-                <select
-                  value={reportStatusFilter}
-                  onChange={(e) => setReportStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-Mist/40 rounded-md text-sm bg-white text-Branch"
-                >
-                  <option value="">Tất cả trạng thái</option>
-                  <option value="Approved">Đã phê duyệt (Approved)</option>
-                  <option value="Pending">Chờ thẩm định (Pending)</option>
-                  <option value="Rejected">Đã bác bỏ (Rejected)</option>
-                </select>
+              <div className="space-y-2.5">
+                {adminSummary.recentLogs.length === 0 ? (
+                  <p className="text-xs text-Mist text-center py-8">Chưa có bản ghi nhật ký</p>
+                ) : (
+                  adminSummary.recentLogs.slice(0, 4).map((log) => (
+                    <div
+                      key={log.id}
+                      className="flex items-center justify-between p-3 rounded-2xl bg-Snowflake/35 hover:bg-Snowflake/70 transition-colors"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-lg bg-Pine text-white font-mono text-[10px] font-bold">
+                            {log.action_type}
+                          </span>
+                          <span className="text-xs font-bold text-Pine">{log.target_table}</span>
+                        </div>
+                        <p className="text-[11px] text-Mist mt-0.5">
+                          Thực hiện bởi: <strong className="text-Branch">{log.Users?.full_name || 'Hệ thống'}</strong>
+                        </p>
+                      </div>
+                      <span className="text-[11px] font-semibold text-Mist">
+                        {new Date(log.created_at).toLocaleTimeString('vi-VN')}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-3xl border border-white p-5 shadow-[0_10px_28px_rgba(39,54,63,0.06)]">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-extrabold text-Pine">Cảnh báo Vi phạm Cần chú ý</h3>
+                <Link to="/violations" className="text-xs font-extrabold text-Pine hover:underline">
+                  Trung tâm thẩm định →
+                </Link>
+              </div>
+              <div className="space-y-2.5">
+                {allViolations.length === 0 ? (
+                  <div className="text-center py-8 bg-Snowflake/30 rounded-2xl">
+                    <CheckCircle2 className="w-8 h-8 text-Pine mx-auto mb-2" />
+                    <p className="text-xs font-bold text-Pine">Không có cảnh báo vi phạm tồn đọng</p>
+                    <p className="text-[11px] text-Mist mt-0.5">Chuỗi cung ứng đang tuân thủ tốt tiêu chuẩn RBA</p>
+                  </div>
+                ) : (
+                  allViolations.slice(0, 4).map((v) => (
+                    <div
+                      key={v.id}
+                      className="flex items-center justify-between p-3 rounded-2xl bg-Snowflake/35 hover:bg-Snowflake/70 transition-colors gap-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-extrabold text-Pine truncate">{v.violation_desc}</p>
+                        <p className="text-[11px] text-Mist truncate">
+                          {v.Documents?.Suppliers?.company_name || v.Documents?.file_name}
+                        </p>
+                      </div>
+                      <StatusBadge status={v.risk_level} />
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
-
-          <div className="bg-Snowflake/60 rounded-md p-3 border border-Mist/20 flex items-center justify-between text-xs text-Branch">
-            <span className="flex items-center gap-1.5">
-              <Filter className="w-3.5 h-3.5 text-Pine" />
-              {dateFrom || dateTo || reportRiskFilter || reportStatusFilter
-                ? 'Đang áp dụng bộ lọc truy vấn tùy chỉnh'
-                : 'Đang chọn xuất 100% dữ liệu toàn hệ thống'}
-            </span>
-            {(dateFrom || dateTo || reportRiskFilter || reportStatusFilter) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setDateFrom('')
-                  setDateTo('')
-                  setReportRiskFilter('')
-                  setReportStatusFilter('')
-                }}
-                className="text-Berry font-bold hover:underline"
-              >
-                Xóa bộ lọc
-              </button>
-            )}
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
-            <button
-              type="button"
-              disabled={exporting}
-              onClick={() => handleRunExport('csv')}
-              className="flex-1 py-2.5 bg-Pine text-white text-xs font-bold rounded-md hover:bg-Pine/90 transition-all flex items-center justify-center gap-2 shadow-sm"
-            >
-              <Download className="w-4 h-4" />
-              Xuất File Excel / CSV (UTF-8)
-            </button>
-            <button
-              type="button"
-              disabled={exporting}
-              onClick={() => handleRunExport('print')}
-              className="flex-1 py-2.5 bg-Berry text-white text-xs font-bold rounded-md hover:bg-Berry/90 transition-all flex items-center justify-center gap-2 shadow-sm"
-            >
-              <Printer className="w-4 h-4" />
-              In / Xuất Báo cáo PDF
-            </button>
-          </div>
         </div>
-      </Modal>
+      </div>
     </MainLayout>
   )
 }
