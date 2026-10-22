@@ -352,29 +352,34 @@ export default function AdminAuditLogsPage() {
       second: '2-digit',
     })
 
-  const handleExportLogsCSV = () => {
-    const BOM = '\uFEFF'
-    const header = ['ID', 'Ngày', 'Giờ', 'Người thực hiện', 'Email', 'Hành động', 'Bảng dữ liệu', 'ID Mục tiêu']
-    const rows = filteredLogs.map((l) => [
-      l.id,
-      toLocalDateKey(l.created_at),
-      formatTimeOnly(l.created_at),
-      `"${(l.Users?.full_name || 'Hệ thống').replace(/"/g, '""')}"`,
-      l.Users?.email || '',
-      ACTION_LABELS[l.action_type] || l.action_type,
-      l.target_table,
-      l.target_id ?? '',
-    ])
-    const csv = BOM + [header.join(','), ...rows.map((r) => r.join(','))].join('\r\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `Nhat-ky-bao-mat-ANHQUY-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast.success('Đã xuất Nhật ký Kiểm toán ra file CSV.')
-  }
+    const handleExportLogsCSV = () => {
+      const rowsHtml = filteredLogs
+        .map(
+          (l, idx) => `
+        <tr>
+          <td style="text-align:center;font-weight:bold">${idx + 1}</td>
+          <td style="text-align:center">${toLocalDateKey(l.created_at)}</td>
+          <td style="text-align:center">${formatTimeOnly(l.created_at)}</td>
+          <td style="font-weight:bold">${l.Users?.full_name || 'Hệ thống'}</td>
+          <td>${l.Users?.email || '—'}</td>
+          <td style="font-weight:bold;color:#791127">${ACTION_LABELS[l.action_type] || l.action_type}</td>
+          <td>${l.target_table}</td>
+          <td style="text-align:center">${l.target_id ?? '—'}</td>
+        </tr>`
+        )
+        .join('')
+  
+      const excelHtml = `\uFEFF<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"/><style>table{border-collapse:collapse}th{background:#0B132B;color:#fff;padding:8px;border:1px solid #334155}td{padding:7px;border:1px solid #CBD5E1}</style></head><body><table><thead><tr><th>STT</th><th>Ngày</th><th>Giờ</th><th>Người thực hiện</th><th>Email</th><th>Thao tác</th><th>Bảng dữ liệu</th><th>ID Mục tiêu</th></tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`
+  
+      const blob = new Blob([excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Nhat-ky-bao-mat-ANHQUY-${new Date().toISOString().slice(0, 10)}.xls`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('Đã xuất Nhật ký Kiểm toán ra file Excel (.xls)!')
+    }
 
   const pagedTableLogs = filteredLogs.slice((page - 1) * limit, page * limit)
 

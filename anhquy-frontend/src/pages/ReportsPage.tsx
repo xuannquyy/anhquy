@@ -48,6 +48,21 @@ interface DocumentItem {
 type PeriodMode = 'week' | 'day' | 'month' | 'year' | 'all'
 type WeekPreset = 'this_week' | 'last_7_days' | 'last_week' | 'custom_week'
 
+// ─── Helper làm sạch ký tự cho Excel ──────────────────────────────────────────
+function cleanText(str: string | null | undefined): string {
+  if (!str) return ''
+  return str.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function escapeHtml(str: string | number | null | undefined): string {
+  if (str === null || str === undefined) return ''
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 // ─── Helper tính ngày đầu tuần & cuối tuần ────────────────────────────────────
 
 function getWeekBounds(preset: WeekPreset, customWeekStr: string): { start: Date; end: Date; label: string } {
@@ -65,7 +80,6 @@ function getWeekBounds(preset: WeekPreset, customWeekStr: string): { start: Date
   }
 
   if (preset === 'custom_week' && customWeekStr) {
-    // Định dạng input type="week": "2026-W42"
     const [yStr, wStr] = customWeekStr.split('-W')
     const y = Number(yStr)
     const w = Number(wStr)
@@ -87,8 +101,7 @@ function getWeekBounds(preset: WeekPreset, customWeekStr: string): { start: Date
     }
   }
 
-  // this_week hoặc last_week
-  const dayOfWeek = (now.getDay() + 6) % 7 // Thứ 2 = 0 ... Chủ nhật = 6
+  const dayOfWeek = (now.getDay() + 6) % 7
   const start = new Date(now)
   start.setDate(now.getDate() - dayOfWeek - (preset === 'last_week' ? 7 : 0))
   start.setHours(0, 0, 0, 0)
@@ -111,30 +124,24 @@ export default function ReportsPage() {
   const [documents, setDocuments] = useState<DocumentItem[]>([])
   const [loading, setLoading] = useState(true)
 
-  // ─── Bộ lọc Thời gian (Tuần / Ngày / Tháng / Năm / Tất cả) ─────────────────
   const currentYear = new Date().getFullYear()
   const [periodMode, setPeriodMode] = useState<PeriodMode>('month')
   const [reportScope, setReportScope] = useState<'all' | 'violations' | 'suppliers'>('all')
 
-  // 1. Theo Tuần
   const [weekPreset, setWeekPreset] = useState<WeekPreset>('last_7_days')
   const [customWeek, setCustomWeek] = useState('')
 
-  // 2. Theo Ngày
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
 
-  // 3. Theo Tháng
   const [fromMonth, setFromMonth] = useState(1)
   const [fromMonthYear, setFromMonthYear] = useState(currentYear)
   const [toMonth, setToMonth] = useState(12)
   const [toMonthYear, setToMonthYear] = useState(currentYear)
 
-  // 4. Theo Năm
   const [fromYear, setFromYear] = useState(currentYear - 1)
   const [toYear, setToYear] = useState(currentYear)
 
-  // Bộ lọc chuyên sâu
   const [riskFilter, setRiskFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [supplierFilter, setSupplierFilter] = useState('')
@@ -164,7 +171,6 @@ export default function ReportsPage() {
     fetchAll()
   }, [])
 
-  // Kiểm tra 1 bản ghi có nằm trong Kỳ thời gian đã chọn không
   const matchesPeriod = (dateStr?: string) => {
     if (!dateStr || periodMode === 'all') return true
     const dt = new Date(dateStr)
@@ -243,112 +249,208 @@ export default function ReportsPage() {
     toast.success('Đã đặt lại toàn bộ bộ lọc báo cáo.')
   }
 
-  // ─── Kết xuất CSV / Excel hoặc In PDF ────────────────────────────────────────
-  const handleExport = (mode: 'csv' | 'print') => {
-    if (mode === 'csv') {
-      const BOM = '\uFEFF'
-      let csvContent = BOM
-      csvContent += `BÁO CÁO KIỂM TOÁN HỆ THỐNG ANHQUY\r\n`
-      csvContent += `Kỳ báo cáo:,"${periodDescription}"\r\n`
-      csvContent += `Người kết xuất:,"${user?.full_name || ''} (${role})"\r\n\r\n`
-
-      if (reportScope === 'suppliers' || reportScope === 'all') {
-        csvContent += '=== 1. BẢNG TỔNG HỢP ĐIỂM TÍN NHIỆM ĐỐI TÁC CUNG ỨNG ===\r\n'
-        csvContent += 'ID,Tên Công Ty,Mã Số Thuế,Ngành Nghề,Email Liên Hệ,Điểm Tín Nhiệm,Xếp Loại,Ngày Tạo\r\n'
-        filteredSuppliers.forEach((s) => {
-          const sc = s.risk_score ?? 100
-          const rank = sc >= 80 ? 'An toàn' : sc >= 50 ? 'Cảnh báo' : 'Nguy hiểm'
-          csvContent += `${s.id},"${s.company_name.replace(/"/g, '""')}",${s.tax_code},"${(s.Categories?.name || '').replace(/"/g, '""')}",${s.contact_email || ''},${sc},${rank},${new Date(s.created_at).toLocaleDateString('vi-VN')}\r\n`
-        })
-        csvContent += '\r\n'
-      }
-
-      if (reportScope === 'violations' || reportScope === 'all') {
-        csvContent += '=== 2. BẢNG CHI TIẾT CẢNH BÁO VI PHẠM HỢP ĐỒNG ===\r\n'
-        csvContent += 'ID,Nhà Cung Ứng,Hợp Đồng PDF,Mã Tiêu Chuẩn,Mức Độ Rủi Ro,Trạng Thái,Mô Tả Vi Phạm,Trích Dẫn Bằng Chứng,Khuyến Nghị,Ngày Phát Hiện\r\n'
-        filteredViolations.forEach((v) => {
-          csvContent += `${v.id},"${(v.Documents?.Suppliers?.company_name || '').replace(/"/g, '""')}","${(v.Documents?.file_name || '').replace(/"/g, '""')}",${v.Standards?.standard_code || ''},${v.risk_level},${v.status},"${(v.violation_desc || '').replace(/"/g, '""')}","${(v.evidence_quote || '').replace(/"/g, '""')}","${(v.recommendation || '').replace(/"/g, '""')}",${new Date(v.created_at).toLocaleDateString('vi-VN')}\r\n`
-        })
-      }
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `Bao-Cao-ANHQUY-${periodMode}-${new Date().toISOString().slice(0, 10)}.csv`
-      a.click()
-      URL.revokeObjectURL(url)
-      toast.success('Đã xuất file Báo cáo Excel/CSV (UTF-8) thành công!')
-    } else {
-      const win = window.open('', '_blank')
-      if (!win) {
-        toast.error('Trình duyệt đang chặn Popup. Vui lòng cho phép để in báo cáo PDF.')
-        return
-      }
-      const supRows = filteredSuppliers
-        .map(
-          (s) => `
-        <tr>
-          <td>${s.company_name}</td>
-          <td>${s.tax_code}</td>
-          <td>${s.Categories?.name || '—'}</td>
-          <td><strong>${s.risk_score ?? 100}/100</strong></td>
-          <td>${(s.risk_score ?? 100) >= 80 ? 'An toàn' : (s.risk_score ?? 100) >= 50 ? 'Cảnh báo' : 'Nguy hiểm'}</td>
-        </tr>`
-        )
-        .join('')
-
-      const violRows = filteredViolations
-        .map(
-          (v) => `
-        <tr>
-          <td>${v.Documents?.Suppliers?.company_name || '—'}</td>
-          <td>${v.Documents?.file_name || '—'}</td>
-          <td>${v.Standards?.standard_code || '—'}</td>
-          <td><strong>${v.risk_level}</strong></td>
-          <td>${v.status}</td>
-          <td>${v.violation_desc}</td>
-        </tr>`
-        )
-        .join('')
-
-      win.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8">
-        <title>Báo cáo Kiểm toán Hệ thống ANHQUY</title>
+  // ─── KẾT XUẤT EXCEL (.xls) CHUẨN CÓ KẺ BẢNG VÀ CHIA SHEET/SECTION ────────────
+  const handleExportExcel = () => {
+    toast.loading('Đang khởi tạo báo cáo Excel...', { id: 'excel' })
+    
+    let excelHtml = `\uFEFF<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
         <style>
-          body{font-family:"Be Vietnam Pro",sans-serif;margin:36px;color:#27363F}
-          h1{font-size:20px;margin:0}h2{font-size:14px;margin:24px 0 8px;text-transform:uppercase;color:#6B212C}
-          table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:12px}
-          th{background:#27363F;color:#fff;padding:8px;text-align:left}
-          td{padding:8px;border-bottom:1px solid #DCE0E8}
-        </style></head><body>
-        <div style="border-bottom:2px solid #27363F;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between">
-          <div>
-            <h1>BÁO CÁO TỔNG HỢP KIỂM TOÁN HỢP ĐỒNG & CHUỖI CUNG ỨNG</h1>
-            <p style="font-size:12px;color:#685652;margin:4px 0 0">
-              Người lập: ${user?.full_name || ''} (${role}) · Kỳ báo cáo: <strong>${periodDescription}</strong> · Ngày in: ${new Date().toLocaleString('vi-VN')}
-            </p>
-          </div>
-          <div style="font-weight:900;font-size:24px">ANHQUY</div>
-        </div>
-        ${
-          reportScope !== 'violations'
-            ? `<h2>1. Danh sách & Điểm tín nhiệm Nhà cung ứng (${filteredSuppliers.length} đối tác)</h2>
-               <table><thead><tr><th>Tên Công ty</th><th>MST</th><th>Ngành nghề</th><th>Điểm</th><th>Xếp loại</th></tr></thead><tbody>${supRows || '<tr><td colspan="5">Không có dữ liệu</td></tr>'}</tbody></table>`
-            : ''
-        }
-        ${
-          reportScope !== 'suppliers'
-            ? `<h2>2. Danh sách Cảnh báo Vi phạm Hợp đồng (${filteredViolations.length} vi phạm)</h2>
-               <table><thead><tr><th>Đối tác</th><th>Hợp đồng</th><th>Mã Chuẩn</th><th>Rủi ro</th><th>Trạng thái</th><th>Nội dung vi phạm</th></tr></thead><tbody>${violRows || '<tr><td colspan="6">Không có vi phạm nào</td></tr>'}</tbody></table>`
-            : ''
-        }
-      </body></html>`)
-      win.document.close()
-      win.onload = () => {
-        win.print()
-        win.close()
-      }
+          body { font-family: "Times New Roman", Arial, sans-serif; font-size: 11pt; }
+          table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }
+          th { background-color: #0B132B; color: #FFFFFF; font-weight: bold; padding: 10px 8px; border: 1px solid #475569; text-align: center; vertical-align: middle; }
+          td { padding: 8px; border: 1px solid #CBD5E1; vertical-align: top; mso-number-format:"\\@"; }
+          .header-title { font-size: 16pt; font-weight: bold; color: #0B132B; text-align: left; border: none; padding: 6px 0; }
+          .header-meta { font-size: 11pt; color: #475569; text-align: left; border: none; padding-bottom: 16px; font-style: italic; }
+          .section-title { font-size: 13pt; font-weight: bold; color: #791127; text-align: left; border: none; padding: 12px 0 6px 0; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <tr><td colspan="8" class="header-title">BÁO CÁO TỔNG HỢP KIỂM TOÁN CHUỖI CUNG ỨNG (HỆ THỐNG ANHQUY)</td></tr>
+          <tr><td colspan="8" class="header-meta">Kỳ báo cáo: ${periodDescription} · Kết xuất lúc: ${new Date().toLocaleString('vi-VN')} · Người kết xuất: ${user?.full_name || 'Admin'}</td></tr>
+        </table>`
+
+    if (reportScope === 'suppliers' || reportScope === 'all') {
+      const supRows = filteredSuppliers.map((s, idx) => {
+        const sc = s.risk_score ?? 100
+        const rank = sc >= 80 ? 'An toàn' : sc >= 50 ? 'Cảnh báo' : 'Nguy hiểm'
+        const color = sc >= 80 ? '#0B132B' : sc >= 50 ? '#B45309' : '#791127'
+        return `
+          <tr>
+            <td style="text-align:center;font-weight:bold">${idx + 1}</td>
+            <td style="font-weight:bold">${escapeHtml(s.company_name)}</td>
+            <td style="text-align:center">${escapeHtml(s.tax_code)}</td>
+            <td>${escapeHtml(s.Categories?.name || '—')}</td>
+            <td>${escapeHtml(s.contact_email || '—')}</td>
+            <td style="text-align:center;font-weight:bold;color:${color}">${sc} / 100</td>
+            <td style="text-align:center;font-weight:bold;color:${color}">${rank}</td>
+            <td style="text-align:center">${new Date(s.created_at).toLocaleDateString('vi-VN')}</td>
+          </tr>`
+      }).join('')
+
+      excelHtml += `
+        <table>
+          <tr><td colspan="8" class="section-title">I. BẢNG TỔNG HỢP ĐIỂM TÍN NHIỆM ĐỐI TÁC (${filteredSuppliers.length} đối tác)</td></tr>
+          <thead>
+            <tr>
+              <th style="width:45px">STT</th>
+              <th style="width:250px">Tên Công Ty</th>
+              <th style="width:120px">Mã Số Thuế</th>
+              <th style="width:160px">Ngành Nghề</th>
+              <th style="width:180px">Email Liên Hệ</th>
+              <th style="width:120px">Điểm Tín Nhiệm</th>
+              <th style="width:120px">Xếp Loại Rủi Ro</th>
+              <th style="width:110px">Ngày Tạo</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${supRows || '<tr><td colspan="8" style="text-align:center">Không có nhà cung ứng nào trong kỳ báo cáo này</td></tr>'}
+          </tbody>
+        </table>`
     }
+
+    if (reportScope === 'violations' || reportScope === 'all') {
+      const violRows = filteredViolations.map((v, idx) => {
+        const riskText = v.risk_level === 'High' ? 'Cao (-10đ)' : v.risk_level === 'Medium' ? 'Trung bình (-5đ)' : 'Thấp (-2đ)'
+        const riskColor = v.risk_level === 'High' ? '#791127' : v.risk_level === 'Medium' ? '#B45309' : '#0B132B'
+        const statusText = v.status === 'Pending' ? 'Chờ thẩm định' : v.status === 'Approved' ? 'Đã duyệt' : 'Đã bác bỏ'
+        
+        return `
+          <tr>
+            <td style="text-align:center;font-weight:bold">${idx + 1}</td>
+            <td style="font-weight:bold">${escapeHtml(v.Documents?.Suppliers?.company_name || '—')}</td>
+            <td>${escapeHtml(v.Documents?.file_name || '—')}</td>
+            <td style="font-family:Consolas,monospace;font-weight:bold">${escapeHtml(v.Standards?.standard_code || '—')}</td>
+            <td style="font-weight:bold;color:${riskColor};text-align:center">${riskText}</td>
+            <td style="text-align:center">${statusText}</td>
+            <td style="text-align:center">${v.page_number ?? '—'}</td>
+            <td>${escapeHtml(cleanText(v.violation_desc))}</td>
+            <td style="font-style:italic;color:#475569">"${escapeHtml(cleanText(v.evidence_quote))}"</td>
+            <td>${escapeHtml(cleanText(v.recommendation))}</td>
+            <td style="text-align:center">${new Date(v.created_at).toLocaleDateString('vi-VN')}</td>
+          </tr>`
+      }).join('')
+
+      excelHtml += `
+        <table>
+          <tr><td colspan="11" class="section-title">II. BẢNG CHI TIẾT CẢNH BÁO VI PHẠM TỪ AI RAG (${filteredViolations.length} vi phạm)</td></tr>
+          <thead>
+            <tr>
+              <th style="width:45px">STT</th>
+              <th style="width:200px">Nhà Cung Ứng</th>
+              <th style="width:200px">Hợp Đồng PDF</th>
+              <th style="width:110px">Mã Tiêu Chuẩn</th>
+              <th style="width:120px">Mức Rủi Ro</th>
+              <th style="width:110px">Trạng Thái</th>
+              <th style="width:60px">Trang</th>
+              <th style="width:280px">Mô Tả Vi Phạm</th>
+              <th style="width:300px">Bằng Chứng Trích Xuất (Nguyên văn)</th>
+              <th style="width:240px">Khuyến Nghị Sửa Đổi</th>
+              <th style="width:100px">Ngày Phát Hiện</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${violRows || '<tr><td colspan="11" style="text-align:center">Không có cảnh báo vi phạm nào trong kỳ báo cáo này</td></tr>'}
+          </tbody>
+        </table>`
+    }
+
+    excelHtml += `</body></html>`
+
+    const blob = new Blob([excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Bao-Cao-Kiem-Toan-ANHQUY-${new Date().toISOString().slice(0, 10)}.xls`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('Đã xuất thành công Báo cáo Excel chuẩn Form!', { id: 'excel' })
+  }
+
+  // ─── KẾT XUẤT PDF TRỰC QUAN CHUẨN ROYAL MIDNIGHT & ROSEWOOD ─────────────────
+  const handlePrintPDF = () => {
+    const win = window.open('', '_blank')
+    if (!win) {
+      toast.error('Trình duyệt đang chặn Popup. Vui lòng cho phép để in báo cáo PDF.')
+      return
+    }
+
+    const supRows = filteredSuppliers.map((s, i) => `
+      <tr>
+        <td style="text-align:center">${i + 1}</td>
+        <td style="font-weight:bold">${escapeHtml(s.company_name)}</td>
+        <td style="font-family:monospace">${escapeHtml(s.tax_code)}</td>
+        <td>${escapeHtml(s.Categories?.name || '—')}</td>
+        <td style="text-align:center;font-weight:bold;color:${(s.risk_score ?? 100)>=80?'#0B132B':(s.risk_score ?? 100)>=50?'#B45309':'#791127'}">${s.risk_score ?? 100}/100</td>
+      </tr>`).join('')
+
+    const violRows = filteredViolations.map((v, i) => `
+      <tr>
+        <td style="text-align:center">${i + 1}</td>
+        <td style="font-weight:bold">${escapeHtml(v.Documents?.Suppliers?.company_name || '—')}</td>
+        <td style="font-family:monospace;font-weight:bold">${escapeHtml(v.Standards?.standard_code || '—')}</td>
+        <td style="font-weight:bold;text-align:center;color:${v.risk_level==='High'?'#791127':v.risk_level==='Medium'?'#B45309':'#0B132B'}">${v.risk_level}</td>
+        <td style="text-align:center">${v.status === 'Approved'?'Đã duyệt':v.status==='Pending'?'Chờ duyệt':'Bác bỏ'}</td>
+        <td style="font-size:11px">${escapeHtml(cleanText(v.violation_desc))}</td>
+      </tr>`).join('')
+
+    win.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8">
+      <title>Báo cáo Kiểm toán Chuỗi Cung ứng – ANHQUY</title>
+      <style>
+        body { font-family: "Arial", sans-serif; margin: 40px; color: #0B132B; line-height: 1.4; }
+        .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #0B132B; padding-bottom: 16px; margin-bottom: 24px; }
+        .header-left h1 { font-size: 22px; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+        .header-left p { font-size: 12px; color: #475569; margin: 0; }
+        .brand { font-size: 28px; font-weight: 900; color: #0B132B; letter-spacing: -1px; }
+        .brand span { color: #791127; }
+        h2 { font-size: 14px; color: #791127; margin: 28px 0 10px; text-transform: uppercase; border-left: 4px solid #791127; padding-left: 8px; }
+        .kpi-row { display: flex; gap: 12px; margin-bottom: 20px; }
+        .kpi-box { flex: 1; border: 1px solid #CBD5E1; border-radius: 8px; padding: 12px; text-align: center; background: #F8FAFC; }
+        .kpi-num { font-size: 24px; font-weight: bold; color: #0B132B; }
+        .kpi-label { font-size: 11px; color: #475569; text-transform: uppercase; margin-top: 4px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
+        th { background: #0B132B; color: #FFFFFF; padding: 10px 8px; text-align: left; }
+        td { padding: 8px; border-bottom: 1px solid #E2E8F0; vertical-align: top; }
+        .footer { margin-top: 40px; font-size: 10px; color: #64748B; text-align: center; border-top: 1px solid #E2E8F0; padding-top: 12px; }
+        @media print { button { display: none !important; } }
+      </style></head><body>
+      
+      <div class="header">
+        <div class="header-left">
+          <h1>BÁO CÁO TỔNG HỢP KIỂM TOÁN CHUỖI CUNG ỨNG</h1>
+          <p>Kỳ báo cáo: <strong>${periodDescription}</strong></p>
+          <p>Người lập: ${escapeHtml(user?.full_name)} (${role}) · Ngày xuất: ${new Date().toLocaleDateString('vi-VN')}</p>
+        </div>
+        <div class="brand">ANH<span>QUY</span></div>
+      </div>
+
+      <div class="kpi-row">
+        <div class="kpi-box"><div class="kpi-num">${filteredSuppliers.length}</div><div class="kpi-label">Hồ sơ Đối tác</div></div>
+        <div class="kpi-box"><div class="kpi-num" style="color:#791127">${filteredViolations.length}</div><div class="kpi-label">Tổng Vi phạm</div></div>
+        <div class="kpi-box"><div class="kpi-num">${filteredViolations.filter(v=>v.risk_level==='High').length}</div><div class="kpi-label">Vi phạm Rủi ro Cao</div></div>
+      </div>
+
+      ${reportScope !== 'violations' ? `
+        <h2>I. Điểm Tín Nhiệm & Xếp Loại Nhà Cung Ứng</h2>
+        <table><thead><tr><th style="width:40px;text-align:center">STT</th><th>Tên Công ty Đối tác</th><th>Mã số thuế</th><th>Ngành nghề</th><th style="width:80px;text-align:center">Điểm số</th></tr></thead>
+        <tbody>${supRows || '<tr><td colspan="5" style="text-align:center">Không có đối tác nào trong kỳ lọc</td></tr>'}</tbody></table>
+      ` : ''}
+
+      ${reportScope !== 'suppliers' ? `
+        <h2>II. Danh sách Bóc tách Cảnh báo Vi phạm Hợp đồng</h2>
+        <table><thead><tr><th style="width:40px;text-align:center">STT</th><th>Nhà cung ứng</th><th style="width:90px">Mã Chuẩn</th><th style="width:70px;text-align:center">Rủi ro</th><th style="width:80px;text-align:center">Trạng thái</th><th>Mô tả tóm tắt</th></tr></thead>
+        <tbody>${violRows || '<tr><td colspan="6" style="text-align:center">Không có vi phạm nào trong kỳ lọc</td></tr>'}</tbody></table>
+      ` : ''}
+
+      <div class="footer">
+        Báo cáo được kết xuất tự động từ Hệ thống AI Ethical Sourcing Auditor (ANHQUY) · Tuân thủ chuẩn RBA v8.0 & Pháp luật VN.
+      </div>
+    </body></html>`)
+    
+    win.document.close()
+    win.onload = () => { win.print(); win.close() }
   }
 
   const yearsList = [currentYear - 3, currentYear - 2, currentYear - 1, currentYear, currentYear + 1]
@@ -357,8 +459,8 @@ export default function ReportsPage() {
   return (
     <MainLayout breadcrumb="Trung tâm Xuất Báo cáo">
       <div className="space-y-5">
-        {/* ─── Header Banner (Chuẩn vibe Pine + Berry + Mist của image_1ab65a) ── */}
-        <div className="bg-gradient-to-r from-Pine via-[#324550] to-Berry rounded-3xl p-6 text-white shadow-[0_14px_34px_rgba(39,54,63,0.2)] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        {/* ─── Header Banner ── */}
+        <div className="bg-gradient-to-r from-Pine via-[#1E293B] to-Berry rounded-3xl p-6 text-white shadow-[0_14px_34px_rgba(11,19,43,0.18)] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-white/15 text-Snowflake text-xs font-bold mb-2">
               <BarChart3 className="w-4 h-4 text-Frostysilver" />
@@ -383,26 +485,26 @@ export default function ReportsPage() {
             </button>
             <button
               type="button"
-              onClick={() => handleExport('csv')}
+              onClick={handleExportExcel}
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-Snowflake text-Pine text-xs font-extrabold rounded-2xl hover:bg-white shadow-md transition-all"
             >
               <Download className="w-4 h-4" />
-              Xuất Excel / CSV (UTF-8)
+              Xuất Excel
             </button>
             <button
               type="button"
-              onClick={() => handleExport('print')}
+              onClick={handlePrintPDF}
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-Berry text-white text-xs font-extrabold rounded-2xl hover:bg-Berry/90 shadow-md border border-white/20 transition-all"
             >
               <Printer className="w-4 h-4" />
-              In / Xuất Báo cáo PDF
+              In Báo cáo (PDF)
             </button>
           </div>
         </div>
 
         {/* ─── 3 Thẻ Tóm tắt Nhanh Kết quả Truy vấn ─────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-3xl border border-white p-4 shadow-sm flex items-center gap-3.5">
+          <div className="bg-white rounded-3xl border border-Mist/20 p-4 shadow-sm flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-2xl bg-Pine text-white flex items-center justify-center flex-shrink-0">
               <Building2 className="w-5 h-5" />
             </div>
@@ -411,7 +513,7 @@ export default function ReportsPage() {
               <p className="text-2xl font-extrabold text-Pine">{filteredSuppliers.length}</p>
             </div>
           </div>
-          <div className="bg-white rounded-3xl border border-white p-4 shadow-sm flex items-center gap-3.5">
+          <div className="bg-white rounded-3xl border border-Mist/20 p-4 shadow-sm flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-2xl bg-Berry text-white flex items-center justify-center flex-shrink-0">
               <AlertTriangle className="w-5 h-5" />
             </div>
@@ -420,7 +522,7 @@ export default function ReportsPage() {
               <p className="text-2xl font-extrabold text-Berry">{filteredViolations.length}</p>
             </div>
           </div>
-          <div className="bg-white rounded-3xl border border-white p-4 shadow-sm flex items-center gap-3.5">
+          <div className="bg-white rounded-3xl border border-Mist/20 p-4 shadow-sm flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-2xl bg-Mist text-Pine flex items-center justify-center flex-shrink-0">
               <FileText className="w-5 h-5" />
             </div>
@@ -432,7 +534,7 @@ export default function ReportsPage() {
         </div>
 
         {/* ─── Khung Cấu hình Truy vấn (Tuần / Ngày / Tháng / Năm / Tất cả) ─── */}
-        <div className="bg-white rounded-3xl border border-white p-6 shadow-[0_10px_28px_rgba(39,54,63,0.06)] space-y-5">
+        <div className="bg-white rounded-3xl border border-Mist/20 p-6 shadow-sm space-y-5">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-Mist/20 pb-4">
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-Berry" />
@@ -441,7 +543,7 @@ export default function ReportsPage() {
               </h3>
             </div>
 
-            <div className="flex flex-wrap gap-1.5 bg-Snowflake/70 p-1.5 rounded-2xl">
+            <div className="flex flex-wrap gap-1.5 bg-Snowflake/70 p-1.5 rounded-2xl border border-Mist/30">
               {[
                 { key: 'week',  label: 'Theo Tuần' },
                 { key: 'day',   label: 'Theo Ngày' },
@@ -456,7 +558,7 @@ export default function ReportsPage() {
                   className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all ${
                     periodMode === tab.key
                       ? 'bg-Pine text-white shadow-sm'
-                      : 'text-Branch hover:text-Pine'
+                      : 'text-Pine hover:bg-white border border-transparent hover:border-Mist/30'
                   }`}
                 >
                   {tab.label}
@@ -681,7 +783,7 @@ export default function ReportsPage() {
         ) : (
           <div className="space-y-5">
             {reportScope !== 'violations' && (
-              <div className="bg-white rounded-3xl border border-white p-6 shadow-[0_10px_28px_rgba(39,54,63,0.06)]">
+              <div className="bg-white rounded-3xl border border-Mist/20 p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-extrabold text-Pine">
                     Bảng 1: Điểm Tín nhiệm Đối tác Cung ứng ({filteredSuppliers.length} đơn vị)
@@ -722,7 +824,7 @@ export default function ReportsPage() {
             )}
 
             {reportScope !== 'suppliers' && (
-              <div className="bg-white rounded-3xl border border-white p-6 shadow-[0_10px_28px_rgba(39,54,63,0.06)]">
+              <div className="bg-white rounded-3xl border border-Mist/20 p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-extrabold text-Pine">
                     Bảng 2: Danh sách Chi tiết Cảnh báo Vi phạm ({filteredViolations.length} bản ghi)
@@ -761,7 +863,7 @@ export default function ReportsPage() {
                               {v.Documents?.id && (
                                 <Link
                                   to={`/audit/${v.Documents.id}`}
-                                  className="inline-flex items-center justify-center p-1.5 rounded-xl bg-Snowflake text-Pine hover:bg-Pine hover:text-white transition-colors"
+                                  className="inline-flex items-center justify-center p-1.5 rounded-xl bg-Snowflake text-Pine hover:bg-Pine hover:text-white transition-colors border border-Mist/20"
                                   title="Mở Phòng Kiểm toán Split-view"
                                 >
                                   <ExternalLink className="w-3.5 h-3.5" />

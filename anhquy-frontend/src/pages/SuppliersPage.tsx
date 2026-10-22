@@ -247,26 +247,32 @@ export default function SuppliersPage() {
   }
 
   const handleExportSuppliersCSV = () => {
-    const BOM = '\uFEFF'
-    const header = ['ID', 'Tên Công Ty', 'Mã Số Thuế', 'Ngành Nghề', 'Email', 'Điểm Tín Nhiệm', 'Trạng Thái']
-    const rows = displayedSuppliers.map((s) => [
-      s.id,
-      `"${s.company_name.replace(/"/g, '""')}"`,
-      s.tax_code,
-      `"${(s.Categories?.name || s.industry?.name || '').replace(/"/g, '""')}"`,
-      s.contact_email || '',
-      s.risk_score ?? 100,
-      s.is_deleted ? 'Đã xóa / Lưu trữ' : 'Đang hoạt động',
-    ])
-    const csv = BOM + [header.join(','), ...rows.map((r) => r.join(','))].join('\r\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const rowsHtml = displayedSuppliers
+      .map(
+        (s, idx) => `
+      <tr>
+        <td style="text-align:center;font-weight:bold">${idx + 1}</td>
+        <td style="font-weight:bold;color:#0B132B">${s.company_name}</td>
+        <td style="mso-number-format:'\\@';text-align:center">${s.tax_code}</td>
+        <td>${s.Categories?.name || s.industry?.name || '—'}</td>
+        <td>${s.contact_email || '—'}</td>
+        <td style="mso-number-format:'\\@'">${s.contact_phone || '—'}</td>
+        <td style="text-align:center;font-weight:bold">${s.risk_score ?? 100} / 100</td>
+        <td style="text-align:center">${s.is_deleted ? 'Đã lưu trữ' : 'Đang hoạt động'}</td>
+      </tr>`
+      )
+      .join('')
+
+    const excelHtml = `\uFEFF<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"/><style>table{border-collapse:collapse}th{background:#0B132B;color:#fff;padding:8px;border:1px solid #334155}td{padding:7px;border:1px solid #CBD5E1}</style></head><body><table><thead><tr><th>STT</th><th>Tên Công ty Đối tác</th><th>Mã số thuế</th><th>Ngành nghề</th><th>Email</th><th>Điện thoại</th><th>Điểm Tín nhiệm</th><th>Trạng thái</th></tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`
+
+    const blob = new Blob([excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `Danh-sach-nha-cung-ung-${new Date().toISOString().slice(0, 10)}.csv`
+    a.download = `Danh-sach-nha-cung-ung-${new Date().toISOString().slice(0, 10)}.xls`
     a.click()
     URL.revokeObjectURL(url)
-    toast.success('Đã xuất danh sách nhà cung ứng ra CSV.')
+    toast.success('Đã xuất danh sách nhà cung ứng ra file Excel (.xls)!')
   }
 
   const safeCount = suppliers.filter((s) => !s.is_deleted && (s.risk_score ?? 100) >= 80).length

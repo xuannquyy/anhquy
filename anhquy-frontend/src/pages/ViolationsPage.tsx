@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   Download, Printer, Eye, CheckCircle2, XCircle,
-  FileText, Building2, AlertTriangle, ExternalLink, Search, BarChart3, Clock
+  FileText, Building2, AlertTriangle, ExternalLink, Search,
+  BarChart3, Clock, ChevronDown, ChevronUp, Layers, ListFilter
 } from 'lucide-react'
 import { MainLayout } from '../components/MainLayout'
 import { ConfirmModal, Modal, Pagination, StatusBadge, Spinner, EmptyState } from '../components/ui'
@@ -41,39 +42,96 @@ interface Violation {
 interface Supplier { id: number; company_name: string }
 interface DocOption { id: number; file_name: string }
 
-const RISK_COLORS: Record<string, string> = {
-  High:   'text-Berry',
-  Medium: 'text-Branch',
-  Low:    'text-Mist',
+// Làm sạch ký tự xuống dòng và khoảng trắng thừa từ PDF
+function cleanText(str: string | null | undefined): string {
+  if (!str) return ''
+  return str.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-// ─── CSV Export ───────────────────────────────────────────────────────────────
+function escapeHtml(str: string | number | null | undefined): string {
+  if (str === null || str === undefined) return ''
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
 
-function exportToCSV(violations: Violation[]) {
-  const BOM = '\uFEFF'
-  const header = ['ID', 'Nhà cung ứng', 'Hợp đồng', 'Tiêu chuẩn', 'Mức độ', 'Trạng thái', 'Mô tả vi phạm', 'Bằng chứng', 'Trang', 'Khuyến nghị', 'Ngày tạo']
-  const rows = violations.map((v) => [
-    v.id,
-    `"${(v.Documents?.Suppliers?.company_name || '').replace(/"/g, '""')}"`,
-    `"${(v.Documents?.file_name || '').replace(/"/g, '""')}"`,
-    `"${v.Standards?.standard_code || ''} – ${(v.Standards?.name || '').replace(/"/g, '""')}"`,
-    v.risk_level === 'High' ? 'Cao' : v.risk_level === 'Medium' ? 'Trung bình' : 'Thấp',
-    v.status === 'Pending' ? 'Chờ duyệt' : v.status === 'Approved' ? 'Đã duyệt' : 'Bác bỏ',
-    `"${(v.violation_desc || '').replace(/"/g, '""')}"`,
-    `"${(v.evidence_quote || '').replace(/"/g, '""')}"`,
-    v.page_number || '',
-    `"${(v.recommendation || '').replace(/"/g, '""')}"`,
-    new Date(v.created_at).toLocaleDateString('vi-VN'),
-  ])
-  const content = BOM + [header.join(','), ...rows.map((r) => r.join(','))].join('\r\n')
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
+// ─── Xuất File Excel (.xls) Có Kẻ Bảng & Chia Cột Chuẩn 100% ──────────────────
+
+function exportViolationsToExcel(violations: Violation[]) {
+  const rowsHtml = violations
+    .map((v, idx) => {
+      const riskText = v.risk_level === 'High' ? 'Cao (-10đ)' : v.risk_level === 'Medium' ? 'Trung bình (-5đ)' : 'Thấp (-2đ)'
+      const riskColor = v.risk_level === 'High' ? '#791127' : v.risk_level === 'Medium' ? '#B45309' : '#334155'
+      const statusText = v.status === 'Pending' ? 'Chờ thẩm định' : v.status === 'Approved' ? 'Đã phê duyệt' : 'Đã bác bỏ'
+      const statusBg = v.status === 'Approved' ? '#DCFCE7' : v.status === 'Pending' ? '#FEF3C7' : '#F1F5F9'
+
+      return `
+        <tr>
+          <td style="text-align:center;font-weight:bold">${idx + 1}</td>
+          <td style="font-weight:bold;color:#0B132B">${escapeHtml(v.Documents?.Suppliers?.company_name || '—')}</td>
+          <td>${escapeHtml(v.Documents?.file_name || '—')}</td>
+          <td style="font-family:Consolas,monospace;font-weight:bold">${escapeHtml(v.Standards?.standard_code || '—')}</td>
+          <td>${escapeHtml(v.Standards?.name || '—')}</td>
+          <td style="font-weight:bold;color:${riskColor};text-align:center">${riskText}</td>
+          <td style="background:${statusBg};text-align:center;font-weight:bold">${statusText}</td>
+          <td style="text-align:center">${v.page_number ?? '—'}</td>
+          <td>${escapeHtml(cleanText(v.violation_desc))}</td>
+          <td style="font-style:italic;color:#334155">"${escapeHtml(cleanText(v.evidence_quote))}"</td>
+          <td>${escapeHtml(cleanText(v.recommendation))}</td>
+          <td style="text-align:center">${new Date(v.created_at).toLocaleDateString('vi-VN')}</td>
+        </tr>`
+    })
+    .join('')
+
+  const excelHtml = `\uFEFF<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <style>
+      body { font-family: "Times New Roman", Arial, sans-serif; font-size: 11pt; }
+      table { border-collapse: collapse; width: 100%; }
+      th { background-color: #0B132B; color: #FFFFFF; font-weight: bold; padding: 10px 8px; border: 1px solid #334155; text-align: center; vertical-align: middle; }
+      td { padding: 8px; border: 1px solid #CBD5E1; vertical-align: top; mso-number-format:"\\@"; }
+      .title { font-size: 16pt; font-weight: bold; color: #0B132B; text-align: left; border: none; padding: 6px 0; }
+      .subtitle { font-size: 10pt; color: #475569; text-align: left; border: none; padding-bottom: 12px; }
+    </style>
+  </head>
+  <body>
+    <table>
+      <tr><td colspan="12" class="title">BÁO CÁO THẨM ĐỊNH VI PHẠM HỢP ĐỒNG & ĐẠO ĐỨC CHUỖI CUNG ỨNG (ANHQUY AI)</td></tr>
+      <tr><td colspan="12" class="subtitle">Ngày kết xuất: ${new Date().toLocaleString('vi-VN')} · Tổng số cảnh báo: ${violations.length}</td></tr>
+      <thead>
+        <tr>
+          <th style="width:45px">STT</th>
+          <th style="width:220px">Nhà cung ứng</th>
+          <th style="width:210px">Tên Hợp đồng PDF</th>
+          <th style="width:110px">Mã Chuẩn</th>
+          <th style="width:180px">Tên Tiêu chuẩn</th>
+          <th style="width:100px">Mức độ</th>
+          <th style="width:120px">Trạng thái</th>
+          <th style="width:65px">Trang</th>
+          <th style="width:280px">Mô tả vi phạm</th>
+          <th style="width:300px">Bằng chứng trích xuất</th>
+          <th style="width:260px">Khuyến nghị sửa đổi</th>
+          <th style="width:95px">Ngày phát hiện</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+  </body>
+  </html>`
+
+  const blob = new Blob([excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `bao-cao-vi-pham-${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = `Bao-cao-vi-pham-ANHQUY-${new Date().toISOString().slice(0, 10)}.xls`
   a.click()
   URL.revokeObjectURL(url)
-  toast.success('Đã xuất danh sách vi phạm ra CSV (UTF-8).')
+  toast.success('Đã xuất file Bảng tính Excel (.xls) có kẻ khung chuẩn xác!')
 }
 
 // ─── Print Report ─────────────────────────────────────────────────────────────
@@ -83,15 +141,16 @@ function printReport(violations: Violation[]) {
   const mediumCount = violations.filter((v) => v.risk_level === 'Medium').length
   const lowCount    = violations.filter((v) => v.risk_level === 'Low').length
 
-  const tableRows = violations.map((v) => `
+  const tableRows = violations.map((v, i) => `
     <tr style="border-bottom:1px solid #DCE0E8">
-      <td style="padding:8px;font-size:12px">${v.Documents?.Suppliers?.company_name || '—'}</td>
+      <td style="padding:8px;font-size:12px;text-align:center">${i + 1}</td>
+      <td style="padding:8px;font-size:12px;font-weight:bold">${v.Documents?.Suppliers?.company_name || '—'}</td>
       <td style="padding:8px;font-size:12px">${v.Standards?.standard_code || '—'}</td>
       <td style="padding:8px;font-size:12px;font-weight:bold;color:${v.risk_level==='High'?'#6B212C':v.risk_level==='Medium'?'#685652':'#27363F'}">
         ${v.risk_level === 'High' ? 'Cao' : v.risk_level === 'Medium' ? 'Trung bình' : 'Thấp'}
       </td>
       <td style="padding:8px;font-size:12px">${v.status === 'Pending' ? 'Chờ duyệt' : v.status === 'Approved' ? 'Đã duyệt' : 'Bác bỏ'}</td>
-      <td style="padding:8px;font-size:12px">${v.violation_desc || ''}</td>
+      <td style="padding:8px;font-size:12px">${cleanText(v.violation_desc)}</td>
     </tr>
   `).join('')
 
@@ -119,7 +178,7 @@ function printReport(violations: Violation[]) {
     <div class="stat"><div class="num" style="color:#27363F">${lowCount}</div><div>Thấp</div></div>
   </div>
   <h2>DANH SÁCH VI PHẠM</h2>
-  <table><thead><tr><th>Nhà cung ứng</th><th>Tiêu chuẩn</th><th>Mức độ</th><th>Trạng thái</th><th>Mô tả vi phạm</th></tr></thead>
+  <table><thead><tr><th style="width:40px">STT</th><th>Nhà cung ứng</th><th>Tiêu chuẩn</th><th>Mức độ</th><th>Trạng thái</th><th>Mô tả vi phạm</th></tr></thead>
   <tbody>${tableRows}</tbody></table>
   <div class="footer">Báo cáo tự động bởi ANHQUY AI Audit System · Bảo mật B2B</div>
   </body></html>`
@@ -180,19 +239,19 @@ function ViolationDetailModal({
         )}
         <div>
           <p className="text-xs font-extrabold uppercase tracking-wider text-Pine mb-1">Mô tả vi phạm</p>
-          <p className="text-sm text-Branch leading-relaxed">{violation.violation_desc}</p>
+          <p className="text-sm text-Branch leading-relaxed">{cleanText(violation.violation_desc)}</p>
         </div>
         <div>
           <p className="text-xs font-extrabold uppercase tracking-wider text-Pine mb-1">Bằng chứng (Trích dẫn nguyên văn)</p>
           <div className="bg-Frostysilver/30 border border-Berry/20 rounded-2xl p-3.5">
-            <p className="text-sm text-Pine italic">"{violation.evidence_quote}"</p>
+            <p className="text-sm text-Pine italic">"{cleanText(violation.evidence_quote)}"</p>
           </div>
         </div>
         {violation.recommendation && (
           <div>
             <p className="text-xs font-extrabold uppercase tracking-wider text-Pine mb-1">Khuyến nghị sửa đổi</p>
             <div className="bg-Snowflake/50 border border-Mist/25 rounded-2xl p-3.5">
-              <p className="text-sm text-Branch">{violation.recommendation}</p>
+              <p className="text-sm text-Branch">{cleanText(violation.recommendation)}</p>
             </div>
           </div>
         )}
@@ -220,7 +279,11 @@ export default function ViolationsPage() {
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(15)
+  const [limit, setLimit] = useState(50)
+
+  // Chế độ hiển thị: 'grouped' (Gom theo từng Công ty để không lặp lại tên công ty) hoặc 'flat'
+  const [displayMode, setDisplayMode] = useState<'grouped' | 'flat'>('grouped')
+  const [collapsedCompanies, setCollapsedCompanies] = useState<Set<string>>(new Set())
 
   const [search, setSearch]                 = useState('')
   const [filterRisk, setFilterRisk]         = useState('')
@@ -307,13 +370,13 @@ export default function ViolationsPage() {
     }
   }
 
-  const handleExportCSV = async () => {
-    toast.loading('Đang chuẩn bị xuất báo cáo...', { id: 'export' })
+  const handleExportExcel = async () => {
+    toast.loading('Đang kết xuất bảng tính Excel...', { id: 'export' })
     try {
       const res = await violationApi.getAll({ limit: 1000 })
       const data = res.data?.data || res.data || {}
       const all: Violation[] = (data as { items?: Violation[] })?.items || violations
-      exportToCSV(all)
+      exportViolationsToExcel(all)
       toast.dismiss('export')
     } catch {
       toast.error('Xuất báo cáo thất bại.', { id: 'export' })
@@ -327,17 +390,68 @@ export default function ViolationsPage() {
     printReport(all)
   }
 
-  const displayedViolations = search.trim()
-    ? violations.filter((v) => {
-        const q = search.trim().toLowerCase()
-        return (
-          (v.violation_desc || '').toLowerCase().includes(q) ||
-          (v.evidence_quote || '').toLowerCase().includes(q) ||
-          (v.Standards?.standard_code || '').toLowerCase().includes(q) ||
-          (v.Documents?.Suppliers?.company_name || '').toLowerCase().includes(q)
-        )
-      })
-    : violations
+  const displayedViolations = useMemo(() => {
+    if (!search.trim()) return violations
+    const q = search.trim().toLowerCase()
+    return violations.filter(
+      (v) =>
+        (v.violation_desc || '').toLowerCase().includes(q) ||
+        (v.evidence_quote || '').toLowerCase().includes(q) ||
+        (v.Standards?.standard_code || '').toLowerCase().includes(q) ||
+        (v.Documents?.Suppliers?.company_name || '').toLowerCase().includes(q)
+    )
+  }, [violations, search])
+
+  // Gom nhóm theo từng Công ty để không lặp lại tên công ty trên mỗi dòng
+  const companyGroups = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        companyKey: string
+        companyName: string
+        items: Violation[]
+        contracts: Map<number, string>
+        highCount: number
+        pendingCount: number
+        approvedCount: number
+      }
+    >()
+
+    displayedViolations.forEach((v) => {
+      const cName = v.Documents?.Suppliers?.company_name || 'Đối tác chưa xác định'
+      if (!map.has(cName)) {
+        map.set(cName, {
+          companyKey: cName,
+          companyName: cName,
+          items: [],
+          contracts: new Map(),
+          highCount: 0,
+          pendingCount: 0,
+          approvedCount: 0,
+        })
+      }
+      const grp = map.get(cName)!
+      grp.items.push(v)
+      if (v.Documents?.id) {
+        grp.contracts.set(v.Documents.id, v.Documents.file_name)
+      }
+      if (v.risk_level === 'High') grp.highCount++
+      if (v.status === 'Pending') grp.pendingCount++
+      if (v.status === 'Approved') grp.approvedCount++
+    })
+
+    // Ưu tiên đưa công ty còn nhiều lỗi Chờ duyệt lên đầu
+    return Array.from(map.values()).sort((a, b) => b.pendingCount - a.pendingCount || b.items.length - a.items.length)
+  }, [displayedViolations])
+
+  const toggleCompanyCollapse = (key: string) => {
+    setCollapsedCompanies((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
 
   const pendingCount = violations.filter((v) => v.status === 'Pending').length
   const highCount = violations.filter((v) => v.risk_level === 'High').length
@@ -346,40 +460,67 @@ export default function ViolationsPage() {
     <MainLayout breadcrumb="Thẩm định Vi phạm">
       <div className="space-y-4">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-extrabold text-Pine tracking-tight">Trung tâm Thẩm định Vi phạm</h1>
             <p className="text-xs sm:text-sm text-Mist mt-0.5">
-              Phê duyệt cảnh báo do AI phát hiện, cập nhật điểm rủi ro đối tác và tra cứu bằng chứng
+              Gom nhóm trực quan theo từng Nhà cung ứng giúp thẩm định nhanh mà không bị lặp thông tin
             </p>
           </div>
-          {hasPermission('EXPORT_REPORT') && (
-            <div className="flex flex-wrap gap-2">
-              <Link
-                to="/reports"
-                className="flex items-center gap-1.5 px-3.5 py-2.5 bg-Berry text-white text-xs font-extrabold rounded-2xl hover:bg-Berry/90 transition-all shadow-sm"
-              >
-                <BarChart3 className="w-4 h-4" />
-                Báo cáo theo Kỳ
-              </Link>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Chuyển chế độ Gom nhóm theo Công ty vs Bảng phẳng */}
+            <div className="flex items-center bg-white p-1 rounded-2xl border border-Mist/30 shadow-sm">
               <button
                 type="button"
-                onClick={handleExportCSV}
-                className="flex items-center gap-1.5 px-3.5 py-2.5 bg-Pine text-white text-xs font-extrabold rounded-2xl hover:bg-Pine/90 transition-all shadow-sm"
+                onClick={() => setDisplayMode('grouped')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                  displayMode === 'grouped' ? 'bg-Pine text-white' : 'text-Branch hover:text-Pine'
+                }`}
               >
-                <Download className="w-4 h-4" />
-                Xuất CSV
+                <Building2 className="w-3.5 h-3.5" />
+                Gom theo Công ty ({companyGroups.length})
               </button>
               <button
                 type="button"
-                onClick={handlePrint}
-                className="flex items-center gap-1.5 px-3.5 py-2.5 border border-Mist/40 bg-white text-Pine text-xs font-extrabold rounded-2xl hover:bg-Snowflake transition-all shadow-sm"
+                onClick={() => setDisplayMode('flat')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                  displayMode === 'flat' ? 'bg-Pine text-white' : 'text-Branch hover:text-Pine'
+                }`}
               >
-                <Printer className="w-4 h-4" />
-                In nhanh
+                <Layers className="w-3.5 h-3.5" />
+                Tất cả dòng
               </button>
             </div>
-          )}
+
+            {hasPermission('EXPORT_REPORT') && (
+              <>
+                <Link
+                  to="/reports"
+                  className="flex items-center gap-1.5 px-3.5 py-2.5 bg-Berry text-white text-xs font-extrabold rounded-2xl hover:bg-Berry/90 transition-all shadow-sm"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  Báo cáo theo Kỳ
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleExportExcel}
+                  className="flex items-center gap-1.5 px-3.5 py-2.5 bg-Pine text-white text-xs font-extrabold rounded-2xl hover:bg-Pine/90 transition-all shadow-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  Xuất Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="flex items-center gap-1.5 px-3.5 py-2.5 border border-Mist/40 bg-white text-Pine text-xs font-extrabold rounded-2xl hover:bg-Snowflake transition-all shadow-sm"
+                >
+                  <Printer className="w-4 h-4" />
+                  In nhanh
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Summary Strip */}
@@ -389,12 +530,12 @@ export default function ViolationsPage() {
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-Branch">Tổng cảnh báo</p>
+              <p className="text-xs font-bold text-Branch">Tổng cảnh báo ({companyGroups.length} công ty)</p>
               <p className="text-xl font-extrabold text-Pine">{total}</p>
             </div>
           </div>
           <div className="bg-white rounded-3xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Mist text-Pine flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-Mist text-white flex items-center justify-center flex-shrink-0">
               <Clock className="w-5 h-5" />
             </div>
             <div>
@@ -413,9 +554,8 @@ export default function ViolationsPage() {
           </div>
         </div>
 
-        {/* Filter & Table Card */}
-        <div className="bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] p-4 sm:p-5 space-y-4">
-          {/* Filters */}
+        {/* Filters */}
+        <div className="bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
             <div className="relative">
               <Search className="w-4 h-4 text-Mist absolute left-3 top-1/2 -translate-y-1/2" />
@@ -424,7 +564,7 @@ export default function ViolationsPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Tìm từ khóa, mã chuẩn..."
-                className="w-full pl-9 pr-3 py-2 border border-Mist/40 rounded-xl text-xs bg-Snowflake/20 text-Pine focus:outline-none focus:border-Pine"
+                className="w-full pl-9 pr-3 py-2 border border-Mist/40 rounded-xl text-xs bg-Snowflake/30 text-Pine focus:outline-none focus:border-Pine"
               />
             </div>
 
@@ -474,166 +614,285 @@ export default function ViolationsPage() {
               {documents.map((d) => <option key={d.id} value={d.id}>{d.file_name}</option>)}
             </select>
           </div>
+        </div>
 
-          {loading ? (
-            <div className="flex justify-center py-16"><Spinner size="lg" /></div>
-          ) : displayedViolations.length === 0 ? (
+        {/* ═════════════════════════════════════════════════════════════════════
+            NỘI DUNG CHÍNH: CHẾ ĐỘ GOM NHÓM THEO CÔNG TY (MẶC ĐỊNH)
+        ═════════════════════════════════════════════════════════════════════ */}
+        {loading ? (
+          <div className="flex justify-center py-16 bg-white rounded-3xl"><Spinner size="lg" /></div>
+        ) : displayedViolations.length === 0 ? (
+          <div className="bg-white rounded-3xl p-8">
             <EmptyState message="Không tìm thấy cảnh báo vi phạm nào" />
-          ) : (
-            <>
-              {/* 1. Desktop Table */}
-              <div className="hidden md:block overflow-x-auto rounded-2xl border border-Mist/20">
-                <table className="min-w-full divide-y divide-Mist/15">
-                  <thead>
-                    <tr className="bg-Pine text-white">
-                      {['Nhà cung ứng / Hợp đồng', 'Tiêu chuẩn', 'Mức độ', 'Mô tả vi phạm', 'Trạng thái', 'Thao tác'].map((h) => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-extrabold uppercase tracking-wider whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-Mist/15 bg-white">
-                    {displayedViolations.map((v) => (
-                      <tr key={v.id} className="hover:bg-Snowflake/35 transition-colors">
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-start gap-2.5">
-                            <div className="w-8 h-8 rounded-xl bg-Pine/10 text-Pine flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <Building2 className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-Pine">{v.Documents?.Suppliers?.company_name || '—'}</p>
-                              {v.Documents ? (
-                                <Link
-                                  to={`/audit/${v.Documents.id}`}
-                                  className="text-xs text-Mist hover:text-Pine hover:underline flex items-center gap-1 mt-0.5"
-                                >
-                                  <FileText className="w-3 h-3" />{v.Documents.file_name}
-                                </Link>
-                              ) : (
-                                <p className="text-xs text-Mist">—</p>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          {v.Standards && (
-                            <div>
-                              <span className="font-mono text-xs font-extrabold text-Pine bg-Snowflake px-2 py-0.5 rounded-lg">
-                                {v.Standards.standard_code}
-                              </span>
-                              <p className="text-xs text-Branch mt-1 max-w-[160px] truncate">{v.Standards.name}</p>
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-1.5">
-                            <AlertTriangle className={`w-4 h-4 ${RISK_COLORS[v.risk_level]}`} />
-                            <StatusBadge status={v.risk_level} />
-                          </div>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <p className="text-xs sm:text-sm text-Branch max-w-[260px] line-clamp-2">{v.violation_desc}</p>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <StatusBadge status={v.status} />
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setDetailViolation(v)}
-                              className="p-1.5 text-Pine hover:bg-Snowflake rounded-xl transition-colors"
-                              title="Xem chi tiết"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            {hasPermission('APPROVE_VIOLATION') && v.status === 'Pending' && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => setConfirmReview({ id: v.id, status: 'Approved' })}
-                                  className="p-1.5 text-Berry hover:bg-Berry/10 rounded-xl transition-colors"
-                                  title="Phê duyệt lỗi – Trừ điểm"
-                                >
-                                  <CheckCircle2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setConfirmReview({ id: v.id, status: 'Rejected' })}
-                                  className="p-1.5 text-Branch hover:bg-Snowflake rounded-xl transition-colors"
-                                  title="Bác bỏ cảnh báo"
-                                >
-                                  <XCircle className="w-4 h-4" />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          </div>
+        ) : displayMode === 'grouped' ? (
+          <div className="space-y-4">
+            {companyGroups.map((group) => {
+              const isCollapsed = collapsedCompanies.has(group.companyKey)
+              const contractEntries = Array.from(group.contracts.entries())
 
-              {/* 2. Mobile Cards */}
-              <div className="md:hidden grid grid-cols-1 gap-3">
-                {displayedViolations.map((v) => (
-                  <div key={v.id} className="rounded-2xl border border-Mist/25 bg-white p-4 shadow-sm space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-extrabold text-Pine bg-Snowflake px-2 py-0.5 rounded-lg">
-                        {v.Standards?.standard_code || 'STD'}
-                      </span>
-                      <div className="flex gap-1.5">
-                        <StatusBadge status={v.risk_level} />
-                        <StatusBadge status={v.status} />
+              return (
+                <div
+                  key={group.companyKey}
+                  className="bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] overflow-hidden"
+                >
+                  {/* ── Thanh Header của từng Công ty (Chỉ hiện tên công ty 1 lần duy nhất) ── */}
+                  <div
+                    onClick={() => toggleCompanyCollapse(group.companyKey)}
+                    className="px-5 py-4 bg-Snowflake/45 hover:bg-Snowflake/70 transition-colors cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-Mist/20"
+                  >
+                    <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                      <div className="w-11 h-11 rounded-2xl bg-Pine text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <Building2 className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-base font-extrabold text-Pine">
+                            {group.companyName}
+                          </h3>
+                          <span className="px-2.5 py-0.5 rounded-xl bg-Pine text-white text-xs font-extrabold">
+                            {group.items.length} lỗi phát hiện
+                          </span>
+                        </div>
+
+                        {/* Danh sách file PDF của công ty này */}
+                        <div className="flex flex-wrap items-center gap-3 mt-1">
+                          {contractEntries.map(([docId, fileName]) => (
+                            <Link
+                              key={docId}
+                              to={`/audit/${docId}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 text-xs font-bold text-Berry hover:underline"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              {fileName}
+                              <ExternalLink className="w-3 h-3" />
+                            </Link>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                    <p className="text-sm font-bold text-Pine">{v.Documents?.Suppliers?.company_name}</p>
-                    <p className="text-xs text-Branch line-clamp-2">{v.violation_desc}</p>
-                    <div className="flex items-center justify-between pt-2 border-t border-Mist/15">
+
+                    {/* Các huy hiệu tóm tắt trạng thái của Công ty */}
+                    <div className="flex flex-wrap items-center gap-2 self-end md:self-center">
+                      {group.highCount > 0 && (
+                        <span className="px-3 py-1 rounded-xl bg-Berry/10 text-Berry border border-Berry/20 text-xs font-extrabold">
+                          {group.highCount} Rủi ro Cao
+                        </span>
+                      )}
+                      {group.pendingCount > 0 ? (
+                        <span className="px-3 py-1 rounded-xl bg-amber-100 text-amber-800 text-xs font-extrabold">
+                          {group.pendingCount} Chờ thẩm định
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1 rounded-xl bg-emerald-100 text-emerald-800 text-xs font-extrabold">
+                          Đã xử lý xong ({group.approvedCount} duyệt)
+                        </span>
+                      )}
+
                       <button
                         type="button"
-                        onClick={() => setDetailViolation(v)}
-                        className="px-3 py-1 bg-Snowflake text-Pine text-xs font-bold rounded-xl"
+                        className="p-1.5 rounded-xl bg-white border border-Mist/30 text-Pine hover:bg-Pine hover:text-white transition-colors"
+                        title={isCollapsed ? 'Mở rộng danh sách lỗi' : 'Thu gọn'}
                       >
-                        Chi tiết
+                        {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
                       </button>
-                      {hasPermission('APPROVE_VIOLATION') && v.status === 'Pending' && (
-                        <div className="flex gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setConfirmReview({ id: v.id, status: 'Approved' })}
-                            className="px-3 py-1 bg-Berry text-white text-xs font-extrabold rounded-xl"
-                          >
-                            Duyệt
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmReview({ id: v.id, status: 'Rejected' })}
-                            className="px-3 py-1 bg-Snowflake text-Branch text-xs font-bold rounded-xl"
-                          >
-                            Bác bỏ
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
-                ))}
-              </div>
-            </>
-          )}
 
-          {!loading && (
-            <div className="pt-2 border-t border-Mist/15">
-              <Pagination
-                page={page}
-                total={total}
-                limit={limit}
-                onPageChange={setPage}
-                onLimitChange={(nl) => { setLimit(nl); setPage(1) }}
-              />
+                  {/* ── Bảng danh sách các lỗi bên trong Công ty (Không lặp lại cột Công ty) ── */}
+                  {!isCollapsed && (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-Mist/15">
+                        <thead>
+                          <tr className="bg-Snowflake/25 text-left">
+                            <th className="px-4 py-2.5 text-[11px] font-extrabold text-Mist uppercase tracking-wider w-12 text-center">STT</th>
+                            <th className="px-4 py-2.5 text-[11px] font-extrabold text-Mist uppercase tracking-wider w-48">Mã & Tên Tiêu chuẩn</th>
+                            <th className="px-4 py-2.5 text-[11px] font-extrabold text-Mist uppercase tracking-wider w-32">Mức độ</th>
+                            <th className="px-4 py-2.5 text-[11px] font-extrabold text-Mist uppercase tracking-wider">Mô tả vi phạm & Bằng chứng</th>
+                            <th className="px-4 py-2.5 text-[11px] font-extrabold text-Mist uppercase tracking-wider w-36">Trạng thái</th>
+                            <th className="px-4 py-2.5 text-[11px] font-extrabold text-Mist uppercase tracking-wider w-32 text-right">Thao tác</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-Mist/15 bg-white">
+                          {group.items.map((v, idx) => (
+                            <tr key={v.id} className="hover:bg-Snowflake/30 transition-colors">
+                              <td className="px-4 py-3 text-xs font-extrabold text-Mist text-center">
+                                {idx + 1}
+                              </td>
+                              <td className="px-4 py-3">
+                                {v.Standards && (
+                                  <div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-mono text-xs font-extrabold text-Pine bg-Snowflake px-2 py-0.5 rounded-lg border border-Mist/25">
+                                        {v.Standards.standard_code}
+                                      </span>
+                                      {v.page_number && (
+                                        <span className="text-[11px] font-bold text-Berry bg-Berry/10 px-1.5 py-0.5 rounded">
+                                          Tr.{v.page_number}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-xs font-semibold text-Branch mt-1 line-clamp-1" title={v.Standards.name}>
+                                      {v.Standards.name}
+                                    </p>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                <StatusBadge status={v.risk_level} />
+                              </td>
+                              <td className="px-4 py-3">
+                                <p className="text-xs sm:text-sm font-semibold text-Pine line-clamp-2">
+                                  {cleanText(v.violation_desc)}
+                                </p>
+                                {v.evidence_quote && (
+                                  <p className="text-xs text-Mist italic line-clamp-1 mt-0.5">
+                                    "{cleanText(v.evidence_quote)}"
+                                  </p>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                <StatusBadge status={v.status} />
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => setDetailViolation(v)}
+                                    className="p-1.5 text-Pine bg-Snowflake/60 hover:bg-Pine hover:text-white rounded-xl transition-colors"
+                                    title="Xem chi tiết"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                  {hasPermission('APPROVE_VIOLATION') && v.status === 'Pending' && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => setConfirmReview({ id: v.id, status: 'Approved' })}
+                                        className="px-2.5 py-1 bg-Berry text-white hover:bg-Berry/90 text-xs font-extrabold rounded-xl transition-colors flex items-center gap-1 shadow-sm"
+                                        title="Phê duyệt lỗi – Trừ điểm"
+                                      >
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        Duyệt
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setConfirmReview({ id: v.id, status: 'Rejected' })}
+                                        className="p-1.5 text-Branch bg-Snowflake hover:bg-Mist/30 rounded-xl transition-colors"
+                                        title="Bác bỏ cảnh báo"
+                                      >
+                                        <XCircle className="w-4 h-4" />
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          /* ═══════════════════════════════════════════════════════════════════
+             CHẾ ĐỘ 2: BẢNG PHẲNG TẤT CẢ DÒNG (KHI CẦN ĐỐI CHIẾU CHUNG)
+          ═══════════════════════════════════════════════════════════════════ */
+          <div className="bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] p-4 sm:p-5">
+            <div className="overflow-x-auto rounded-2xl border border-Mist/20">
+              <table className="min-w-full divide-y divide-Mist/15">
+                <thead>
+                  <tr className="bg-Pine text-white">
+                    {['Nhà cung ứng / Hợp đồng', 'Tiêu chuẩn', 'Mức độ', 'Mô tả vi phạm', 'Trạng thái', 'Thao tác'].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-extrabold uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-Mist/15 bg-white">
+                  {displayedViolations.map((v) => (
+                    <tr key={v.id} className="hover:bg-Snowflake/35 transition-colors">
+                      <td className="px-4 py-3.5">
+                        <p className="text-sm font-bold text-Pine">{v.Documents?.Suppliers?.company_name || '—'}</p>
+                        {v.Documents && (
+                          <Link
+                            to={`/audit/${v.Documents.id}`}
+                            className="text-xs text-Mist hover:text-Pine hover:underline flex items-center gap-1 mt-0.5"
+                          >
+                            <FileText className="w-3 h-3" />{v.Documents.file_name}
+                          </Link>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {v.Standards && (
+                          <div>
+                            <span className="font-mono text-xs font-extrabold text-Pine bg-Snowflake px-2 py-0.5 rounded-lg">
+                              {v.Standards.standard_code}
+                            </span>
+                            <p className="text-xs text-Branch mt-1 max-w-[160px] truncate">{v.Standards.name}</p>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <StatusBadge status={v.risk_level} />
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <p className="text-xs sm:text-sm text-Branch max-w-[260px] line-clamp-2">{cleanText(v.violation_desc)}</p>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <StatusBadge status={v.status} />
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setDetailViolation(v)}
+                            className="p-1.5 text-Pine hover:bg-Snowflake rounded-xl transition-colors"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          {hasPermission('APPROVE_VIOLATION') && v.status === 'Pending' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmReview({ id: v.id, status: 'Approved' })}
+                                className="p-1.5 text-Berry hover:bg-Berry/10 rounded-xl transition-colors"
+                              >
+                                <CheckCircle2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmReview({ id: v.id, status: 'Rejected' })}
+                                className="p-1.5 text-Branch hover:bg-Snowflake rounded-xl transition-colors"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {!loading && (
+          <div className="bg-white rounded-3xl border border-white px-5 py-2 shadow-sm">
+            <Pagination
+              page={page}
+              total={total}
+              limit={limit}
+              onPageChange={setPage}
+              onLimitChange={(nl) => { setLimit(nl); setPage(1) }}
+            />
+          </div>
+        )}
       </div>
 
       {detailViolation && (
