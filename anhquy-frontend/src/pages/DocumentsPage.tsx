@@ -9,7 +9,7 @@ import { MainLayout } from '../components/MainLayout'
 import { ConfirmModal, Modal, Pagination, StatusBadge, Spinner, EmptyState } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useRealtime } from '../context/RealtimeContext'
-import { documentApi, supplierApi, categoryApi } from '../api'
+import { documentApi, supplierApi, categoryApi, adminApi } from '../api'
 
 interface ContractDoc {
   id: number
@@ -42,6 +42,7 @@ export default function DocumentsPage() {
   const [documents, setDocuments] = useState<ContractDoc[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [contractTypes, setContractTypes] = useState<Category[]>([])
+  const [maxUploadMb, setMaxUploadMb] = useState<number>(20)
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -68,9 +69,21 @@ export default function DocumentsPage() {
       const data = r.data?.data || r.data || {}
       setSuppliers((data as { items?: Supplier[] })?.items || [])
     }).catch(() => {})
+
     categoryApi.getAll({ category_type: 'Contract_Type', is_active: true, limit: 200 }).then((r) => {
       const data = r.data?.data || r.data || {}
       setContractTypes((data as { items?: Category[] })?.items || [])
+    }).catch(() => {})
+
+    // Đồng bộ dung lượng tối đa từ cấu hình hệ thống (mặc định 20 MB)
+    adminApi.getSystemConfigs().then((r) => {
+      const list = r.data?.configs || r.data?.items || r.data?.data || []
+      if (Array.isArray(list)) {
+        const found = list.find((c: { config_key: string; config_value: string }) => c.config_key === 'MAX_UPLOAD_SIZE_MB')
+        if (found && Number(found.config_value) > 0) {
+          setMaxUploadMb(Number(found.config_value))
+        }
+      }
     }).catch(() => {})
   }, [])
 
@@ -94,6 +107,18 @@ export default function DocumentsPage() {
 
   useEffect(() => { fetchDocuments() }, [fetchDocuments])
 
+  const validateAndSetFile = (file: File) => {
+    if (file.type !== 'application/pdf') {
+      toast.error('Chỉ chấp nhận file định dạng PDF.')
+      return
+    }
+    if (file.size > maxUploadMb * 1024 * 1024) {
+      toast.error(`Dung lượng file vượt quá giới hạn cho phép (${maxUploadMb} MB).`)
+      return
+    }
+    setUploadFile(file)
+  }
+
   // Drag & Drop handlers
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true) }
   const handleDragLeave = () => setIsDragging(false)
@@ -101,18 +126,11 @@ export default function DocumentsPage() {
     e.preventDefault()
     setIsDragging(false)
     const file = e.dataTransfer.files[0]
-    if (file && file.type === 'application/pdf') {
-      setUploadFile(file)
-    } else {
-      toast.error('Chỉ chấp nhận file định dạng PDF.')
-    }
+    if (file) validateAndSetFile(file)
   }
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      if (file.type !== 'application/pdf') { toast.error('Chỉ chấp nhận file định dạng PDF.'); return }
-      setUploadFile(file)
-    }
+    if (file) validateAndSetFile(file)
   }
 
   const handleUpload = async () => {
@@ -296,7 +314,7 @@ export default function DocumentsPage() {
             <EmptyState message="Không tìm thấy hợp đồng PDF nào" />
           ) : (
             <>
-              {/* 1. Desktop Table (Gộp 5 cột thoáng rộng, không bị cắt chữ) */}
+              {/* 1. Desktop Table */}
               <div className="hidden md:block overflow-x-auto rounded-2xl border border-Mist/20">
                 <table className="min-w-full divide-y divide-Mist/15">
                   <thead>
@@ -495,7 +513,9 @@ export default function DocumentsPage() {
                   Chọn file PDF từ máy tính
                   <input type="file" accept="application/pdf" onChange={handleFileInput} className="hidden" />
                 </label>
-                <p className="text-xs text-Mist mt-2">Tối đa 50 MB · Chỉ nhận định dạng PDF</p>
+                <p className="text-xs font-semibold text-Mist mt-2">
+                  Tối đa {maxUploadMb} MB · Chỉ nhận định dạng PDF
+                </p>
               </>
             )}
           </div>

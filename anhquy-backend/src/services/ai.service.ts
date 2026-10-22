@@ -83,7 +83,6 @@ const getActiveStandardsForScan = async (userId: number, categoryId: number) => 
   });
   const excludedIds = new Set(excluded.map((e) => e.standard_id));
 
-  // Nếu loại hợp đồng chưa được gán trong Category_Standards thì lấy toàn bộ tiêu chuẩn đang active
   const whereClause =
     categoryStandardIds.length > 0
       ? {
@@ -105,6 +104,71 @@ const getActiveStandardsForScan = async (userId: number, categoryId: number) => 
 
   return standards.filter((s) => !excludedIds.has(s.id));
 };
+
+// ─── Tự động dò tìm danh sách Model khả dụng từ Google API (ListModels) ──────
+
+async function discoverAvailableGeminiModels(apiKey: string): Promise<string[]> {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`
+    );
+    if (!res.ok) return [];
+
+    const data = (await res.json()) as {
+      models?: Array<{
+        name?: string;
+        supportedGenerationMethods?: string[];
+      }>;
+    };
+
+    if (!Array.isArray(data.models)) return [];
+
+    const validModels = data.models
+      .filter((m) => {
+        const name = (m.name || "").toLowerCase();
+        const methods = m.supportedGenerationMethods || [];
+        const supportsGenerate = methods.includes("generateContent");
+        const isTextGemini =
+          name.includes("gemini") &&
+          !name.includes("embedding") &&
+          !name.includes("imagen") &&
+          !name.includes("veo") &&
+          !name.includes("tts") &&
+          !name.includes("audio") &&
+          !name.includes("vision") &&
+          !name.includes("aqa");
+        return supportsGenerate && isTextGemini;
+      })
+      .map((m) => (m.name || "").replace(/^models\//, ""));
+
+    // Ưu tiên các dòng model Flash trước để tốc độ phản hồi nhanh nhất
+    return validModels.sort((a, b) => {
+      const aFlash = a.includes("flash") ? 0 : 1;
+      const bFlash = b.includes("flash") ? 0 : 1;
+      if (aFlash !== bFlash) return aFlash - bFlash;
+      return b.localeCompare(a);
+    });
+  } catch {
+    return [];
+  }
+}
+
+// ─── Tách chuỗi JSON an toàn từ phản hồi của LLM ─────────────────────────────
+
+function extractJsonString(raw: string): string {
+  const cleaned = raw
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    return cleaned.substring(firstBrace, lastBrace + 1);
+  }
+  return cleaned;
+}
 
 // ─── Bước 3 & 4: Đóng gói ngữ cảnh RAG & Gọi Gemini LLM ──────────────────────
 
@@ -139,7 +203,7 @@ const callGeminiWithRagChunks = async (
           content = s.content_i18n;
         }
       }
-      return `- standard_id: ${s.id} | Mã: ${s.standard_code} \vert{} Tên: ${s.name} | Lãnh thổ: ${s.jurisdiction ?? "Global"} | Trọng số: ${s.priority_level ?? 1} | Nội dung: ${content}`;
+      return `- standard_id: ${s.id} | Mã: ${s.standard_code} | Tên: ${s.name} | Lãnh thổ: ${s.jurisdiction ?? "Global"} | Trọng số: ${s.priority_level ?? 1} | Nội dung: ${content}`;
     })
     .join("\n");
 
@@ -173,57 +237,88 @@ ${formattedEvidenceChunks}
 Trả về JSON theo đúng cấu trúc sau:
 {"findings":[{"standard_id":number,"risk_level":"High"|"Medium"|"Low","violation_desc":"string","evidence_quote":"string","page_number":number|null,"recommendation":"string"}]}`;
 
-  // Danh sách các model ưu tiên thử lần lượt (đề phòng gemini-1.5-flash cũ bị ngừng hỗ trợ)
-  const candidateModels = Array.from(
-    new Set([
-      modelName === "gemini-1.5-flash" ? "gemini-2.5-flash" : modelName,
-      "gemini-2.5-flash",
-      "gemini-2.0-flash",
-      modelName,
-    ].filter(Boolean))
+  // 1. Danh sách các model ưu tiên (Đưa gemini-3.8-flash lên đầu tiên theo thông báo của Google)
+  const initialCandidates = Array.from(
+    new Set(
+      [
+        "gemini-3.8-flash",
+        "gemini-3-flash-preview",
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-flash",
+        modelName && !["gemini-1.5-flash", "gemini-2.0-flash"].includes(modelName)
+          ? modelName
+          : null,
+      ].filter((m): m is string => Boolean(m))
+    )
   );
 
   let rawText = "";
   let lastApiError: unknown = null;
+  const triedModels = new Set<string>();
 
-  for (const candidate of candidateModels) {
+  const tryGenerateWithModel = async (candidate: string): Promise<boolean> => {
+    if (triedModels.has(candidate)) return false;
+    triedModels.add(candidate);
+
     try {
       const response = await genai.models.generateContent({
         model: candidate,
         contents: prompt,
       });
       rawText = response.text ?? "";
-      if (rawText) break;
+      if (rawText) {
+        console.log(`[AI Service] Phân tích hợp đồng thành công bằng model: ${candidate}`);
+        return true;
+      }
+      return false;
     } catch (err: unknown) {
       lastApiError = err;
       const errMsg = err instanceof Error ? err.message : String(err);
-      console.warn(`[AI Service] Model "${candidate}" gặp lỗi, đang thử model dự phòng... Chi tiết:`, errMsg);
-      // Nếu lỗi do API Key bị khóa (403 leaked/invalid) thì báo ngay cho người dùng biết
-      if (errMsg.toLowerCase().includes("leaked") || errMsg.toLowerCase().includes("api_key_invalid") || errMsg.includes("403")) {
+      console.warn(`[AI Service] Model "${candidate}" không khả dụng, đang chuyển đổi...`);
+
+      if (
+        errMsg.toLowerCase().includes("leaked") ||
+        errMsg.toLowerCase().includes("api_key_invalid") ||
+        errMsg.includes("403")
+      ) {
         throw makeError(
-          "GEMINI_API_KEY đã bị Google khóa do lộ công khai hoặc không hợp lệ. Vui lòng tạo API Key mới trên Google AI Studio và cập nhật vào file .env!",
+          "GEMINI_API_KEY đã bị khóa hoặc không hợp lệ. Vui lòng kiểm tra lại API Key trong file .env!",
           403
         );
       }
+      return false;
+    }
+  };
+
+  // Thử lần lượt danh sách ưu tiên
+  for (const candidate of initialCandidates) {
+    const ok = await tryGenerateWithModel(candidate);
+    if (ok) break;
+  }
+
+  // 2. Nếu vẫn chưa được, tự động gọi ListModels của Google để lấy chính xác model mà API Key này hỗ trợ
+  if (!rawText) {
+    console.log("[AI Service] Đang tự động truy vấn danh sách Model khả dụng từ Google API...");
+    const discoveredModels = await discoverAvailableGeminiModels(apiKey);
+    for (const candidate of discoveredModels) {
+      const ok = await tryGenerateWithModel(candidate);
+      if (ok) break;
     }
   }
 
   if (!rawText) {
-    const detail = lastApiError instanceof Error ? lastApiError.message : "Không nhận được phản hồi từ Gemini.";
+    const detail =
+      lastApiError instanceof Error ? lastApiError.message : "Không nhận được phản hồi từ Gemini.";
     throw makeError(`Lỗi kết nối Gemini AI: ${detail}`, 502);
   }
 
-  const cleaned = rawText
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
+  const jsonStr = extractJsonString(rawText);
 
   let parsed: GeminiResponse;
   try {
-    parsed = JSON.parse(cleaned) as GeminiResponse;
+    parsed = JSON.parse(jsonStr) as GeminiResponse;
   } catch {
-    throw makeError(`Gemini trả về JSON không hợp lệ: ${cleaned.substring(0, 200)}`, 502);
+    throw makeError(`Gemini trả về JSON không hợp lệ: ${jsonStr.substring(0, 200)}`, 502);
   }
 
   if (!Array.isArray(parsed.findings)) {
@@ -244,8 +339,10 @@ export const runAiScanService = async (documentId: number, userId: number) => {
   });
 
   if (!document) throw makeError("Hợp đồng không tồn tại.", 404);
-  if (document.Suppliers.is_deleted) throw makeError("Nhà cung cấp của hợp đồng này đã bị xóa.", 400);
-  if (document.status === "Analyzing") throw makeError("Hợp đồng đang được phân tích, vui lòng chờ.", 409);
+  if (document.Suppliers.is_deleted)
+    throw makeError("Nhà cung cấp của hợp đồng này đã bị xóa.", 400);
+  if (document.status === "Analyzing")
+    throw makeError("Hợp đồng đang được phân tích, vui lòng chờ.", 409);
 
   await prisma.documents.update({
     where: { id: documentId },
@@ -261,7 +358,7 @@ export const runAiScanService = async (documentId: number, userId: number) => {
 
     const configMap = await getSystemConfigMap();
     const maskingEnabled = configMap["DATA_MASKING_ENABLED"] !== "false";
-    const modelName = configMap["AI_MODEL_NAME"] || "gemini-2.5-flash";
+    const modelName = configMap["AI_MODEL_NAME"] || "gemini-3.8-flash";
     const strictMode = configMap["AI_STRICT_RULE_MODE"] !== "false";
 
     // BƯỚC 1: Smart Chunking theo từng Trang & Điều/Khoản + Data Masking
