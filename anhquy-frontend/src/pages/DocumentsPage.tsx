@@ -28,13 +28,6 @@ interface ContractDoc {
 interface Supplier { id: number; company_name: string }
 interface Category { id: number; name: string; category_type: string }
 
-const STATUS_ICON: Record<string, React.ReactNode> = {
-  Uploaded:  <Clock className="w-4 h-4 text-Pine" />,
-  Analyzing: <Cpu className="w-4 h-4 text-Branch animate-pulse" />,
-  Analyzed:  <CheckCircle className="w-4 h-4 text-Pine" />,
-  Error:     <XCircle className="w-4 h-4 text-Berry" />,
-}
-
 function formatBytes(bytes: number | null): string {
   if (!bytes) return '—'
   if (bytes < 1024) return `${bytes} B`
@@ -235,7 +228,7 @@ export default function DocumentsPage() {
             </div>
           </div>
           <div className="bg-white rounded-3xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Mist text-Pine flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-Mist text-white flex items-center justify-center flex-shrink-0">
               <CheckCircle className="w-5 h-5" />
             </div>
             <div>
@@ -265,7 +258,7 @@ export default function DocumentsPage() {
                 placeholder="Tìm tên file, đối tác..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 border border-Mist/40 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-Pine bg-Snowflake/20 text-Pine placeholder-Mist"
+                className="w-full pl-9 pr-3 py-2 border border-Mist/40 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-Pine bg-Snowflake/30 text-Pine placeholder-Mist"
               />
             </div>
             <select
@@ -303,50 +296,52 @@ export default function DocumentsPage() {
             <EmptyState message="Không tìm thấy hợp đồng PDF nào" />
           ) : (
             <>
-              {/* 1. Desktop Table */}
+              {/* 1. Desktop Table (Gộp 5 cột thoáng rộng, không bị cắt chữ) */}
               <div className="hidden md:block overflow-x-auto rounded-2xl border border-Mist/20">
                 <table className="min-w-full divide-y divide-Mist/15">
                   <thead>
                     <tr className="bg-Pine text-white">
-                      {['Tên file PDF', 'Nhà cung ứng', 'Loại Hợp đồng', 'Dung lượng', 'Mã băm SHA-256', 'Trạng thái', 'Thao tác'].map((h) => (
+                      {['Tài liệu Hợp đồng PDF', 'Đối tác & Phân loại', 'Mã toàn vẹn SHA-256', 'Trạng thái', 'Thao tác'].map((h) => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-extrabold uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-Mist/15 bg-white">
                     {filteredDocs.map((doc) => (
-                      <tr key={doc.id} className="hover:bg-Snowflake/35 transition-colors">
+                      <tr key={doc.id} className="hover:bg-Snowflake/40 transition-colors">
                         <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-xl bg-Pine/10 text-Pine flex items-center justify-center flex-shrink-0">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-Pine/10 text-Pine flex items-center justify-center flex-shrink-0">
                               <FileText className="w-4 h-4" />
                             </div>
-                            <Link
-                              to={`/audit/${doc.id}`}
-                              className="text-sm font-bold text-Pine hover:underline max-w-[210px] truncate"
-                              title={doc.file_name}
-                            >
-                              {doc.file_name}
-                            </Link>
+                            <div className="min-w-0">
+                              <Link
+                                to={`/audit/${doc.id}`}
+                                className="text-sm font-extrabold text-Pine hover:underline block truncate max-w-xs"
+                                title={doc.file_name}
+                              >
+                                {doc.file_name}
+                              </Link>
+                              <span className="text-[11px] text-Mist">
+                                Dung lượng: {formatBytes(doc.file_size)}
+                                {(doc.uploaded_at || doc.created_at) &&
+                                  ` · Tải lên: ${new Date(doc.uploaded_at || doc.created_at!).toLocaleDateString('vi-VN')}`}
+                              </span>
+                            </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3.5 text-xs font-bold text-Branch whitespace-nowrap">
-                          {doc.Suppliers?.company_name || '—'}
-                        </td>
-                        <td className="px-4 py-3.5 text-xs text-Branch whitespace-nowrap">
-                          <span className="px-2.5 py-1 rounded-xl bg-Snowflake text-Pine font-semibold">
+                        <td className="px-4 py-3.5">
+                          <p className="text-xs font-extrabold text-Pine">{doc.Suppliers?.company_name || '—'}</p>
+                          <span className="inline-block mt-0.5 text-[11px] font-semibold text-Branch">
                             {doc.Categories?.name || '—'}
                           </span>
-                        </td>
-                        <td className="px-4 py-3.5 text-xs font-mono text-Mist whitespace-nowrap">
-                          {formatBytes(doc.file_size)}
                         </td>
                         <td className="px-4 py-3.5">
                           {doc.file_hash ? (
                             <button
                               type="button"
                               onClick={() => copyHash(doc.file_hash!)}
-                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-Snowflake/80 hover:bg-Pine hover:text-white text-Pine text-xs font-mono transition-colors"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-Snowflake hover:bg-Pine hover:text-white text-Pine text-xs font-mono transition-colors"
                               title={`Click để sao chép SHA-256: ${doc.file_hash}`}
                             >
                               <Hash className="w-3 h-3" />
@@ -356,20 +351,17 @@ export default function DocumentsPage() {
                           ) : '—'}
                         </td>
                         <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-1.5">
-                            {STATUS_ICON[doc.status]}
-                            <StatusBadge status={doc.status} />
-                          </div>
+                          <StatusBadge status={doc.status} />
                         </td>
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-1.5">
                             <Link
                               to={`/audit/${doc.id}`}
                               title="Mở Phòng Kiểm toán AI (Split-view)"
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-Snowflake text-Pine hover:bg-Pine hover:text-white text-xs font-extrabold rounded-xl transition-all"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-Snowflake text-Pine hover:bg-Pine hover:text-white text-xs font-extrabold rounded-xl transition-all"
                             >
                               <Eye className="w-3.5 h-3.5" />
-                              Kiểm toán
+                              Mở Kiểm toán
                             </Link>
 
                             {hasPermission('RUN_AI_AUDIT') && doc.status !== 'Analyzing' && (
@@ -385,7 +377,7 @@ export default function DocumentsPage() {
                                 ) : (
                                   <Cpu className="w-3.5 h-3.5" />
                                 )}
-                                Quét AI
+                                {doc.status === 'Analyzed' ? 'Quét lại' : 'Quét AI'}
                               </button>
                             )}
 
@@ -470,7 +462,6 @@ export default function DocumentsPage() {
         size="md"
       >
         <div className="space-y-4">
-          {/* Drag & Drop Zone */}
           <div
             ref={dropRef}
             onDragOver={handleDragOver}
@@ -509,7 +500,6 @@ export default function DocumentsPage() {
             )}
           </div>
 
-          {/* Metadata */}
           <div>
             <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Nhà cung ứng *</label>
             <select
@@ -533,7 +523,6 @@ export default function DocumentsPage() {
             </select>
           </div>
 
-          {/* Bảo mật note */}
           <div className="flex items-start gap-2.5 bg-Snowflake/60 rounded-2xl p-3.5 border border-Mist/25">
             <AlertTriangle className="w-4 h-4 text-Berry mt-0.5 flex-shrink-0" />
             <p className="text-xs text-Branch leading-relaxed">

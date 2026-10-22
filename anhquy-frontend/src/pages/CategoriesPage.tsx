@@ -147,7 +147,7 @@ export default function CategoriesPage() {
           <div>
             <h1 className="text-2xl font-extrabold text-Pine tracking-tight">Danh mục Hệ thống</h1>
             <p className="text-xs sm:text-sm text-Mist mt-0.5">
-              Quản lý phân loại ngành nghề nhà cung ứng và loại hợp đồng kiểm toán (Tự động ánh xạ 24 tiêu chuẩn)
+              Quản lý phân loại ngành nghề nhà cung ứng và loại hợp đồng kiểm toán 
             </p>
           </div>
           <button

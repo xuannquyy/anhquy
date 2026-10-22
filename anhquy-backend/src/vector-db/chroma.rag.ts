@@ -1,5 +1,5 @@
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse");
+const pdfParseModule = require("pdf-parse");
 import { GoogleGenAI } from "@google/genai";
 
 export interface ContractChunk {
@@ -22,6 +22,73 @@ export interface StandardForRag {
 }
 
 /**
+ * Bộ đọc PDF đa tương thích (Hỗ trợ cả pdf-parse v1.x function và pdf-parse v2.x PDFParse class)
+ */
+async function extractPagesFromPdfBuffer(fileBuffer: Buffer): Promise<string[]> {
+  const pagesText: string[] = [];
+
+  // Trường hợp 1: pdf-parse v1.x (dạng hàm trực tiếp hoặc nằm trong .default)
+  const parseFn =
+    typeof pdfParseModule === "function"
+      ? pdfParseModule
+      : typeof pdfParseModule?.default === "function"
+      ? pdfParseModule.default
+      : null;
+
+  if (parseFn) {
+    const options = {
+      pagerender: async (pageData: {
+        getTextContent: () => Promise<{ items: Array<{ str: string; transform: number[] }> }>;
+      }) => {
+        const textContent = await pageData.getTextContent();
+        let lastY: number | null = null;
+        let pageStr = "";
+
+        for (const item of textContent.items) {
+          const currentY = item.transform ? item.transform[5] : null;
+          if (lastY !== null && currentY !== null && Math.abs(currentY - lastY) > 4) {
+            pageStr += "\n";
+          }
+          pageStr += item.str + " ";
+          lastY = currentY;
+        }
+
+        pagesText.push(pageStr.trim());
+        return pageStr;
+      },
+    };
+
+    const result = await parseFn(fileBuffer, options);
+    if (pagesText.length === 0 && result?.text) {
+      pagesText.push(String(result.text).trim());
+    }
+    return pagesText;
+  }
+
+  // Trường hợp 2: pdf-parse v2.x (dạng Class PDFParse)
+  const PDFParseClass = pdfParseModule?.PDFParse || pdfParseModule?.default?.PDFParse;
+  if (typeof PDFParseClass === "function") {
+    const parser = new PDFParseClass({ data: fileBuffer });
+    const result = await parser.getText();
+
+    if (Array.isArray(result?.pages) && result.pages.length > 0) {
+      for (const p of result.pages) {
+        pagesText.push(String(p.text || "").trim());
+      }
+    } else if (result?.text) {
+      pagesText.push(String(result.text).trim());
+    }
+
+    if (typeof parser.destroy === "function") {
+      await parser.destroy().catch(() => {});
+    }
+    return pagesText;
+  }
+
+  throw new Error("Không thể khởi tạo thư viện đọc PDF (pdf-parse).");
+}
+
+/**
  * BƯỚC 1: Trích xuất PDF theo từng trang và Smart Chunking theo Điều/Khoản luật.
  * Lưu đầy đủ Metadata: pageNumber, lineStart, clauseTitle.
  */
@@ -30,32 +97,7 @@ export const extractAndSmartChunkPdf = async (
   documentId: number,
   maskFn: (raw: string) => string
 ): Promise<ContractChunk[]> => {
-  const pagesText: string[] = [];
-
-  // Custom pagerender của pdf-parse để tách riêng nội dung từng trang PDF
-  const options = {
-    pagerender: async (pageData: {
-      getTextContent: () => Promise<{ items: Array<{ str: string; transform: number[] }> }>;
-    }) => {
-      const textContent = await pageData.getTextContent();
-      let lastY: number | null = null;
-      let pageStr = "";
-
-      for (const item of textContent.items) {
-        const currentY = item.transform ? item.transform[5] : null;
-        if (lastY !== null && currentY !== null && Math.abs(currentY - lastY) > 4) {
-          pageStr += "\n";
-        }
-        pageStr += item.str + " ";
-        lastY = currentY;
-      }
-
-      pagesText.push(pageStr.trim());
-      return pageStr;
-    },
-  };
-
-  await pdfParse(fileBuffer, options);
+  const pagesText = await extractPagesFromPdfBuffer(fileBuffer);
 
   const chunks: ContractChunk[] = [];
   let chunkIndex = 0;
@@ -128,16 +170,12 @@ const cosineSimilarity = (vecA: number[], vecB: number[]): number => {
 
 /**
  * BƯỚC 2: Nhúng Vector (Embedding) và Truy xuất các mảnh bằng chứng liên quan nhất (RAG Retrieval).
- * - Thử đồng bộ lên ChromaDB REST API (nếu CHROMA_URL đang chạy).
- * - Thực hiện Vector Similarity Search bằng Google Embedding (`text-embedding-004`) kết hợp Lexical Score
- *   để lọc ra các điều khoản hợp đồng có nguy cơ vi phạm cao nhất.
  */
 export const retrieveRelevantChunksViaRag = async (
   chunks: ContractChunk[],
   standards: StandardForRag[],
   apiKey: string
 ): Promise<ContractChunk[]> => {
-  // Nếu hợp đồng ngắn (<= 15 chunks), trả về toàn bộ để không sót bất kỳ câu nào
   if (chunks.length <= 15) {
     return chunks;
   }
@@ -145,7 +183,6 @@ export const retrieveRelevantChunksViaRag = async (
   const genai = new GoogleGenAI({ apiKey });
 
   try {
-    // Tạo chuỗi truy vấn đại diện cho các nhóm tiêu chuẩn (Lao động, An toàn, Môi trường, Đạo đức)
     const standardTexts = standards.map((s) => {
       let viText = s.name;
       if (s.content_i18n) {
@@ -159,13 +196,11 @@ export const retrieveRelevantChunksViaRag = async (
       return viText;
     });
 
-    // Nhúng Vector cho các Chunks hợp đồng
     const chunkEmbedRes = await genai.models.embedContent({
       model: "text-embedding-004",
       contents: chunks.map((c) => `${c.clauseTitle}:${c.content}`),
     });
 
-    // Nhúng Vector cho bộ Tiêu chuẩn
     const stdEmbedRes = await genai.models.embedContent({
       model: "text-embedding-004",
       contents: standardTexts,
@@ -174,7 +209,6 @@ export const retrieveRelevantChunksViaRag = async (
     const chunkVectors = chunkEmbedRes.embeddings?.map((e) => e.values ?? []) ?? [];
     const stdVectors = stdEmbedRes.embeddings?.map((e) => e.values ?? []) ?? [];
 
-    // Chấm điểm tương đồng lớn nhất của mỗi Chunk hợp đồng với bất kỳ Tiêu chuẩn nào
     const scoredChunks = chunks.map((chunk, i) => {
       const cVec = chunkVectors[i] ?? [];
       let maxSim = 0;
@@ -185,7 +219,6 @@ export const retrieveRelevantChunksViaRag = async (
       return { chunk, score: maxSim };
     });
 
-    // Lấy Top 25 mảnh bằng chứng có độ tương đồng ngữ nghĩa cao nhất, sau đó sắp xếp lại theo thứ tự trang
     const topChunks = scoredChunks
       .sort((a, b) => b.score - a.score)
       .slice(0, 25)
@@ -194,7 +227,6 @@ export const retrieveRelevantChunksViaRag = async (
 
     return topChunks;
   } catch (embedError) {
-    // Fallback an toàn nếu API Embedding gặp giới hạn: lấy 30 chunks đầu tiên có chứa từ khóa pháp lý
     console.warn("[RAG Warning] Sử dụng Lexical Fallback cho Chunk Retrieval:", embedError);
     return chunks.slice(0, 30);
   }

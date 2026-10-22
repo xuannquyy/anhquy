@@ -48,12 +48,6 @@ const getSystemConfigMap = async (): Promise<Record<string, string>> => {
 
 // ─── Data Masking ─────────────────────────────────────────────────────────────
 
-/**
- * Ẩn danh các thông tin nhạy cảm trước khi gửi sang Gemini / ChromaDB.
- * - CCCD / CMND: 9 hoặc 12 chữ số liên tiếp
- * - Mã số thuế: 10 hoặc 13 chữ số (có thể có dấu gạch ngang)
- * - Số tài khoản ngân hàng: 6-19 chữ số liên tiếp (sau context từ khóa)
- */
 const maskSensitiveData = (text: string): string => {
   let masked = text;
 
@@ -61,11 +55,11 @@ const maskSensitiveData = (text: string): string => {
   masked = masked.replace(/\b\d{12}\b/g, "[REDACTED]");
   masked = masked.replace(/\b\d{9}\b/g, "[REDACTED]");
 
-  // Mã số thuế — 10 chữ số hoặc 10-3 (format MST chi nhánh)
+  // Mã số thuế — 10 chữ số hoặc 10-3
   masked = masked.replace(/\b\d{10}-\d{3}\b/g, "[REDACTED]");
   masked = masked.replace(/\b\d{10}\b/g, "[REDACTED]");
 
-  // Số tài khoản ngân hàng — context từ khóa "tài khoản", "STK", "account"
+  // Số tài khoản ngân hàng
   masked = masked.replace(
     /(?:tài khoản|STK|account|số TK)[:\s]*(\d[\d\s-]{5,18}\d)/gi,
     (match, p1) => match.replace(p1, "[REDACTED]")
@@ -76,13 +70,6 @@ const maskSensitiveData = (text: string): string => {
 
 // ─── Lọc bộ tiêu chuẩn động ──────────────────────────────────────────────────
 
-/**
- * Công thức lọc bộ tiêu chuẩn động (SKILL.md §3.2):
- * Active Standards =
- *   (Tiêu chuẩn gốc [created_by IS NULL] + Tiêu chuẩn riêng của User [created_by = userId])
- *   - Các tiêu chuẩn bị User loại trừ trong bảng User_Excluded_Standards
- *   Chỉ lấy is_active = true và thuộc Category_Standards của loại hợp đồng (categoryId).
- */
 const getActiveStandardsForScan = async (userId: number, categoryId: number) => {
   const categoryStandards = await prisma.category_Standards.findMany({
     where: { category_id: categoryId },
@@ -90,23 +77,27 @@ const getActiveStandardsForScan = async (userId: number, categoryId: number) => 
   });
   const categoryStandardIds = categoryStandards.map((cs) => cs.standard_id);
 
-  if (categoryStandardIds.length === 0) return [];
-
   const excluded = await prisma.user_Excluded_Standards.findMany({
     where: { user_id: userId },
     select: { standard_id: true },
   });
   const excludedIds = new Set(excluded.map((e) => e.standard_id));
 
+  // Nếu loại hợp đồng chưa được gán trong Category_Standards thì lấy toàn bộ tiêu chuẩn đang active
+  const whereClause =
+    categoryStandardIds.length > 0
+      ? {
+          id: { in: categoryStandardIds },
+          is_active: true,
+          OR: [{ created_by: null }, { created_by: userId }],
+        }
+      : {
+          is_active: true,
+          OR: [{ created_by: null }, { created_by: userId }],
+        };
+
   const standards = await prisma.standards.findMany({
-    where: {
-      id: { in: categoryStandardIds },
-      is_active: true,
-      OR: [
-        { created_by: null },      // Tiêu chuẩn hệ thống
-        { created_by: userId },     // Tiêu chuẩn cá nhân của user
-      ],
-    },
+    where: whereClause,
     include: {
       Standard_Groups: { select: { group_code: true, group_name: true } },
     },
@@ -130,14 +121,13 @@ const callGeminiWithRagChunks = async (
   modelName: string,
   strictMode: boolean
 ): Promise<GeminiViolationFinding[]> => {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey || apiKey.startsWith("Điền_")) {
-    throw makeError("GEMINI_API_KEY chưa được cấu hình.", 500);
+    throw makeError("GEMINI_API_KEY chưa được cấu hình trong file .env của Backend.", 500);
   }
 
   const genai = new GoogleGenAI({ apiKey });
 
-  // Format danh sách tiêu chuẩn từ SQL Server (cả VI và EN)
   const standardsList = standards
     .map((s) => {
       let content = "";
@@ -153,7 +143,6 @@ const callGeminiWithRagChunks = async (
     })
     .join("\n");
 
-  // Format các đoạn bằng chứng đã được RAG lọc kèm đúng số Trang và Dòng
   const formattedEvidenceChunks = relevantChunks
     .map(
       (c) =>
@@ -184,12 +173,45 @@ ${formattedEvidenceChunks}
 Trả về JSON theo đúng cấu trúc sau:
 {"findings":[{"standard_id":number,"risk_level":"High"|"Medium"|"Low","violation_desc":"string","evidence_quote":"string","page_number":number|null,"recommendation":"string"}]}`;
 
-  const response = await genai.models.generateContent({
-    model: modelName || "gemini-1.5-flash",
-    contents: prompt,
-  });
+  // Danh sách các model ưu tiên thử lần lượt (đề phòng gemini-1.5-flash cũ bị ngừng hỗ trợ)
+  const candidateModels = Array.from(
+    new Set([
+      modelName === "gemini-1.5-flash" ? "gemini-2.5-flash" : modelName,
+      "gemini-2.5-flash",
+      "gemini-2.0-flash",
+      modelName,
+    ].filter(Boolean))
+  );
 
-  const rawText = response.text ?? "";
+  let rawText = "";
+  let lastApiError: unknown = null;
+
+  for (const candidate of candidateModels) {
+    try {
+      const response = await genai.models.generateContent({
+        model: candidate,
+        contents: prompt,
+      });
+      rawText = response.text ?? "";
+      if (rawText) break;
+    } catch (err: unknown) {
+      lastApiError = err;
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.warn(`[AI Service] Model "${candidate}" gặp lỗi, đang thử model dự phòng... Chi tiết:`, errMsg);
+      // Nếu lỗi do API Key bị khóa (403 leaked/invalid) thì báo ngay cho người dùng biết
+      if (errMsg.toLowerCase().includes("leaked") || errMsg.toLowerCase().includes("api_key_invalid") || errMsg.includes("403")) {
+        throw makeError(
+          "GEMINI_API_KEY đã bị Google khóa do lộ công khai hoặc không hợp lệ. Vui lòng tạo API Key mới trên Google AI Studio và cập nhật vào file .env!",
+          403
+        );
+      }
+    }
+  }
+
+  if (!rawText) {
+    const detail = lastApiError instanceof Error ? lastApiError.message : "Không nhận được phản hồi từ Gemini.";
+    throw makeError(`Lỗi kết nối Gemini AI: ${detail}`, 502);
+  }
 
   const cleaned = rawText
     .replace(/^```json\s*/i, "")
@@ -214,7 +236,6 @@ Trả về JSON theo đúng cấu trúc sau:
 // ─── Service chính: Chạy quy trình 5 bước RAG + LLM ──────────────────────────
 
 export const runAiScanService = async (documentId: number, userId: number) => {
-  // 1. Kiểm tra Document
   const document = await prisma.documents.findUnique({
     where: { id: documentId },
     include: {
@@ -238,10 +259,9 @@ export const runAiScanService = async (documentId: number, userId: number) => {
     }
     const fileBuffer = fs.readFileSync(filePath);
 
-    // Đọc cấu hình từ bảng System_Configs
     const configMap = await getSystemConfigMap();
     const maskingEnabled = configMap["DATA_MASKING_ENABLED"] !== "false";
-    const modelName = configMap["AI_MODEL_NAME"] || "gemini-1.5-flash";
+    const modelName = configMap["AI_MODEL_NAME"] || "gemini-2.5-flash";
     const strictMode = configMap["AI_STRICT_RULE_MODE"] !== "false";
 
     // BƯỚC 1: Smart Chunking theo từng Trang & Điều/Khoản + Data Masking
@@ -265,11 +285,11 @@ export const runAiScanService = async (documentId: number, userId: number) => {
       return { violations: [], message: "Không có tiêu chuẩn nào áp dụng cho loại hợp đồng này." };
     }
 
-    // BƯỚC 2: RAG Retrieval — Lọc ra các đoạn bằng chứng có liên quan ngữ nghĩa với Bộ tiêu chuẩn
-    const apiKey = process.env.GEMINI_API_KEY ?? "";
+    // BƯỚC 2: RAG Retrieval
+    const apiKey = process.env.GEMINI_API_KEY?.trim() ?? "";
     const relevantChunks = await retrieveRelevantChunksViaRag(allChunks, activeStandards, apiKey);
 
-    // BƯỚC 3 & 4: Đóng gói Prompt & Gọi Gemini LLM suy luận lỗi
+    // BƯỚC 3 & 4: Đóng gói Prompt & Gọi Gemini LLM
     const findings = await callGeminiWithRagChunks(
       relevantChunks,
       activeStandards,
@@ -277,7 +297,7 @@ export const runAiScanService = async (documentId: number, userId: number) => {
       strictMode
     );
 
-    // BƯỚC 5: Xóa các lỗi Pending cũ (nếu quét lại) và lưu danh sách lỗi mới vào bảng Violations
+    // BƯỚC 5: Lưu danh sách lỗi mới vào bảng Violations
     const validStandardIds = new Set(activeStandards.map((s) => s.id));
     const violationsToCreate = findings.filter(
       (f) =>
@@ -307,7 +327,6 @@ export const runAiScanService = async (documentId: number, userId: number) => {
       ),
     ]);
 
-    // Bỏ phần tử đầu tiên (kết quả của deleteMany)
     const savedViolations = createdViolations.slice(1);
 
     await prisma.documents.update({
@@ -329,9 +348,6 @@ export const runAiScanService = async (documentId: number, userId: number) => {
   }
 };
 
-/**
- * Lấy danh sách Violations của một Document (dùng trong Split-view).
- */
 export const getViolationsByDocumentService = async (documentId: number) => {
   const document = await prisma.documents.findUnique({ where: { id: documentId } });
   if (!document) throw makeError("Hợp đồng không tồn tại.", 404);

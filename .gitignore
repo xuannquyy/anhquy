@@ -18,3 +18,7 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 Thumbs.db
+
+# Bỏ file pdf hợp đồng trong thư mục uploads, nhưng vẫn giữ lại file .gitkeep
+uploads/*.pdf
+!uploads/.gitkeep
