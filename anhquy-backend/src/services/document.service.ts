@@ -15,6 +15,50 @@ const makeError = (message: string, httpStatus: number): ServiceError => {
   return err;
 };
 
+/**
+ * Hàm đồng bộ lại điểm tín nhiệm (risk_score) của Nhà cung ứng dựa trên
+ * các lỗi ĐÃ PHÊ DUYỆT (Approved) của những hợp đồng đang tồn tại thực tế.
+ */
+const syncSupplierRiskScore = async (supplierId: number): Promise<number> => {
+  const configs = await prisma.system_Configs.findMany({
+    where: {
+      config_key: { in: ["PENALTY_HIGH_RISK", "PENALTY_MEDIUM_RISK", "PENALTY_LOW_RISK"] },
+    },
+    select: { config_key: true, config_value: true },
+  });
+
+  const deductions: Record<string, number> = { High: 10, Medium: 5, Low: 2 };
+  for (const c of configs) {
+    const val = parseFloat(c.config_value);
+    if (!isNaN(val)) {
+      if (c.config_key === "PENALTY_HIGH_RISK") deductions["High"] = val;
+      if (c.config_key === "PENALTY_MEDIUM_RISK") deductions["Medium"] = val;
+      if (c.config_key === "PENALTY_LOW_RISK") deductions["Low"] = val;
+    }
+  }
+
+  const approvedViolations = await prisma.violations.findMany({
+    where: {
+      status: "Approved",
+      Documents: { supplier_id: supplierId },
+    },
+    select: { risk_level: true },
+  });
+
+  let score = 100;
+  for (const v of approvedViolations) {
+    score -= deductions[v.risk_level] ?? 0;
+  }
+  const finalScore = Math.max(0, score);
+
+  await prisma.suppliers.update({
+    where: { id: supplierId },
+    data: { risk_score: finalScore, updated_at: new Date() },
+  });
+
+  return finalScore;
+};
+
 export interface DocumentFilter {
   supplier_id?: number;
   category_id?: number;
@@ -39,7 +83,7 @@ export const getDocumentsService = async (filter: DocumentFilter) => {
     prisma.documents.findMany({
       where,
       include: {
-        Suppliers: { select: { id: true, company_name: true, tax_code: true } },
+        Suppliers: { select: { id: true, company_name: true, tax_code: true, risk_score: true } },
         Categories: { select: { id: true, name: true, category_type: true } },
       },
       orderBy: { uploaded_at: "desc" },
@@ -53,13 +97,22 @@ export const getDocumentsService = async (filter: DocumentFilter) => {
 };
 
 /**
- * Lấy 1 Document theo ID.
+ * Lấy 1 Document theo ID (Đồng bộ lại điểm tín nhiệm thực tế của Supplier trước khi trả về).
  */
 export const getDocumentByIdService = async (id: number) => {
+  const existing = await prisma.documents.findUnique({
+    where: { id },
+    select: { supplier_id: true },
+  });
+  if (!existing) throw makeError("Hợp đồng không tồn tại.", 404);
+
+  // Tự động làm sạch điểm rác nếu hợp đồng cũ đã xóa trước đó
+  await syncSupplierRiskScore(existing.supplier_id).catch(() => {});
+
   const document = await prisma.documents.findUnique({
     where: { id },
     include: {
-      Suppliers: { select: { id: true, company_name: true, tax_code: true } },
+      Suppliers: { select: { id: true, company_name: true, tax_code: true, risk_score: true } },
       Categories: { select: { id: true, name: true, category_type: true } },
       Violations: {
         select: {
@@ -82,11 +135,7 @@ export const getDocumentByIdService = async (id: number) => {
  * 1. Tính SHA-256 hash của file đã upload.
  * 2. Kiểm tra trùng hash trong bảng Documents — nếu trùng, xóa file tạm và báo lỗi.
  * 3. Kiểm tra supplier và category tồn tại và hợp lệ.
- * 4. Lưu bản ghi vào DB.
- *
- * @param file       - File object từ multer
- * @param supplierId - ID nhà cung cấp
- * @param categoryId - ID loại hợp đồng (category_type = 'Contract_Type')
+ * 4. Lưu bản ghi vào DB & đồng bộ lại điểm tín nhiệm của nhà cung cấp.
  */
 export const uploadDocumentService = async (
   file: Express.Multer.File,
@@ -106,7 +155,6 @@ export const uploadDocumentService = async (
   });
 
   if (existingDoc) {
-    // Xóa file vật lý vừa upload vì bị trùng
     fs.unlinkSync(filePath);
     throw makeError(
       `File này đã tồn tại trong hệ thống (hợp đồng #${existingDoc.id} của nhà cung cấp "${existingDoc.Suppliers?.company_name ?? "không xác định"}"). Vui lòng kiểm tra lại.`,
@@ -149,18 +197,24 @@ export const uploadDocumentService = async (
     },
   });
 
+  // 7. Đồng bộ lại điểm tín nhiệm của Supplier dựa trên các lỗi Approved thực tế đang tồn tại
+  await syncSupplierRiskScore(supplierId).catch(() => {});
+
   return document;
 };
 
-// Xóa hợp đồng tải nhầm (DELETE /api/documents/:id) & Cho phép đọc thư mục /uploads
+/**
+ * Xóa hợp đồng tải nhầm (DELETE /api/documents/:id) & Tính toán lại điểm tín nhiệm cho Nhà cung cấp
+ */
 export const deleteDocumentService = async (id: number) => {
   const doc = await prisma.documents.findUnique({ where: { id } });
   if (!doc) throw makeError("Hợp đồng không tồn tại.", 404);
 
-  // Không cho phép xóa nếu hợp đồng đang phân tích hoặc đã phân tích có lỗi
   if (doc.status === "Analyzing") {
     throw makeError("Không thể xóa hợp đồng đang trong quá trình AI phân tích.", 400);
   }
+
+  const supplierId = doc.supplier_id;
 
   // Xóa file vật lý trong thư mục /uploads nếu tồn tại
   const fullPath = path.join(process.cwd(), doc.storage_url);
@@ -175,5 +229,8 @@ export const deleteDocumentService = async (id: number) => {
   // Xóa bản ghi trong CSDL (Cascade sẽ tự động xóa các Violations liên quan)
   await prisma.documents.delete({ where: { id } });
 
-  return { id: id, file_name: doc.file_name };
+  // QUAN TRỌNG: Tính lại điểm tín nhiệm cho Nhà cung cấp sau khi đã xóa hợp đồng
+  const updatedScore = await syncSupplierRiskScore(supplierId).catch(() => 100);
+
+  return { id: id, file_name: doc.file_name, new_supplier_risk_score: updatedScore };
 };

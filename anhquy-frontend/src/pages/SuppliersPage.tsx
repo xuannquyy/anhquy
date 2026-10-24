@@ -9,7 +9,7 @@ import {
 import { MainLayout } from '../components/MainLayout'
 import { ConfirmModal, Modal, Pagination, RiskScoreBar, StatusBadge, Spinner, EmptyState } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
-import { supplierApi, categoryApi } from '../api'
+import { supplierApi, categoryApi, violationApi } from '../api'
 
 interface SupplierDoc {
   id: number
@@ -104,15 +104,39 @@ export default function SuppliersPage() {
       if (search.trim()) baseParams.search = search.trim()
       if (filterIndustry) baseParams.industry_id = filterIndustry
 
+      // Lấy danh sách vi phạm Đã phê duyệt (Approved) hiện hành để tính điểm chính xác 100%
+      const approvedViolsRes = await violationApi.getAll({ status: 'Approved', limit: 1000 }).catch(() => null)
+      const approvedViolsData = approvedViolsRes?.data?.data || approvedViolsRes?.data || {}
+      const approvedViolsList: Array<{
+        risk_level: string
+        Documents?: { Suppliers?: { id?: number; company_name?: string } }
+      }> = (approvedViolsData as { items?: never[] })?.items || []
+
+      const calculateLiveSupplierScore = (s: Supplier): number => {
+        if (!approvedViolsRes) return s.risk_score ?? 100
+        const supplierApprovedViols = approvedViolsList.filter(
+          (v) =>
+            v.Documents?.Suppliers?.id === s.id ||
+            v.Documents?.Suppliers?.company_name === s.company_name
+        )
+        const penalty = supplierApprovedViols.reduce(
+          (sum, v) => sum + (v.risk_level === 'High' ? 10 : v.risk_level === 'Medium' ? 5 : 2),
+          0
+        )
+        return Math.max(0, 100 - penalty)
+      }
+
       if (statusTab === 'active') {
         const res = await supplierApi.getAll({ ...baseParams, is_deleted: false })
         const data = res.data?.data || res.data || {}
-        setSuppliers((data as { items?: Supplier[] })?.items || [])
+        const rawItems: Supplier[] = (data as { items?: Supplier[] })?.items || []
+        setSuppliers(rawItems.map((s) => ({ ...s, risk_score: calculateLiveSupplierScore(s) })))
         setTotal((data as { total?: number })?.total || 0)
       } else if (statusTab === 'deleted') {
         const res = await supplierApi.getAll({ ...baseParams, is_deleted: true })
         const data = res.data?.data || res.data || {}
-        setSuppliers((data as { items?: Supplier[] })?.items || [])
+        const rawItems: Supplier[] = (data as { items?: Supplier[] })?.items || []
+        setSuppliers(rawItems.map((s) => ({ ...s, risk_score: calculateLiveSupplierScore(s) })))
         setTotal((data as { total?: number })?.total || 0)
       } else {
         const [activeRes, deletedRes] = await Promise.all([
@@ -127,7 +151,11 @@ export default function SuppliersPage() {
           ((activeData as { total?: number })?.total || 0) +
           ((deletedData as { total?: number })?.total || 0)
 
-        setSuppliers([...activeItems, ...deletedItems])
+        const merged = [...activeItems, ...deletedItems].map((s) => ({
+          ...s,
+          risk_score: calculateLiveSupplierScore(s),
+        }))
+        setSuppliers(merged)
         setTotal(totalCount)
       }
     } catch {

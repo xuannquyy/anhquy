@@ -21,6 +21,7 @@ import AdminUsersPage        from './pages/admin/AdminUsersPage'
 import AdminRolesMatrixPage  from './pages/admin/AdminRolesMatrixPage'
 import AdminConfigsPage      from './pages/admin/AdminConfigsPage'
 import AdminAuditLogsPage    from './pages/admin/AdminAuditLogsPage'
+import ContractSummaryPage    from './pages/ContractSummaryPage'
 import { ForbiddenPage, NotFoundPage } from './pages/ErrorPages'
 
 export default function App() {
@@ -169,6 +170,8 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            {/* THÊM DÒNG NÀY ĐỂ KÍCH HOẠT TRANG TỔNG HỢP */}
+            <Route path="/audit/:id/summary" element={<ProtectedRoute><ContractSummaryPage /></ProtectedRoute>} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

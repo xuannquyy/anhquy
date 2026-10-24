@@ -634,7 +634,7 @@ export default function ReportsPage() {
                   <select
                     value={fromMonth}
                     onChange={(e) => setFromMonth(Number(e.target.value))}
-                    className="flex-1 px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Pine font-bold"
+                    className="flex-1 px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Branch font-bold"
                   >
                     {monthsList.map((m) => (
                       <option key={m} value={m}>Tháng {m}</option>
@@ -643,7 +643,7 @@ export default function ReportsPage() {
                   <select
                     value={fromMonthYear}
                     onChange={(e) => setFromMonthYear(Number(e.target.value))}
-                    className="w-28 px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Pine font-bold"
+                    className="w-28 px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Branch font-bold"
                   >
                     {yearsList.map((y) => (
                       <option key={y} value={y}>{y}</option>
@@ -657,7 +657,7 @@ export default function ReportsPage() {
                   <select
                     value={toMonth}
                     onChange={(e) => setToMonth(Number(e.target.value))}
-                    className="flex-1 px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Pine font-bold"
+                    className="flex-1 px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Branch font-bold"
                   >
                     {monthsList.map((m) => (
                       <option key={m} value={m}>Tháng {m}</option>
@@ -666,7 +666,7 @@ export default function ReportsPage() {
                   <select
                     value={toMonthYear}
                     onChange={(e) => setToMonthYear(Number(e.target.value))}
-                    className="w-28 px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Pine font-bold"
+                    className="w-28 px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Branch font-bold"
                   >
                     {yearsList.map((y) => (
                       <option key={y} value={y}>{y}</option>
@@ -685,7 +685,7 @@ export default function ReportsPage() {
                 <select
                   value={fromYear}
                   onChange={(e) => setFromYear(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Pine font-bold"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Branch font-bold"
                 >
                   {yearsList.map((y) => (
                     <option key={y} value={y}>Năm {y}</option>
@@ -697,7 +697,7 @@ export default function ReportsPage() {
                 <select
                   value={toYear}
                   onChange={(e) => setToYear(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Pine font-bold"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Branch font-bold"
                 >
                   {yearsList.map((y) => (
                     <option key={y} value={y}>Năm {y}</option>
@@ -717,7 +717,7 @@ export default function ReportsPage() {
               <select
                 value={reportScope}
                 onChange={(e) => setReportScope(e.target.value as typeof reportScope)}
-                className="w-full px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Pine font-bold"
+                className="w-full px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold"
               >
                 <option value="all">Toàn diện (Đối tác + Vi phạm)</option>
                 <option value="suppliers">Chỉ Bảng Điểm Nhà cung ứng</option>
@@ -732,7 +732,7 @@ export default function ReportsPage() {
               <select
                 value={supplierFilter}
                 onChange={(e) => setSupplierFilter(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Pine font-bold"
+                className="w-full px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold"
               >
                 <option value="">Tất cả nhà cung ứng</option>
                 {suppliers.map((s) => (
@@ -749,7 +749,7 @@ export default function ReportsPage() {
                 value={riskFilter}
                 onChange={(e) => setRiskFilter(e.target.value)}
                 disabled={reportScope === 'suppliers'}
-                className="w-full px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Pine font-bold disabled:opacity-50"
+                className="w-full px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold disabled:opacity-50"
               >
                 <option value="">Tất cả mức độ</option>
                 <option value="High">Rủi ro Cao (High)</option>
@@ -766,7 +766,7 @@ export default function ReportsPage() {
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 disabled={reportScope === 'suppliers'}
-                className="w-full px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Pine font-bold disabled:opacity-50"
+                className="w-full px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold disabled:opacity-50"
               >
                 <option value="">Tất cả trạng thái</option>
                 <option value="Approved">Đã phê duyệt (Approved)</option>

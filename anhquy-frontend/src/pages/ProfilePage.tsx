@@ -96,7 +96,7 @@ export default function ProfilePage() {
       <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* ─── Cột Trái (4 cột): Thẻ Nhận diện Cá nhân ─────────────────────── */}
         <div className="lg:col-span-4">
-          <div className="bg-gradient-to-b from-Pine via-[#2E404B] to-Pine rounded-3xl p-6 text-white shadow-[0_14px_34px_rgba(39,54,63,0.2)] relative overflow-hidden">
+          <div className="bg-gradient-to-b from-Pine to-Pine rounded-3xl p-6 text-white shadow-[0_14px_34px_rgba(39,54,63,0.2)] relative overflow-hidden">
             <div
               className="pointer-events-none absolute -top-16 -right-16 w-40 h-40 rounded-full opacity-25 blur-2xl"
               style={{ background: 'radial-gradient(circle, #6B212C 0%, transparent 70%)' }}
@@ -118,7 +118,7 @@ export default function ProfilePage() {
               <div className="flex items-center justify-between text-Snowflake/80">
                 <span>Trạng thái tài khoản</span>
                 <span className="font-extrabold text-white flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-Snowflake" /> Đang hoạt động
+                  <span className="w-2 h-2 rounded-full bg-Sunny" /> Đang hoạt động
                 </span>
               </div>
               <div className="flex items-center justify-between text-Snowflake/80">

@@ -476,8 +476,8 @@ export default function AdminUsersPage() {
                                 <Lock className="w-3 h-3" /> Tạm khóa Brute-force (15p)
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-Snowflake text-Pine border border-Mist/30">
-                                <span className="w-1.5 h-1.5 rounded-full bg-Pine" />
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-[#D8F3DC] text-[#004F2D] border border-Mist/30">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#004F2D]" />
                                 Hoạt động
                               </span>
                             )}

@@ -82,8 +82,9 @@ export const documentApi = {
   delete: (id: number) =>
     axiosClient.delete(`/documents/${id}`),
 
+  // AI/RAG có thể cần hơn 60 giây khi embedding không khả dụng và phải fallback sang lexical search.
   analyze: (id: number) =>
-    axiosClient.post(`/documents/${id}/analyze`),
+    axiosClient.post(`/documents/${id}/analyze`, {}, { timeout: 180000 }),
 
   getViolations: (id: number) =>
     axiosClient.get(`/documents/${id}/violations`),

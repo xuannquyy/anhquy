@@ -118,7 +118,7 @@ const NAV_ITEMS: NavItem[] = [
   },
 ]
 
-// ─── Brand Logo (Nổi bật sắc nét trên nền Bluelight) ─────────────────────────
+// ─── Brand Logo (Nổi bật sắc nét trên nền Sunny) ─────────────────────────
 
 function BrandLogo() {
   const [imgError, setImgError] = useState(false)
@@ -147,7 +147,7 @@ function BrandLogo() {
   )
 }
 
-// ─── Sidebar (Nền Bluelight kết hợp chữ Pine & điểm nhấn Merlot) ─────────────
+// ─── Sidebar (Nền Sunny kết hợp chữ Pine & điểm nhấn Merlot) ─────────────
 
 function Sidebar({
   isOpen,
@@ -189,9 +189,9 @@ function Sidebar({
         />
       )}
 
-      {/* Floating Island Sidebar trên nền Bluelight */}
+      {/* Floating Island Sidebar trên nền Sunny */}
       <aside
-        className={`fixed top-0 left-0 h-full w-64 md:w-[256px] md:h-[calc(100vh-24px)] md:my-3 md:ml-3 bg-Bluelight text-Pine z-40 flex flex-col md:rounded-3xl border border-white/70 shadow-[0_18px_45px_rgba(39,54,63,0.18)]
+        className={`fixed top-0 left-0 h-full w-64 md:w-[256px] md:h-[calc(100vh-24px)] md:my-3 md:ml-3 bg-Sunny text-Pine z-40 flex flex-col md:rounded-3xl border border-white/70 shadow-[0_18px_45px_rgba(39,54,63,0.18)]
           transform transition-transform duration-300 ease-in-out overflow-hidden
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
           md:translate-x-0 md:relative md:z-auto`}
@@ -266,7 +266,7 @@ function Sidebar({
           ))}
         </nav>
 
-        {/* Bottom User Profile Card (Thẻ kính trắng nổi bật trên nền Bluelight) */}
+        {/* Bottom User Profile Card (Thẻ kính trắng nổi bật trên nền Sunny) */}
         <div className="relative z-10 p-3.5 border-t border-Pine/10 bg-white/30 backdrop-blur-md">
           <div className="p-3 rounded-2xl bg-white/85 border border-white shadow-sm flex items-center justify-between gap-2">
             <Link to="/profile" className="flex items-center gap-3 min-w-0 flex-1 group">

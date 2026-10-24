@@ -298,8 +298,8 @@ export default function CategoriesPage() {
                               <Ban className="w-3 h-3" /> Đã lưu trữ
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-Snowflake text-Pine border border-Mist/30">
-                              <span className="w-1.5 h-1.5 rounded-full bg-Pine" />
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-[#D8F3DC] text-[#1B4332] border border-Mist/30">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#74C69D]" />
                               Đang hoạt động
                             </span>
                           )}

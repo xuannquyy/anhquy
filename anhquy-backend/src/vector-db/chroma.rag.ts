@@ -168,8 +168,52 @@ const cosineSimilarity = (vecA: number[], vecB: number[]): number => {
   return normA === 0 || normB === 0 ? 0 : dot / (Math.sqrt(normA) * Math.sqrt(normB));
 };
 
+
+/** Chọn bằng chứng theo từ khóa tiêu chuẩn khi dịch vụ embedding không khả dụng. */
+const selectLexicallyRelevantChunks = (
+  chunks: ContractChunk[],
+  standards: StandardForRag[],
+  limit = 25
+): ContractChunk[] => {
+  const normalize = (value: string) => value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const stopWords = new Set(["va", "cua", "cho", "trong", "cac", "mot", "nhung", "theo", "duoc", "phai", "shall", "with", "from", "that", "this", "contract", "standard"]);
+  const terms = new Set<string>();
+  for (const standard of standards) {
+    let text = standard.name;
+    if (standard.content_i18n) {
+      try {
+        const parsed = JSON.parse(standard.content_i18n) as { vi?: string; en?: string };
+        text += ` ${parsed.vi ?? ""} ${parsed.en ?? ""}`;
+      } catch {
+        text += ` ${standard.content_i18n}`;
+      }
+    }
+    for (const term of normalize(text).match(/[a-z0-9]{3,}/g) ?? []) {
+      if (!stopWords.has(term)) terms.add(term);
+    }
+  }
+
+  if (terms.size === 0) return chunks.slice(0, limit);
+  const scored = chunks.map((chunk, index) => {
+    const content = normalize(`${chunk.clauseTitle} ${chunk.content}`);
+    let score = 0;
+    for (const term of terms) {
+      if (content.includes(term)) score += term.length >= 7 ? 2 : 1;
+    }
+    return { chunk, score, index };
+  });
+  const matched = scored.filter((item) => item.score > 0).sort((a, b) => b.score - a.score || a.index - b.index).slice(0, limit);
+  return (matched.length > 0 ? matched : scored.slice(0, limit))
+    .sort((a, b) => a.chunk.pageNumber - b.chunk.pageNumber || a.chunk.lineStart - b.chunk.lineStart)
+    .map((item) => item.chunk);
+};
+
 /**
  * BƯỚC 2: Nhúng Vector (Embedding) và Truy xuất các mảnh bằng chứng liên quan nhất (RAG Retrieval).
+ * Đã sửa lỗi: Bắt khối Try/Catch độc lập ở cấp độ hàm embedContent để không bị Crash Node.js
  */
 export const retrieveRelevantChunksViaRag = async (
   chunks: ContractChunk[],
@@ -196,18 +240,32 @@ export const retrieveRelevantChunksViaRag = async (
       return viText;
     });
 
-    const chunkEmbedRes = await genai.models.embedContent({
-      model: "text-embedding-004",
-      contents: chunks.map((c) => `${c.clauseTitle}:${c.content}`),
-    });
+    let embeddings: number[][];
 
-    const stdEmbedRes = await genai.models.embedContent({
-      model: "text-embedding-004",
-      contents: standardTexts,
-    });
+    try {
+      // Gộp chunk hợp đồng và tiêu chuẩn vào một request embedding để giảm một
+      // lượt gọi mạng; thứ tự kết quả được dùng để tách lại hai nhóm bên dưới.
+      const embeddingRes = await genai.models.embedContent({
+        model: "gemini-embedding-001",
+        contents: [
+          ...chunks.map((c) => `${c.clauseTitle}:${c.content}`),
+          ...standardTexts,
+        ],
+      });
+      embeddings = embeddingRes?.embeddings?.map((item) => item.values ?? []) ?? [];
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      const statusMatch = message.match(/\b(400|401|403|404|429|500|502|503)\b/);
+      console.warn(`[RAG] Embedding không khả dụng (status=${statusMatch?.[1] ?? "unknown"}); dùng truy xuất từ khóa dự phòng.`);
+      return selectLexicallyRelevantChunks(chunks, standards);
+    }
 
-    const chunkVectors = chunkEmbedRes.embeddings?.map((e) => e.values ?? []) ?? [];
-    const stdVectors = stdEmbedRes.embeddings?.map((e) => e.values ?? []) ?? [];
+    const chunkVectors = embeddings.slice(0, chunks.length);
+    const stdVectors = embeddings.slice(chunks.length, chunks.length + standardTexts.length);
+
+    if (chunkVectors.length !== chunks.length || stdVectors.length === 0 || chunkVectors.every((vector) => vector.length === 0)) {
+      return selectLexicallyRelevantChunks(chunks, standards);
+    }
 
     const scoredChunks = chunks.map((chunk, i) => {
       const cVec = chunkVectors[i] ?? [];
@@ -226,8 +284,7 @@ export const retrieveRelevantChunksViaRag = async (
       .sort((a, b) => a.pageNumber - b.pageNumber || a.lineStart - b.lineStart);
 
     return topChunks;
-  } catch (embedError) {
-    console.warn("[RAG Warning] Sử dụng Lexical Fallback cho Chunk Retrieval:", embedError);
-    return chunks.slice(0, 30);
+  } catch {
+    return selectLexicallyRelevantChunks(chunks, standards);
   }
 };

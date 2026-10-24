@@ -252,8 +252,8 @@ export default function AdminConfigsPage() {
               <div key={group} className="bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] overflow-hidden">
                 <div className="px-6 py-4 border-b border-Mist/15 bg-Snowflake/40 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-Pine" />
-                    <h3 className="font-extrabold text-Pine text-sm">{group}</h3>
+                    <Sliders className="w-4 h-4 text-Merlot" />
+                    <h3 className="font-extrabold text-Merlot text-sm">{group}</h3>
                   </div>
                   <span className="text-[11px] font-semibold text-Mist">
                     Thay đổi thông số và bấm nút Lưu bên cạnh
@@ -365,7 +365,7 @@ export default function AdminConfigsPage() {
               <div className="px-6 py-4 border-b border-Mist/15 bg-Snowflake/40 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-Berry" />
-                  <h3 className="font-extrabold text-Pine text-sm">
+                  <h3 className="font-extrabold text-Merlot text-sm">
                     4. Phân loại Ngưỡng Điểm Tín nhiệm Đối tác (Thang điểm 0 – 100)
                   </h3>
                 </div>

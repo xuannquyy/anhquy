@@ -843,7 +843,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Khối 3 (3 cột): 3 Vòng tròn Sức khỏe Hệ thống (Phối màu Berry + Mist + Frostysilver) */}
-          <div className="lg:col-span-3 bg-gradient-to-b from-Pine via-[#2E404B] to-Pine rounded-3xl p-4 text-white shadow-[0_15px_35px_rgba(39,54,63,0.22)] flex flex-col justify-between gap-2.5">
+          <div className="lg:col-span-3 bg-gradient-to-b from-Pine to-Pine rounded-3xl p-4 text-white shadow-[0_15px_35px_rgba(39,54,63,0.22)] flex flex-col justify-between gap-2.5">
             <div className="px-1 flex items-center justify-between">
               <span className="text-xs font-extrabold tracking-wide text-Snowflake">Chỉ số Sức khỏe Hệ thống</span>
               <Layers className="w-4 h-4 text-Frostysilver" />
@@ -864,7 +864,7 @@ export default function DashboardPage() {
                 >
                   <div>
                     <p className="text-[11px] font-bold text-Snowflake/80">{ring.label}</p>
-                    <p className="text-lg font-extrabold text-white mt-0.5">{ring.pct}%</p>
+                    <p className="text-lg font-extrabold text-Sunny mt-0.5">{ring.pct}%</p>
                   </div>
                   <div className="relative w-12 h-12 flex items-center justify-center">
                     <svg className="w-full h-full -rotate-90" viewBox="0 0 48 48">
@@ -940,7 +940,7 @@ export default function DashboardPage() {
                 suppliersList.slice(0, 4).map((sup) => (
                   <div key={sup.id} className="p-2.5 rounded-2xl bg-Snowflake/40 hover:bg-Snowflake/80 transition-colors">
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-extrabold text-Pine truncate pr-2">{sup.company_name}</span>
+                      <span className="text-xs font-extrabold text-Branch truncate pr-2">{sup.company_name}</span>
                       <span className="text-[10px] font-mono text-Branch">{sup.tax_code}</span>
                     </div>
                     <RiskScoreBar score={sup.risk_score} />
@@ -1070,7 +1070,7 @@ export default function DashboardPage() {
                     >
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded-lg bg-Pine text-white font-mono text-[10px] font-bold">
+                          <span className="px-2 py-0.5 rounded-lg bg-Pine text-Sunny font-mono text-[10px] font-semibold">
                             {log.action_type}
                           </span>
                           <span className="text-xs font-bold text-Pine">{log.target_table}</span>
