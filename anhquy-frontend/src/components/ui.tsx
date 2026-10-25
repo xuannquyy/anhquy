@@ -47,7 +47,7 @@ export function ConfirmModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-Pine/60 backdrop-blur-md transition-opacity"
+        className="absolute inset-0 bg-Branch/50 backdrop-blur-sm transition-opacity"
         onClick={onCancel}
       />
       <div className="relative z-10 bg-white/95 backdrop-blur-xl rounded-2xl shadow-[0_24px_60px_rgba(39,54,63,0.22)] border border-white w-full max-w-md overflow-hidden transition-all duration-300">
@@ -106,7 +106,7 @@ export function Modal({ isOpen, title, onClose, children, size = 'md' }: ModalPr
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-Pine/60 backdrop-blur-md" onClick={onClose} />
+      <div className="absolute inset-0 bg-Branch/50 backdrop-blur-sm" onClick={onClose} />
       <div className={`relative z-10 bg-white rounded-2xl shadow-[0_25px_70px_rgba(39,54,63,0.25)] border border-white/80 w-full ${sizeMap[size]} max-h-[90vh] flex flex-col overflow-hidden`}>
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-Pine via-[#2F414C] to-Pine text-white">
           <div className="flex items-center gap-2.5">

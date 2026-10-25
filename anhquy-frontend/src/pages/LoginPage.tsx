@@ -1,10 +1,11 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ShieldCheck, Eye, EyeOff, ArrowRight, Sparkles, Lock } from 'lucide-react'
+import { ShieldCheck, Eye, EyeOff, ArrowRight, User, Lock } from 'lucide-react'
 import { useAuth, type AuthUser } from '../context/AuthContext'
 import { authApi } from '../api'
 import { Modal } from '../components/ui'
+import sysLogo from '../assets/logo.png'
 
 interface LoginResponse {
   token?: string
@@ -191,8 +192,8 @@ export default function LoginPage() {
       >
         {status === 'success' && (
           <div className="text-center transform scale-100 transition-transform duration-500">
-            <div className="w-20 h-20 rounded-lg bg-Pine text-white flex items-center justify-center mx-auto mb-4 shadow-[0_0_60px_#27363F]">
-              <Sparkles className="w-10 h-10 text-Frostysilver animate-spin" />
+            <div className="w-20 h-20 rounded-lg bg-white p-2.5 flex items-center justify-center mx-auto mb-4 shadow-[0_0_60px_#27363F]">
+              <img src={sysLogo} alt="ANHQUY" className="w-full h-full object-contain" />
             </div>
             <p className="text-xs font-extrabold tracking-[0.35em] uppercase text-Berry mb-2">
               ANHQUY
@@ -312,10 +313,10 @@ export default function LoginPage() {
               : 'border-white/15'
           }`}
         >
-          {/* Biểu tượng Hạt nhân Ánh sáng phía trên chữ WELCOME */}
+          {/* Biểu tượng login phía trên chữ WELCOME */}
           <div className="relative z-10 text-center mb-7">
             <div className="w-11 h-11 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center mx-auto mb-3 shadow-inner">
-              <Sparkles className="w-5 h-5 text-Snowflake" />
+              <User className="w-5 h-5 text-Snowflake" />
             </div>
             <h1 className="text-2xl font-extrabold tracking-wider text-white">
               WELCOME
@@ -369,7 +370,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={status === 'loading' || status === 'success'}
-              className="w-full py-3 bg-Snowflake text-Pine text-sm font-extrabold rounded-md hover:bg-white hover:shadow-[0_0_25px_rgba(220,224,232,0.5)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 mt-2"
+              className="w-full py-3 bg-Snowflake text-Branch text-sm font-extrabold rounded-md hover:bg-white hover:shadow-[0_0_25px_rgba(220,224,232,0.5)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 mt-2"
             >
               {status === 'loading' ? (
                 <div className="w-4 h-4 border-2 border-Pine/30 border-t-Pine rounded-md animate-spin" />
