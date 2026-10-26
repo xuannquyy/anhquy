@@ -4,6 +4,8 @@ import { GoogleGenAI } from "@google/genai";
 import prisma from "../config/prisma";
 import {
   extractAndSmartChunkPdf,
+  normalizeVietnameseSyllablesBasic,
+  normalizeContractChunksWithLlm,
   retrieveRelevantChunksViaRag,
   ContractChunk,
 } from "../vector-db/chroma.rag";
@@ -213,7 +215,9 @@ const callGeminiWithRagChunks = async (
   const formattedEvidenceChunks = relevantChunks
     .map(
       (c) =>
-        `[Trang ${c.pageNumber}, Dòng ${c.lineStart} | ${c.clauseTitle}]: "${c.content}"`
+        `[Trang ${c.pageNumber}, Dòng ${c.lineStart} | ${c.clauseTitle}]\n` +
+        `BẢN TRÍCH XUẤT GỐC ĐÃ CHE DỮ LIỆU NHẠY CẢM: "${c.originalContent ?? c.content}"\n` +
+        `BẢN CHUẨN HÓA DÙNG ĐỂ ĐỌC: "${c.content}"`
     )
     .join("\n\n");
 
@@ -227,7 +231,7 @@ Dưới đây là các đoạn điều khoản hợp đồng đã được hệ 
 QUY TẮC QUAN TRỌNG:
 1. Chỉ báo cáo các vi phạm thực sự có bằng chứng trong hợp đồng.
 ${strictRuleInstruction}
-3. Trường "evidence_quote" BẮT BUỘC phải trích dẫn CHÍNH XÁC NGUYÊN VĂN 1 câu trong hợp đồng (không tự ý sửa chữ) để giao diện Split-view tìm và bôi vàng (highlight) trên PDF.
+3. Trường "evidence_quote" phải dựa trên câu có thật trong BẢN TRÍCH XUẤT GỐC và có thể dùng BẢN CHUẨN HÓA để khôi phục khoảng trắng bị lỗi PDF. Chỉ sửa lỗi ghép/tách từ khi chắc chắn; không tự viết lại, diễn giải hoặc bổ sung điều khoản. Nếu không chắc từ gốc là gì, giữ nguyên đoạn gốc và không suy đoán. Không thay đổi số liệu, tên riêng, mã, ngày tháng hoặc nội dung pháp lý.
 4. Trường "page_number" lấy đúng số Trang được ghi ở đầu mỗi đoạn [Trang X, Dòng Y].
 5. Chỉ trả về chuỗi JSON thuần túy, KHÔNG bọc trong \`\`\`json hay markdown.
 
@@ -334,12 +338,18 @@ export const runAiScanService = async (documentId: number, userId: number) => {
 
     // BƯỚC 1: Smart Chunking theo từng Trang & Điều/Khoản + Data Masking
     const extractionStartedAt = Date.now();
-    const allChunks = await extractAndSmartChunkPdf(
+    const extractedChunks = await extractAndSmartChunkPdf(
       fileBuffer,
       documentId,
       maskingEnabled ? maskSensitiveData : (t) => t
     );
-    console.info(`[AI Service] Trích xuất PDF hoàn tất: ${allChunks.length} đoạn trong ${Date.now() - extractionStartedAt} ms.`);
+    const apiKey = process.env.GEMINI_API_KEY?.trim() ?? "";
+    const allChunks = await normalizeContractChunksWithLlm(
+      extractedChunks,
+      apiKey,
+      process.env.AI_NORMALIZATION_MODEL?.trim() || "gemini-2.5-flash"
+    );
+    console.info(`[AI Service] Trích xuất + chuẩn hóa văn bản hoàn tất: ${allChunks.length} đoạn trong ${Date.now() - extractionStartedAt} ms.`);
 
     if (allChunks.length === 0) {
       throw makeError("Không thể đọc nội dung văn bản từ file PDF. File có thể là ảnh scan.", 422);
@@ -355,13 +365,12 @@ export const runAiScanService = async (documentId: number, userId: number) => {
       return { violations: [], message: "Không có tiêu chuẩn nào áp dụng cho loại hợp đồng này." };
     }
 
-    // BƯỚC 2: RAG Retrieval
-    const apiKey = process.env.GEMINI_API_KEY?.trim() ?? "";
+    // BƯỚC 2: RAG Retrieval (Chạy nhanh bằng thuật toán nhúng vector + từ khóa)
     const ragStartedAt = Date.now();
     const relevantChunks = await retrieveRelevantChunksViaRag(allChunks, activeStandards, apiKey);
-    console.info(`[AI Service] Truy xuất bằng chứng hoàn tất: ${relevantChunks.length}/${allChunks.length} đoạn trong ${Date.now() - ragStartedAt} ms.`);
+    console.info(`[AI Service] Truy xuất RAG hoàn tất: ${relevantChunks.length}/${allChunks.length} đoạn trong ${Date.now() - ragStartedAt} ms.`);
 
-    // BƯỚC 3 & 4: Đóng gói Prompt & Gọi Gemini LLM
+    // BƯỚC 3 & 4: Đóng gói Prompt & Gọi Gemini LLM phân tích duy nhất 1 lần
     const findings = await callGeminiWithRagChunks(
       relevantChunks,
       activeStandards,
@@ -369,15 +378,22 @@ export const runAiScanService = async (documentId: number, userId: number) => {
       strictMode
     );
 
-    // BƯỚC 5: Lưu danh sách lỗi mới vào bảng Violations
+    // BƯỚC 5: Lưu danh sách lỗi mới (đã chuẩn hóa sạch sẽ) vào bảng Violations
     const validStandardIds = new Set(activeStandards.map((s) => s.id));
-    const violationsToCreate = findings.filter(
-      (f) =>
-        validStandardIds.has(f.standard_id) &&
-        ["High", "Medium", "Low"].includes(f.risk_level) &&
-        f.violation_desc &&
-        f.evidence_quote
-    );
+    const violationsToCreate = findings
+      .filter(
+        (f) =>
+          validStandardIds.has(f.standard_id) &&
+          ["High", "Medium", "Low"].includes(f.risk_level) &&
+          f.violation_desc &&
+          f.evidence_quote
+      )
+      .map((f) => ({
+        ...f,
+        violation_desc: normalizeVietnameseSyllablesBasic(f.violation_desc),
+        evidence_quote: normalizeVietnameseSyllablesBasic(f.evidence_quote),
+        recommendation: f.recommendation ? normalizeVietnameseSyllablesBasic(f.recommendation) : f.recommendation,
+      }));
 
     const createdViolations = await prisma.$transaction([
       prisma.violations.deleteMany({
