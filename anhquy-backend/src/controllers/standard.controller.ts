@@ -146,6 +146,13 @@ export const updateStandard = async (req: Request, res: Response): Promise<void>
     const parsedPriorityUpdate = priority_level !== undefined ? parseInt(priority_level, 10) : undefined;
     const validPriorityUpdate = (parsedPriorityUpdate === 1 || parsedPriorityUpdate === 2) ? parsedPriorityUpdate : undefined;
 
+    // Lấy role_name để kiểm tra isAdmin (tránh lỗi TypeScript 'role' không tồn tại trên JwtPayload)
+    const userRecord = await prisma.users.findUnique({
+      where: { id: req.user!.userId },
+      include: { Roles: { select: { role_name: true } } },
+    });
+    const isAdmin = userRecord?.Roles.role_name === "Admin";
+
     const { oldValue, newValue } = await updateStandardService(id, {
       name,
       jurisdiction,
@@ -153,7 +160,7 @@ export const updateStandard = async (req: Request, res: Response): Promise<void>
       content_i18n,
       description,
       is_active,
-    });
+    }, req.user!.userId, isAdmin);
 
     await prisma.audit_Logs.create({
       data: {

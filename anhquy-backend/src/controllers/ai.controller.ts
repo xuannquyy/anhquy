@@ -19,9 +19,11 @@ export const analyzeDocument = async (req: Request, res: Response): Promise<void
   }
 
   try {
+    // runAiScanService trả về ngay với { status: "Analyzing", message, documentId }
+    // Pipeline AI thực sự chạy nền (fire-and-forget).
     const result = await runAiScanService(documentId, req.user!.userId);
 
-    // Ghi Audit_Log cho hành động chạy AI
+    // Ghi Audit_Log cho hành động kích hoạt AI scan
     await prisma.audit_Logs.create({
       data: {
         user_id: req.user!.userId,
@@ -30,16 +32,19 @@ export const analyzeDocument = async (req: Request, res: Response): Promise<void
         target_id: documentId,
         old_value: null,
         new_value: JSON.stringify({
-          violations_found: Array.isArray(result.violations) ? result.violations.length : 0,
-          message: result.message ?? null,
+          status: result.status,
+          message: result.message,
+          documentId: result.documentId,
         }),
       },
     });
 
-    res.status(200).json({
-      message: result.message ?? `Phân tích hoàn tất. Phát hiện ${Array.isArray(result.violations) ? result.violations.length : 0} vi phạm.`,
-      violations_count: Array.isArray(result.violations) ? result.violations.length : 0,
-      violations: result.violations,
+    // HTTP 202 Accepted — báo client biết request được chấp nhận và đang xử lý nền.
+    // Client cần polling GET /api/documents/:id để theo dõi khi status chuyển "Analyzed"/"Error".
+    res.status(202).json({
+      status: result.status,
+      message: result.message,
+      documentId: result.documentId,
     });
   } catch (error) {
     const err = error as ServiceError;

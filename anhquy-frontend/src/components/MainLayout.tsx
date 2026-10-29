@@ -170,8 +170,8 @@ function Sidebar({
     role === 'Admin'
       ? { label: 'Quản trị viên', cls: 'bg-Merlot text-white' }
       : role === 'Manager'
-      ? { label: 'Quản lý Pháp chế', cls: 'bg-Pine text-white' }
-      : { label: 'Chuyên viên Kiểm toán', cls: 'bg-Branch text-white' }
+      ? { label: 'Manager', cls: 'bg-Pine text-white' }
+      : { label: 'User', cls: 'bg-Branch text-white' }
 
   const handleLogout = () => {
     logout()

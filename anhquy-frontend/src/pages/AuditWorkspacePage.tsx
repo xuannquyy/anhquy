@@ -102,18 +102,59 @@ declare global {
   }
 }
 
-// Backend là nơi chuẩn hóa theo ngữ cảnh bằng LLM. Ở frontend chỉ làm sạch
-// định dạng an toàn, tránh regex âm vị học tự ghép/tách từ và làm sai điều khoản.
+// ─── BỘ CHUẨN HÓA KHOẢNG TRẮNG TIẾNG VIỆT CHO LỖI FONT PDF ──────────────────
+//
+// NGUYÊN TẮC: CHỈ ghép (merge) ký tự bị tách rời do lỗi font/encoding PDF.
+// TUYỆT ĐỐI KHÔNG tách (split) bất kỳ chuỗi nào — mọi regex tách âm vị học
+// đều có nguy cơ phá vỡ từ tiếng Việt đúng chính tả.
+//
+// Ba trường hợp lỗi PDF được xử lý:
+//  1. Phụ âm đầu bị tách khỏi nguyên âm: "Đ ể" → "Để", "th ực" → "thực"
+//  2. Nguyên âm đôi bị tách giữa chừng:   "tiế t" → "tiết"
+//  3. Phụ âm cuối bị tách khỏi nguyên âm: "Ngườ i" → "Người"
 export function cleanVietnamesePdfText(raw: string | null | undefined): string {
   if (!raw) return ''
-  return raw
-    .replace(/[\t\f\v ]+/g, ' ')
-    .replace(/\s+([,.;:!?])/g, '$1')
-    .trim()
+  let text = raw.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim()
+
+  const allVowels = 'aăâeêioôơuưyáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ'
+
+  // 1. Ghép phụ âm đầu bị tách rời khỏi nguyên âm
+  //    Điều kiện: phụ âm đứng đầu từ (sau dấu cách/bắt đầu dòng/mở ngoặc) + \s+ + nguyên âm
+  //    Ví dụ: "Đ ể" → "Để", "kh ông" → "không", "th ực" → "thực"
+  text = text.replace(
+    new RegExp(
+      `(?<=^|\\s|[(""\\'\\u201C\\u201D])(Ngh|Ng|Nh|Ch|Gh|Kh|Ph|Th|Tr|Qu|ngh|ng|nh|ch|gh|kh|ph|th|tr|qu|[bcdfghklmnpqrstvxzđĐ])\\s+([${allVowels}])`,
+      'g'
+    ),
+    '$1$2'
+  )
+
+  // 2. Ghép nguyên âm đôi bị tách ở giữa âm tiết
+  //    Ví dụ: "tiế t" → "tiết", "nướ c" → "nước"
+  text = text.replace(
+    /([bcdđghklmnpqrstvx]*(?:i|y|u|ư|o|ô|ơ))\s+([ếệờớợềểổạấậắặ])/gi,
+    '$1$2'
+  )
+
+  // 3. Ghép phụ âm cuối bị tách khỏi nguyên âm trước khoảng trắng/dấu câu/hết chuỗi
+  //    Ví dụ: "Ngườ i" → "Người", "quố c" → "quốc"
+  //    Chỉ ghép khi ngay sau phụ âm là khoảng trắng, dấu câu, hoặc hết chuỗi
+  text = text.replace(
+    new RegExp(
+      `([${allVowels}])\\s+(ng|nh|ch|[cmnpt])(?=$|\\s|[.,;:!"'\\u201C\\u201D\\u2018\\u2019)?])`,
+      'gi'
+    ),
+    '$1$2'
+  )
+
+  // Dọn khoảng trắng trước dấu câu
+  text = text.replace(/\s+([.,;!?])/g, '$1')
+
+  return text.replace(/\s+/g, ' ').trim()
 }
 
 function normalizeForMatch(str: string): string {
-  return str.toLowerCase().replace(/[.,;:"'“”‘’()[\]\-_•·\s]+/g, '').trim()
+  return str.toLowerCase().replace(/[.,;:"'""''()[\]\-_•·\s]+/g, '').trim()
 }
 
 let pdfJsLoadingPromise: Promise<boolean> | null = null
@@ -672,6 +713,11 @@ export default function AuditWorkspacePage() {
     })
   }
 
+  // ── fetchData ──────────────────────────────────────────────────────────────
+  // QUAN TRỌNG: KHÔNG đưa activeViolationId vào dependency array.
+  // Nếu đưa vào, mỗi lần user click vào violation card sẽ làm fetchData thay đổi
+  // reference → useEffect re-trigger → gọi lại API liên tục (infinite loop ẩn).
+  // Thay vào đó, dùng functional update để set activeViolationId an toàn.
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
@@ -681,16 +727,16 @@ export default function AuditWorkspacePage() {
       ])
       setContractDoc((docRes.data?.document || docRes.data?.data || docRes.data) as ExportableDocument)
       const rawViols = violRes.data?.violations || violRes.data?.items || violRes.data?.data || []
-      setViolations(Array.isArray(rawViols) ? rawViols : [])
-      if (Array.isArray(rawViols) && rawViols.length > 0 && activeViolationId === null) {
-        setActiveViolationId(rawViols[0].id)
-      }
+      const viols: ViolationItem[] = Array.isArray(rawViols) ? rawViols : []
+      setViolations(viols)
+      // Functional update: chỉ set violation đầu tiên nếu chưa có lựa chọn nào
+      setActiveViolationId((prev) => (prev === null && viols.length > 0 ? viols[0].id : prev))
     } catch {
       toast.error('Không thể tải dữ liệu.')
     } finally {
       setLoading(false)
     }
-  }, [documentId, activeViolationId])
+  }, [documentId]) // documentId là dependency duy nhất — ổn định trong suốt vòng đời component
 
   useEffect(() => {
     fetchData()
@@ -719,9 +765,18 @@ export default function AuditWorkspacePage() {
     violations[0] ||
     null
 
+  // ── handleAnalyze ──────────────────────────────────────────────────────────
+  // Luồng đồng bộ trạng thái:
+  //  1. Set analyzing=true, cập nhật optimistic status → "Analyzing" trên UI
+  //  2. Gọi API analyze — backend xử lý đồng bộ và trả về kết quả
+  //  3. Sau khi API trả về SUCCESS: gọi fetchData() để tải lại document (status="Analyzed") + violations mới
+  //  4. Nếu API lỗi: hiển thị thông báo lỗi cụ thể, reset status về "Error" trên UI
+  //  5. Luôn set analyzing=false trong finally để nút Quét AI không bị kẹt
   const handleAnalyze = async () => {
     if (!contractDoc) return
     setAnalyzing(true)
+    // Cập nhật optimistic: hiển thị "Analyzing" ngay lập tức để user biết hệ thống đang xử lý
+    setContractDoc((prev) => (prev ? { ...prev, status: 'Analyzing' } : prev))
     toast.loading('AI RAG đang rà soát hợp đồng...', { id: 'ai-scan' })
     try {
       const res = await documentApi.analyze(documentId)
@@ -736,9 +791,20 @@ export default function AuditWorkspacePage() {
         documentId,
         violationCount: count,
       })
+      // Reset activeViolationId để fetchData tự chọn violation đầu tiên của lần quét mới
+      setActiveViolationId(null)
+      // Tải lại toàn bộ data: document (status mới) + violations mới
       await fetchData()
-    } catch {
-      toast.error('Phân tích AI thất bại.', { id: 'ai-scan' })
+    } catch (err: unknown) {
+      // Hiển thị thông báo lỗi cụ thể từ backend nếu có, không dùng message chung chung
+      const axiosErr = err as { response?: { data?: { message?: string; error?: string } } }
+      const serverMsg =
+        axiosErr?.response?.data?.message ||
+        axiosErr?.response?.data?.error ||
+        (err instanceof Error ? err.message : null)
+      toast.error(serverMsg || 'Phân tích AI thất bại. Vui lòng thử lại.', { id: 'ai-scan' })
+      // Reset trạng thái UI về "Error" để nút Quét AI có thể bấm lại
+      setContractDoc((prev) => (prev ? { ...prev, status: 'Error' } : prev))
     } finally {
       setAnalyzing(false)
     }

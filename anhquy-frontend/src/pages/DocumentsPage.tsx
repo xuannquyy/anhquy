@@ -67,6 +67,18 @@ export default function DocumentsPage() {
   const [confirmDelete, setConfirmDelete] = useState<ContractDoc | null>(null)
   const [analyzingIds, setAnalyzingIds] = useState<Set<number>>(new Set())
 
+  // ─── Polling refs ────────────────────────────────────────────────────────────
+  // Sử dụng ref để tránh stale closure trong setInterval callback
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Snapshot refs để polling callback đọc giá trị mới nhất mà không cần deps
+  const documentsRef = useRef<ContractDoc[]>([])
+  const analyzingIdsRef = useRef<Set<number>>(new Set())
+
+  // Đồng bộ refs mỗi khi state thay đổi
+  useEffect(() => { documentsRef.current = documents }, [documents])
+  useEffect(() => { analyzingIdsRef.current = analyzingIds }, [analyzingIds])
+
+  // ─── Initial data load (suppliers, categories, configs) ──────────────────────
   useEffect(() => {
     supplierApi.getAll({ limit: 500 }).then((r) => {
       const data = r.data?.data || r.data || {}
@@ -89,6 +101,7 @@ export default function DocumentsPage() {
     }).catch(() => {})
   }, [])
 
+  // ─── fetchDocuments (với loading spinner — dùng khi user chủ động load) ──────
   const fetchDocuments = useCallback(async () => {
     setLoading(true)
     try {
@@ -117,8 +130,142 @@ export default function DocumentsPage() {
     }
   }, [page, limit, filterStatus, filterSupplier, filterCategory])
 
+  // ─── silentFetchDocuments (KHÔNG set loading — dùng cho polling) ─────────────
+  // Trả về danh sách mới để polling callback có thể so sánh thay đổi trạng thái
+  const silentFetchDocuments = useCallback(async (): Promise<ContractDoc[] | null> => {
+    try {
+      const params: Record<string, string | number | boolean | undefined> = { page, limit }
+      if (filterStatus) params.status = filterStatus
+      if (filterSupplier) params.supplier_id = filterSupplier
+      if (filterCategory) params.category_id = filterCategory
+
+      const [res, summaryRes] = await Promise.all([
+        documentApi.getAll(params),
+        documentApi.getAll({ limit: 500 }).catch(() => null),
+      ])
+
+      const data = res.data?.data || res.data || {}
+      const newDocs = (data as { items?: ContractDoc[] })?.items || []
+      setDocuments(newDocs)
+      setTotal((data as { total?: number })?.total || 0)
+
+      if (summaryRes) {
+        const sData = summaryRes.data?.data || summaryRes.data || {}
+        setAllDocsSummary((sData as { items?: ContractDoc[] })?.items || [])
+      }
+
+      return newDocs
+    } catch {
+      // Silent — không toast lỗi khi polling
+      return null
+    }
+  }, [page, limit, filterStatus, filterSupplier, filterCategory])
+
   useEffect(() => { fetchDocuments() }, [fetchDocuments])
 
+  // ─── Polling Logic ────────────────────────────────────────────────────────────
+  const stopPolling = useCallback(() => {
+    if (pollingIntervalRef.current !== null) {
+      clearInterval(pollingIntervalRef.current)
+      pollingIntervalRef.current = null
+    }
+  }, [])
+
+  const startPolling = useCallback(() => {
+    // Tránh tạo nhiều interval trùng nhau
+    if (pollingIntervalRef.current !== null) return
+
+    pollingIntervalRef.current = setInterval(async () => {
+      const currentDocs = documentsRef.current
+      const currentAnalyzingIds = analyzingIdsRef.current
+
+      // Kiểm tra xem còn doc nào đang "Analyzing" không
+      const hasAnalyzing =
+        currentDocs.some((d) => d.status === 'Analyzing') ||
+        currentAnalyzingIds.size > 0
+
+      if (!hasAnalyzing) {
+        stopPolling()
+        return
+      }
+
+      // Fetch im lặng
+      const newDocs = await silentFetchDocuments()
+      if (!newDocs) return
+
+      // So sánh: tìm các doc vừa chuyển trạng thái từ Analyzing → Analyzed/Error
+      const prevAnalyzingSet = new Set([
+        ...currentDocs.filter((d) => d.status === 'Analyzing').map((d) => d.id),
+        ...currentAnalyzingIds,
+      ])
+
+      const justCompleted = newDocs.filter(
+        (d) => prevAnalyzingSet.has(d.id) && (d.status === 'Analyzed' || d.status === 'Error')
+      )
+
+      justCompleted.forEach((doc) => {
+        if (doc.status === 'Analyzed') {
+          toast.success(
+            `✅ AI hoàn tất: "${doc.file_name}" — Mở Phòng Kiểm toán để xem kết quả.`,
+            { duration: 6000 }
+          )
+          publishEvent({
+            type: 'AI_SCAN_COMPLETED',
+            title: 'AI hoàn tất rà soát hợp đồng — Chờ thẩm định',
+            message: `Hợp đồng "${doc.file_name}" (${doc.Suppliers?.company_name || 'Đối tác'}) đã phân tích xong. Đề nghị Manager/Admin vào thẩm định.`,
+            documentId: doc.id,
+          })
+        } else if (doc.status === 'Error') {
+          toast.error(
+            `❌ AI thất bại: "${doc.file_name}" — Vui lòng thử lại hoặc kiểm tra file PDF.`,
+            { duration: 6000 }
+          )
+        }
+        // Xóa khỏi analyzingIds khi xử lý xong
+        setAnalyzingIds((prev) => {
+          const s = new Set(prev)
+          s.delete(doc.id)
+          return s
+        })
+        // Tắt toast loading nếu còn
+        toast.dismiss(`analyze-${doc.id}`)
+      })
+
+      // Nếu không còn doc nào Analyzing, dừng polling
+      const stillAnalyzing =
+        newDocs.some((d) => d.status === 'Analyzing') ||
+        analyzingIdsRef.current.size > 0
+      if (!stillAnalyzing) {
+        stopPolling()
+      }
+    }, 5000)
+  }, [silentFetchDocuments, stopPolling, publishEvent])
+
+  // Theo dõi documents + analyzingIds để bật/tắt polling tự động
+  useEffect(() => {
+    const hasAnalyzing =
+      documents.some((d) => d.status === 'Analyzing') ||
+      analyzingIds.size > 0
+
+    if (hasAnalyzing) {
+      startPolling()
+    } else {
+      stopPolling()
+    }
+
+    // Cleanup khi unmount hoặc deps thay đổi
+    return () => {
+      // Không stopPolling ở đây nếu vẫn còn Analyzing
+      // (effect sẽ chạy lại ngay sau với deps mới)
+    }
+  }, [documents, analyzingIds, startPolling, stopPolling])
+
+  // Dừng polling khi component unmount
+  useEffect(() => {
+    return () => { stopPolling() }
+  }, [stopPolling])
+
+  // ─── File Validation & Upload ─────────────────────────────────────────────────
   const validateAndSetFile = (file: File) => {
     if (file.type !== 'application/pdf') {
       toast.error('Chỉ chấp nhận file định dạng PDF.')
@@ -194,29 +341,26 @@ export default function DocumentsPage() {
     }
   }
 
+  // ─── handleAnalyze: Fire-and-Forget compatible ───────────────────────────────
+  // Backend trả về HTTP 202 ngay lập tức (status = "Analyzing").
+  // Polling sẽ tự động phát hiện khi status chuyển sang "Analyzed"/"Error".
   const handleAnalyze = async (doc: ContractDoc) => {
     if (analyzingIds.has(doc.id)) return
     setAnalyzingIds((prev) => new Set(prev).add(doc.id))
-    toast.loading(`Đang kích hoạt AI rà soát hợp đồng "${doc.file_name}"...`, { id: `analyze-${doc.id}` })
+    toast.loading(`⏳ Đã kích hoạt AI rà soát "${doc.file_name}" — Đang xử lý nền...`, {
+      id: `analyze-${doc.id}`,
+      duration: Infinity, // Giữ toast cho đến khi polling dismiss nó
+    })
     try {
-      const res = await documentApi.analyze(doc.id)
-      const vCount = res.data?.violations_count ?? res.data?.violations?.length ?? 0
-      toast.success(`Phân tích hoàn tất: "${doc.file_name}" (${vCount} cảnh báo)`, { id: `analyze-${doc.id}` })
-
-      // Thông báo Realtime cho Manager/Admin vào duyệt kết quả AI
-      publishEvent({
-        type: 'AI_SCAN_COMPLETED',
-        title: 'AI hoàn tất rà soát hợp đồng — Chờ thẩm định',
-        message: `Hợp đồng "${doc.file_name}" (${doc.Suppliers?.company_name || 'Đối tác'}) đã phân tích xong với ${vCount} cảnh báo. Đề nghị Manager/Admin vào thẩm định.`,
-        documentId: doc.id,
-        violationCount: vCount,
-      })
-      fetchDocuments()
+      // Backend trả về 202 Accepted ngay lập tức
+      await documentApi.analyze(doc.id)
+      // Fetch ngay 1 lần để cập nhật status → "Analyzing" trên UI
+      await silentFetchDocuments()
+      // Polling useEffect sẽ tự kích hoạt khi phát hiện status = "Analyzing"
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }
-      toast.error(e?.response?.data?.message || 'Phân tích AI thất bại.', { id: `analyze-${doc.id}` })
-      fetchDocuments()
-    } finally {
+      toast.error(e?.response?.data?.message || 'Kích hoạt AI thất bại.', { id: `analyze-${doc.id}` })
+      // Xóa khỏi analyzingIds nếu API lỗi ngay lập tức
       setAnalyzingIds((prev) => { const s = new Set(prev); s.delete(doc.id); return s })
     }
   }
@@ -459,7 +603,16 @@ export default function DocumentsPage() {
                           ) : '—'}
                         </td>
                         <td className="px-4 py-3.5">
-                          <StatusBadge status={doc.status} />
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={doc.status} />
+                            {/* Pulse indicator khi đang phân tích */}
+                            {(doc.status === 'Analyzing' || analyzingIds.has(doc.id)) && (
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-Berry opacity-75" />
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-Berry" />
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-1.5">
@@ -484,27 +637,30 @@ export default function DocumentsPage() {
                               </button>
                             )}
 
-                            {hasPermission('RUN_AI_AUDIT') && doc.status !== 'Analyzing' && (
+                            {hasPermission('RUN_AI_AUDIT') && doc.status !== 'Analyzing' && !analyzingIds.has(doc.id) && (
                               <button
                                 type="button"
                                 onClick={() => handleAnalyze(doc)}
-                                disabled={analyzingIds.has(doc.id)}
                                 title="Kích hoạt AI rà soát ngay"
-                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-Berry text-white hover:bg-Merlot text-xs font-extrabold rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-Berry text-white hover:bg-Merlot text-xs font-extrabold rounded-xl transition-colors shadow-sm"
                               >
-                                {analyzingIds.has(doc.id) ? (
-                                  <Spinner size="sm" />
-                                ) : (
-                                  <Cpu className="w-3.5 h-3.5" />
-                                )}
+                                <Cpu className="w-3.5 h-3.5" />
                                 {doc.status === 'Analyzed' ? 'Quét lại' : 'Quét AI'}
                               </button>
+                            )}
+
+                            {/* Hiển thị spinner khi đang analyze (do người dùng click trong session này) */}
+                            {analyzingIds.has(doc.id) && (
+                              <div className="inline-flex items-center gap-1 px-3 py-1.5 bg-Berry/30 text-Berry text-xs font-extrabold rounded-xl">
+                                <Spinner size="sm" />
+                                Đang quét...
+                              </div>
                             )}
 
                             {hasPermission('DELETE_DOC') && (
                               <button
                                 type="button"
-                                disabled={doc.status === 'Analyzing'}
+                                disabled={doc.status === 'Analyzing' || analyzingIds.has(doc.id)}
                                 onClick={() => setConfirmDelete(doc)}
                                 title={doc.status === 'Analyzing' ? 'Không thể xóa khi đang quét AI' : 'Xóa hợp đồng'}
                                 className="p-1.5 text-Berry hover:bg-DangerBg rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
@@ -528,7 +684,15 @@ export default function DocumentsPage() {
                       <Link to={`/audit/${doc.id}`} className="text-sm font-extrabold text-Branch truncate">
                         {doc.file_name}
                       </Link>
-                      <StatusBadge status={doc.status} />
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <StatusBadge status={doc.status} />
+                        {(doc.status === 'Analyzing' || analyzingIds.has(doc.id)) && (
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-Berry opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-Berry" />
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-xs text-Branch font-semibold">
                       {doc.Suppliers?.company_name} · <span className="text-Mist">{doc.Categories?.name}</span>
@@ -542,15 +706,20 @@ export default function DocumentsPage() {
                         >
                           Kiểm toán
                         </Link>
-                        {hasPermission('RUN_AI_AUDIT') && doc.status !== 'Analyzing' && (
+                        {hasPermission('RUN_AI_AUDIT') && doc.status !== 'Analyzing' && !analyzingIds.has(doc.id) && (
                           <button
                             type="button"
                             onClick={() => handleAnalyze(doc)}
-                            disabled={analyzingIds.has(doc.id)}
                             className="px-3 py-1.5 bg-Berry text-white text-xs font-extrabold rounded-xl"
                           >
                             Quét AI
                           </button>
+                        )}
+                        {analyzingIds.has(doc.id) && (
+                          <div className="flex items-center gap-1 px-3 py-1.5 bg-Berry/20 text-Berry text-xs font-extrabold rounded-xl">
+                            <Spinner size="sm" />
+                            Đang quét...
+                          </div>
                         )}
                       </div>
                     </div>

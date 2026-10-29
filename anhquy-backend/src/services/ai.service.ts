@@ -5,7 +5,6 @@ import prisma from "../config/prisma";
 import {
   extractAndSmartChunkPdf,
   normalizeVietnameseSyllablesBasic,
-  normalizeContractChunksWithLlm,
   retrieveRelevantChunksViaRag,
   ContractChunk,
 } from "../vector-db/chroma.rag";
@@ -107,10 +106,8 @@ const getActiveStandardsForScan = async (userId: number, categoryId: number) => 
   return standards.filter((s) => !excludedIds.has(s.id));
 };
 
-// ─── Cấu hình mô hình AI nội bộ (không cho người dùng nghiệp vụ chỉnh sửa) ────
-// Chỉ cho phép model đã được đội kỹ thuật kiểm thử. Nếu biến môi trường bị nhập
-// sai, hệ thống tự quay về model mặc định thay vì làm hỏng luồng rà soát.
-const DEFAULT_ANALYSIS_MODEL = "gemini-3.8-flash";
+// ─── Cấu hình mô hình AI nội bộ ──────────────────────────────────────────────
+const DEFAULT_ANALYSIS_MODEL = "gemini-2.5-flash"; 
 const FALLBACK_ANALYSIS_MODEL = "gemini-3.5-flash-lite";
 const ALLOWED_ANALYSIS_MODELS = new Set([
   DEFAULT_ANALYSIS_MODEL,
@@ -159,6 +156,14 @@ const toGeminiUserMessage = (error: unknown): { status: number; message: string 
 };
 
 // ─── Tách chuỗi JSON an toàn từ phản hồi của LLM ─────────────────────────────
+//
+// gemini-2.5-flash đôi khi trả về:
+//   (A) Mảng trực tiếp:   [{ "standard_id": 1, ... }, ...]
+//   (B) Object đơn:        { "standard_id": 1, ... }
+//   (C) Chuẩn:             { "findings": [...] }
+//
+// extractJsonString() cố gắng lấy khối JSON đầu tiên (object hoặc array).
+// normalizeGeminiResponse() chuẩn hóa cả 3 trường hợp về GeminiResponse.
 
 function extractJsonString(raw: string): string {
   const cleaned = raw
@@ -167,12 +172,58 @@ function extractJsonString(raw: string): string {
     .replace(/\s*```$/i, "")
     .trim();
 
+  // Thử lấy array trước (gemini-2.5-flash hay trả mảng trực tiếp)
+  const firstBracket = cleaned.indexOf("[");
+  const lastBracket = cleaned.lastIndexOf("]");
   const firstBrace = cleaned.indexOf("{");
   const lastBrace = cleaned.lastIndexOf("}");
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    return cleaned.substring(firstBrace, lastBrace + 1);
+
+  const hasArray = firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket;
+  const hasObject = firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace;
+
+  if (hasArray && hasObject) {
+    // Lấy khối bắt đầu sớm hơn (array hoặc object đứng ngoài cùng)
+    return firstBracket < firstBrace
+      ? cleaned.substring(firstBracket, lastBracket + 1)
+      : cleaned.substring(firstBrace, lastBrace + 1);
   }
+  if (hasArray) return cleaned.substring(firstBracket, lastBracket + 1);
+  if (hasObject) return cleaned.substring(firstBrace, lastBrace + 1);
   return cleaned;
+}
+
+// Chuẩn hóa bất kỳ dạng JSON nào mà Gemini trả về → GeminiResponse chuẩn
+function normalizeGeminiResponse(rawParsed: unknown): GeminiResponse {
+  // Trường hợp (C) chuẩn: { "findings": [...] }
+  if (
+    rawParsed !== null &&
+    typeof rawParsed === "object" &&
+    !Array.isArray(rawParsed) &&
+    Array.isArray((rawParsed as Record<string, unknown>)["findings"])
+  ) {
+    return rawParsed as GeminiResponse;
+  }
+
+  // Trường hợp (A): Mảng trực tiếp [{ standard_id, ... }, ...]
+  if (Array.isArray(rawParsed)) {
+    console.warn("[AI Service] Gemini trả về mảng trực tiếp — tự động bọc vào { findings: [...] }");
+    return { findings: rawParsed as GeminiViolationFinding[] };
+  }
+
+  // Trường hợp (B): Object đơn có chứa standard_id
+  if (
+    rawParsed !== null &&
+    typeof rawParsed === "object" &&
+    !Array.isArray(rawParsed) &&
+    "standard_id" in (rawParsed as Record<string, unknown>)
+  ) {
+    console.warn("[AI Service] Gemini trả về object đơn — tự động bọc vào { findings: [object] }");
+    return { findings: [rawParsed as GeminiViolationFinding] };
+  }
+
+  // Fallback: trả về findings rỗng thay vì crash
+  console.error("[AI Service] Không nhận ra cấu trúc JSON từ Gemini:", JSON.stringify(rawParsed).substring(0, 300));
+  return { findings: [] };
 }
 
 // ─── Bước 3 & 4: Đóng gói ngữ cảnh RAG & Gọi Gemini LLM ──────────────────────
@@ -215,9 +266,7 @@ const callGeminiWithRagChunks = async (
   const formattedEvidenceChunks = relevantChunks
     .map(
       (c) =>
-        `[Trang ${c.pageNumber}, Dòng ${c.lineStart} | ${c.clauseTitle}]\n` +
-        `BẢN TRÍCH XUẤT GỐC ĐÃ CHE DỮ LIỆU NHẠY CẢM: "${c.originalContent ?? c.content}"\n` +
-        `BẢN CHUẨN HÓA DÙNG ĐỂ ĐỌC: "${c.content}"`
+        `[Trang ${c.pageNumber}, Dòng ${c.lineStart} | ${c.clauseTitle}]: "${c.content}"`
     )
     .join("\n\n");
 
@@ -231,7 +280,7 @@ Dưới đây là các đoạn điều khoản hợp đồng đã được hệ 
 QUY TẮC QUAN TRỌNG:
 1. Chỉ báo cáo các vi phạm thực sự có bằng chứng trong hợp đồng.
 ${strictRuleInstruction}
-3. Trường "evidence_quote" phải dựa trên câu có thật trong BẢN TRÍCH XUẤT GỐC và có thể dùng BẢN CHUẨN HÓA để khôi phục khoảng trắng bị lỗi PDF. Chỉ sửa lỗi ghép/tách từ khi chắc chắn; không tự viết lại, diễn giải hoặc bổ sung điều khoản. Nếu không chắc từ gốc là gì, giữ nguyên đoạn gốc và không suy đoán. Không thay đổi số liệu, tên riêng, mã, ngày tháng hoặc nội dung pháp lý.
+3. Trường "evidence_quote" BẮT BUỘC trích dẫn đúng câu điều khoản vi phạm trong hợp đồng. LƯU Ý CHUẨN HÓA NGỮ CẢNH (LLM Text Normalization): Nếu văn bản PDF gốc bị lỗi dính chữ hoặc rớt khoảng trắng tiếng Việt (ví dụ: "hóachất", "bảohộcánhân", "Ngườ i", "phảinộp"), BẮT BUỘC chuẩn hóa lại khoảng trắng tiếng Việt đúng chính tả ("hóa chất", "bảo hộ cá nhân", "Người", "phải nộp") trong cả "evidence_quote", "violation_desc" và "recommendation", nhưng giữ nguyên từ vựng gốc của hợp đồng.
 4. Trường "page_number" lấy đúng số Trang được ghi ở đầu mỗi đoạn [Trang X, Dòng Y].
 5. Chỉ trả về chuỗi JSON thuần túy, KHÔNG bọc trong \`\`\`json hay markdown.
 
@@ -253,6 +302,11 @@ Trả về JSON theo đúng cấu trúc sau:
       const response = await genai.models.generateContent({
         model: candidate,
         contents: prompt,
+        // Ép model trả về JSON thuần — tránh markdown wrapper và truncate giữa chừng
+        config: {
+          responseMimeType: "application/json",
+          maxOutputTokens: 8192,
+        },
       });
       const text = response.text ?? "";
       console.info(`[AI Service] Gemini generateContent hoàn tất trong ${Date.now() - startedAt} ms.`);
@@ -268,8 +322,6 @@ Trả về JSON theo đúng cấu trúc sau:
   try {
     rawText = await generate(modelName);
   } catch (primaryError: unknown) {
-    // Chỉ chuyển model khi model chính thực sự không tồn tại/không hỗ trợ.
-    // Không đổi model khi lỗi quota, API key, quyền truy cập hay lỗi mạng.
     if (!isModelUnavailableError(primaryError) || modelName === FALLBACK_ANALYSIS_MODEL) {
       const friendly = toGeminiUserMessage(primaryError);
       throw makeError(friendly.message, friendly.status);
@@ -289,45 +341,38 @@ Trả về JSON theo đúng cấu trúc sau:
 
   const jsonStr = extractJsonString(rawText);
 
-  let parsed: GeminiResponse;
+  let rawParsed: unknown;
   try {
-    parsed = JSON.parse(jsonStr) as GeminiResponse;
+    rawParsed = JSON.parse(jsonStr);
   } catch {
-    throw makeError(`Gemini trả về JSON không hợp lệ: ${jsonStr.substring(0, 200)}`, 502);
+    // Log đủ 500 ký tự để debug dễ hơn
+    throw makeError(`Gemini trả về JSON không hợp lệ: ${jsonStr.substring(0, 500)}`, 502);
   }
 
-  if (!Array.isArray(parsed.findings)) {
-    throw makeError("Gemini response thiếu key 'findings'.", 502);
-  }
+  // normalizeGeminiResponse xử lý cả 3 dạng: array, object đơn, chuẩn {findings:[]}
+  const parsed = normalizeGeminiResponse(rawParsed);
 
   return parsed.findings;
 };
 
-// ─── Service chính: Chạy quy trình 5 bước RAG + LLM ──────────────────────────
-
-export const runAiScanService = async (documentId: number, userId: number) => {
-  const document = await prisma.documents.findUnique({
-    where: { id: documentId },
-    include: {
-      Suppliers: { select: { id: true, is_deleted: true } },
-    },
-  });
-
-  if (!document) throw makeError("Hợp đồng không tồn tại.", 404);
-  if (document.Suppliers.is_deleted)
-    throw makeError("Nhà cung cấp của hợp đồng này đã bị xóa.", 400);
-  if (document.status === "Analyzing")
-    throw makeError("Hợp đồng đang được phân tích, vui lòng chờ.", 409);
-
-  await prisma.documents.update({
-    where: { id: documentId },
-    data: { status: "Analyzing" },
-  });
+// ─── Hàm nội bộ: Toàn bộ pipeline RAG + LLM chạy nền ────────────────────────
+//
+// Hàm này KHÔNG được export và KHÔNG được await từ bên ngoài.
+// Nó tự quản lý vòng đời: cập nhật status "Analyzed"/"Error" vào DB khi xong.
+// Controller chỉ cần gọi runAiScanService() và trả 202 ngay lập tức.
+const _runAiScanBackground = async (
+  documentId: number,
+  userId: number,
+  storagePath: string,
+  categoryId: number
+): Promise<void> => {
+  const jobStartedAt = Date.now();
+  console.info(`[AI Background] Bắt đầu pipeline RAG+LLM cho document #${documentId}.`);
 
   try {
-    const filePath = path.join(process.cwd(), document.storage_url);
+    const filePath = path.join(process.cwd(), storagePath);
     if (!fs.existsSync(filePath)) {
-      throw makeError(`File PDF không tìm thấy tại: ${document.storage_url}`, 404);
+      throw makeError(`File PDF không tìm thấy tại: ${storagePath}`, 404);
     }
     const fileBuffer = fs.readFileSync(filePath);
 
@@ -336,41 +381,37 @@ export const runAiScanService = async (documentId: number, userId: number) => {
     const modelName = getConfiguredAnalysisModel();
     const strictMode = configMap["AI_STRICT_RULE_MODE"] !== "false";
 
-    // BƯỚC 1: Smart Chunking theo từng Trang & Điều/Khoản + Data Masking
+    // BƯỚC 1: Smart Chunking + Data Masking
     const extractionStartedAt = Date.now();
-    const extractedChunks = await extractAndSmartChunkPdf(
+    const allChunks = await extractAndSmartChunkPdf(
       fileBuffer,
       documentId,
       maskingEnabled ? maskSensitiveData : (t) => t
     );
-    const apiKey = process.env.GEMINI_API_KEY?.trim() ?? "";
-    const allChunks = await normalizeContractChunksWithLlm(
-      extractedChunks,
-      apiKey,
-      process.env.AI_NORMALIZATION_MODEL?.trim() || "gemini-2.5-flash"
-    );
-    console.info(`[AI Service] Trích xuất + chuẩn hóa văn bản hoàn tất: ${allChunks.length} đoạn trong ${Date.now() - extractionStartedAt} ms.`);
+    console.info(`[AI Background] Trích xuất PDF: ${allChunks.length} đoạn trong ${Date.now() - extractionStartedAt} ms.`);
 
     if (allChunks.length === 0) {
       throw makeError("Không thể đọc nội dung văn bản từ file PDF. File có thể là ảnh scan.", 422);
     }
 
-    // Lọc bộ tiêu chuẩn động từ SQL Server
-    const activeStandards = await getActiveStandardsForScan(userId, document.category_id);
+    // Lọc bộ tiêu chuẩn động
+    const activeStandards = await getActiveStandardsForScan(userId, categoryId);
     if (activeStandards.length === 0) {
       await prisma.documents.update({
         where: { id: documentId },
         data: { status: "Analyzed", last_analyzed_at: new Date(), updated_at: new Date() },
       });
-      return { violations: [], message: "Không có tiêu chuẩn nào áp dụng cho loại hợp đồng này." };
+      console.info(`[AI Background] Document #${documentId}: không có tiêu chuẩn → Analyzed.`);
+      return;
     }
 
-    // BƯỚC 2: RAG Retrieval (Chạy nhanh bằng thuật toán nhúng vector + từ khóa)
+    // BƯỚC 2: RAG Retrieval
+    const apiKey = process.env.GEMINI_API_KEY?.trim() ?? "";
     const ragStartedAt = Date.now();
     const relevantChunks = await retrieveRelevantChunksViaRag(allChunks, activeStandards, apiKey);
-    console.info(`[AI Service] Truy xuất RAG hoàn tất: ${relevantChunks.length}/${allChunks.length} đoạn trong ${Date.now() - ragStartedAt} ms.`);
+    console.info(`[AI Background] RAG: ${relevantChunks.length}/${allChunks.length} đoạn trong ${Date.now() - ragStartedAt} ms.`);
 
-    // BƯỚC 3 & 4: Đóng gói Prompt & Gọi Gemini LLM phân tích duy nhất 1 lần
+    // BƯỚC 3 & 4: Gọi Gemini LLM
     const findings = await callGeminiWithRagChunks(
       relevantChunks,
       activeStandards,
@@ -378,7 +419,7 @@ export const runAiScanService = async (documentId: number, userId: number) => {
       strictMode
     );
 
-    // BƯỚC 5: Lưu danh sách lỗi mới (đã chuẩn hóa sạch sẽ) vào bảng Violations
+    // BƯỚC 5: Lưu kết quả vào DB
     const validStandardIds = new Set(activeStandards.map((s) => s.id));
     const violationsToCreate = findings
       .filter(
@@ -392,10 +433,12 @@ export const runAiScanService = async (documentId: number, userId: number) => {
         ...f,
         violation_desc: normalizeVietnameseSyllablesBasic(f.violation_desc),
         evidence_quote: normalizeVietnameseSyllablesBasic(f.evidence_quote),
-        recommendation: f.recommendation ? normalizeVietnameseSyllablesBasic(f.recommendation) : f.recommendation,
+        recommendation: f.recommendation
+          ? normalizeVietnameseSyllablesBasic(f.recommendation)
+          : f.recommendation,
       }));
 
-    const createdViolations = await prisma.$transaction([
+    await prisma.$transaction([
       prisma.violations.deleteMany({
         where: { document_id: documentId, status: "Pending" },
       }),
@@ -415,8 +458,6 @@ export const runAiScanService = async (documentId: number, userId: number) => {
       ),
     ]);
 
-    const savedViolations = createdViolations.slice(1);
-
     await prisma.documents.update({
       where: { id: documentId },
       data: {
@@ -426,15 +467,75 @@ export const runAiScanService = async (documentId: number, userId: number) => {
       },
     });
 
-    return { violations: savedViolations };
+    const elapsed = ((Date.now() - jobStartedAt) / 1000).toFixed(1);
+    console.info(`[AI Background] Document #${documentId} → Analyzed. ${violationsToCreate.length} vi phạm lưu thành công (${elapsed}s).`);
   } catch (error) {
-    await prisma.documents.update({
-      where: { id: documentId },
-      data: { status: "Error", updated_at: new Date() },
-    });
-    throw error;
+    const elapsed = ((Date.now() - jobStartedAt) / 1000).toFixed(1);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`[AI Background] Document #${documentId} → Error sau ${elapsed}s: ${msg}`);
+
+    // Ghi trạng thái "Error" vào DB để frontend polling dừng lại
+    await prisma.documents
+      .update({
+        where: { id: documentId },
+        data: { status: "Error", updated_at: new Date() },
+      })
+      .catch((dbErr: unknown) => {
+        const dbMsg = dbErr instanceof Error ? dbErr.message : String(dbErr);
+        console.error(`[AI Background] Không thể ghi trạng thái Error cho document #${documentId}: ${dbMsg}`);
+      });
   }
 };
+
+// ─── Service chính (exported): Validate → Set "Analyzing" → Fire-and-Forget ──
+//
+// THIẾT KẾ QUAN TRỌNG:
+//   Hàm này trả về NGAY LẬP TỨC sau khi validate và set status "Analyzing".
+//   Toàn bộ pipeline AI nặng được khởi động dưới dạng background job (không await).
+//   Controller sẽ nhận kết quả này và trả về HTTP 202 Accepted cho client.
+//   Client (frontend) thực hiện polling GET /documents/:id để theo dõi tiến trình.
+export const runAiScanService = async (
+  documentId: number,
+  userId: number
+): Promise<{ status: "Analyzing"; message: string; documentId: number }> => {
+  // ── Validate trước khi fire-and-forget ────────────────────────────────────
+  const document = await prisma.documents.findUnique({
+    where: { id: documentId },
+    include: {
+      Suppliers: { select: { id: true, is_deleted: true } },
+    },
+  });
+
+  if (!document) throw makeError("Hợp đồng không tồn tại.", 404);
+  if (document.Suppliers.is_deleted)
+    throw makeError("Nhà cung cấp của hợp đồng này đã bị xóa.", 400);
+  if (document.status === "Analyzing")
+    throw makeError("Hợp đồng đang được phân tích, vui lòng chờ.", 409);
+
+  // ── Đánh dấu "Analyzing" vào DB — đây là điểm đồng bộ duy nhất ──────────
+  await prisma.documents.update({
+    where: { id: documentId },
+    data: { status: "Analyzing", updated_at: new Date() },
+  });
+
+  // ── Fire-and-forget: khởi chạy pipeline nền, KHÔNG await ─────────────────
+  // Node.js event loop tiếp tục phục vụ request khác trong khi pipeline chạy.
+  // Mọi lỗi trong pipeline đều được bắt bên trong _runAiScanBackground().
+  void _runAiScanBackground(
+    documentId,
+    userId,
+    document.storage_url,
+    document.category_id
+  );
+
+  return {
+    status: "Analyzing",
+    message: "Hệ thống AI đã bắt đầu rà soát hợp đồng. Vui lòng theo dõi trạng thái cập nhật.",
+    documentId,
+  };
+};
+
+// ─── Lấy danh sách vi phạm theo document ─────────────────────────────────────
 
 export const getViolationsByDocumentService = async (documentId: number) => {
   const document = await prisma.documents.findUnique({ where: { id: documentId } });
