@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   Plus, Edit2, Trash2, RotateCcw, Lock, Globe, MapPin,
-  SlidersHorizontal, Search, Ban, ListChecks, CheckCircle2, LayoutGrid, List
+  SlidersHorizontal, Search, Ban, ListChecks, CheckCircle2, LayoutGrid, List, BookOpen
 } from 'lucide-react'
 import { MainLayout } from '../components/MainLayout'
 import { ConfirmModal, Modal, Pagination, Spinner, EmptyState } from '../components/ui'
@@ -82,6 +82,7 @@ export default function StandardsPage() {
     jurisdiction: 'Global',
     priority_level: '1',
     group_id: '',
+    legal_reference: '',
   })
   const [saving, setSaving] = useState(false)
 
@@ -109,7 +110,7 @@ export default function StandardsPage() {
   const fetchStandards = useCallback(async () => {
     setLoading(true)
     try {
-      // Lấy toàn bộ không phân trang hoặc limit lớn (ví dụ 100) để tính chính xác số liệu tổng và lọc client-side cho summary cards
+      // Lấy toàn bộ không phân trang hoặc limit lớn để tính chính xác số liệu tổng và lọc client-side cho summary cards
       const params: Record<string, string | number | boolean | undefined> = { page, limit }
       if (filterGroup) params.group_id = filterGroup
       if (filterJurisdiction) params.jurisdiction = filterJurisdiction
@@ -178,6 +179,7 @@ export default function StandardsPage() {
       jurisdiction: 'Global',
       priority_level: '1',
       group_id: groups[0] ? String(groups[0].id) : '1',
+      legal_reference: 'Quy định nội bộ doanh nghiệp',
     })
     setModalOpen(true)
   }
@@ -201,6 +203,7 @@ export default function StandardsPage() {
       jurisdiction: s.jurisdiction || 'Global',
       priority_level: String(s.priority_level || 1),
       group_id: String(s.Standard_Groups?.id || '1'),
+      legal_reference: s.description || 'Quy định nội bộ doanh nghiệp',
     })
     setModalOpen(true)
   }
@@ -221,7 +224,7 @@ export default function StandardsPage() {
         standard_code: form.standard_code.trim(),
         name: form.name.trim(),
         content_i18n,
-        description: form.content_vi || form.name.trim(),
+        description: form.legal_reference.trim() || form.name.trim(),
         jurisdiction: form.jurisdiction,
         priority_level: Number(form.priority_level),
         group_id: Number(form.group_id),
@@ -274,7 +277,6 @@ export default function StandardsPage() {
     return hasPermission('MANAGE_SYSTEM_STANDARDS') || (hasPermission('CREATE_CUSTOM_STANDARD') && s.created_by === (user?.id ?? -1))
   }
 
-  // Số lượng thực tế chuẩn xác trên tổng toàn hệ thống thay vì chỉ giới hạn phân trang
   const totalSystemCount = total || 24
   const activeScanCount = Math.max(0, totalSystemCount - excluded.size)
   const excludedCount = excluded.size
@@ -314,7 +316,7 @@ export default function StandardsPage() {
           </div>
         </div>
 
-        {/* Summary Strip (Bấm qua bấm lại được để lọc nhanh) */}
+        {/* Summary Strip */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <button
             type="button"
@@ -380,7 +382,6 @@ export default function StandardsPage() {
         {/* Filter Bar & View Mode Toggle */}
         <div className="bg-white rounded-xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] p-4 sm:p-5 space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-Mist/15 pb-3">
-            {/* Pill Tabs */}
             <div className="flex items-center gap-1 bg-Snowflake/60 p-1 rounded-2xl w-fit">
               {TAB_OPTIONS.map((tab) => (
                 <button
@@ -398,7 +399,6 @@ export default function StandardsPage() {
               ))}
             </div>
 
-            {/* Filters & View Switcher */}
             <div className="flex flex-wrap items-center gap-2.5 flex-1 lg:justify-end">
               <div className="relative flex-1 min-w-[180px] max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-Mist" />
@@ -437,7 +437,6 @@ export default function StandardsPage() {
                 <option value="inactive">Đã lưu trữ</option>
               </select>
 
-              {/* Nút chuyển đổi giao diện Grid <-> List */}
               <div className="flex items-center bg-Snowflake/80 p-1 rounded-xl border border-Mist/20">
                 <button
                   type="button"
@@ -560,6 +559,15 @@ export default function StandardsPage() {
                         {parseContent(s.content_i18n, s.description, lang)}
                       </p>
 
+                      {/* NGUỒN GỐC / CĂN CỨ PHÁP LÝ (Hiển thị gọn gàng ở dạng Grid) */}
+                      {s.description && (
+                        <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-Pine bg-Snowflake/80 px-2.5 py-1.5 rounded-xl border border-Mist/30 w-full">
+                          <BookOpen className="w-3.5 h-3.5 text-Merlot flex-shrink-0" />
+                          <span className="font-extrabold text-Branch flex-shrink-0">Căn cứ pháp lý:</span>
+                          <span className="truncate font-semibold text-Pine" title={s.description}>{s.description}</span>
+                        </div>
+                      )}
+
                       {isExcluded && s.is_active && (
                         <p className="text-[11px] text-Berry font-semibold mt-2 italic flex items-center gap-1">
                           <SlidersHorizontal className="w-3 h-3" />
@@ -628,7 +636,7 @@ export default function StandardsPage() {
                     <th className="px-4 py-3">Mã & Tên Tiêu chuẩn</th>
                     <th className="px-4 py-3">Nhóm & Phạm vi</th>
                     <th className="px-4 py-3">Mức độ ưu tiên</th>
-                    <th className="px-4 py-3">Nội dung quy định</th>
+                    <th className="px-4 py-3">Nội dung quy định & Căn cứ</th>
                     <th className="px-4 py-3 text-center">Trạng thái AI</th>
                     <th className="px-4 py-3 text-right">Thao tác</th>
                   </tr>
@@ -685,11 +693,17 @@ export default function StandardsPage() {
                           </span>
                         </td>
 
-                        {/* Nội dung */}
-                        <td className="px-4 py-3.5 align-top max-w-xs">
+                        {/* Nội dung & Căn cứ pháp lý */}
+                        <td className="px-4 py-3.5 align-top max-w-sm">
                           <p className="text-Branch leading-relaxed line-clamp-2">
                             {parseContent(s.content_i18n, s.description, lang)}
                           </p>
+                          {s.description && (
+                            <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold text-Pine bg-Snowflake px-2 py-0.5 rounded border border-Mist/30">
+                              <BookOpen className="w-3 h-3 text-Merlot flex-shrink-0" />
+                              <span className="truncate max-w-[260px]" title={s.description}>{s.description}</span>
+                            </div>
+                          )}
                         </td>
 
                         {/* Trạng thái quét AI (Toggle) */}
@@ -834,16 +848,28 @@ export default function StandardsPage() {
               className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Branch"
             />
           </div>
-          <div>
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Nhóm tiêu chuẩn *</label>
-            <select
-              value={form.group_id}
-              onChange={(e) => setForm((f) => ({ ...f, group_id: e.target.value }))}
-              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Branch"
-            >
-              <option value="">-- Chọn nhóm tiêu chuẩn --</option>
-              {groups.map((g) => <option key={g.id} value={g.id}>{g.group_name}</option>)}
-            </select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Nhóm tiêu chuẩn *</label>
+              <select
+                value={form.group_id}
+                onChange={(e) => setForm((f) => ({ ...f, group_id: e.target.value }))}
+                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Branch"
+              >
+                <option value="">-- Chọn nhóm tiêu chuẩn --</option>
+                {groups.map((g) => <option key={g.id} value={g.id}>{g.group_name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Căn cứ pháp lý / Nguồn tham khảo</label>
+              <input
+                type="text"
+                value={form.legal_reference}
+                onChange={(e) => setForm((f) => ({ ...f, legal_reference: e.target.value }))}
+                placeholder="VD: Bộ luật Lao động 2019 - Điều 105"
+                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Branch font-medium"
+              />
+            </div>
           </div>
           <div>
             <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Nội dung quy định (Tiếng Việt)</label>

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -22,10 +22,12 @@ import {
   Search,
   Upload,
   BarChart3,
+  Loader2,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useRealtime } from '../context/RealtimeContext'
 import { toast } from 'sonner'
+import axiosClient from '../api/axiosClient'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -117,6 +119,26 @@ const NAV_ITEMS: NavItem[] = [
     group: 'Quản trị Hệ thống',
   },
 ]
+
+// ─── Global Search Types ──────────────────────────────────────────────────────
+
+interface SearchSupplier  { id: number; company_name: string; tax_code: string | null; risk_score: number | null }
+interface SearchDocument  { id: number; file_name: string; status: string; Suppliers?: { company_name: string } | null }
+interface SearchStandard  { id: number; standard_code: string; name: string; jurisdiction: string | null }
+interface SearchViolation { id: number; risk_level: string; violation_desc: string; document_id: number; status: string; Documents?: { file_name: string } | null }
+interface SearchUser      { id: number; full_name: string | null; email: string; is_active: boolean }
+interface SearchConfig    { id: number; config_key: string; config_value: string; description: string | null }
+interface SearchAuditLog  { id: number; action_type: string; target_table: string; created_at: string; Users?: { full_name: string | null } | null }
+
+interface SearchResults {
+  suppliers:    SearchSupplier[]
+  documents:    SearchDocument[]
+  standards:    SearchStandard[]
+  violations:   SearchViolation[]
+  users:        SearchUser[]
+  systemConfigs: SearchConfig[]
+  auditLogs:    SearchAuditLog[]
+}
 
 // ─── Brand Logo (Nổi bật sắc nét trên nền Sunny) ─────────────────────────
 
@@ -381,6 +403,251 @@ function NotificationBell() {
   )
 }
 
+// ─── Global Search Bar (Debounce + Dropdown Popup) ───────────────────────────
+
+// Map từ nhóm kết quả → đường dẫn điều hướng
+const RESULT_ROUTES: Record<string, string> = {
+  suppliers:    '/suppliers',
+  documents:    '/documents',
+  standards:    '/standards',
+  violations:   '/violations',
+  users:        '/admin/users',
+  systemConfigs: '/admin/system-configs',
+  auditLogs:    '/admin/audit-logs',
+}
+
+// Nhãn tiếng Việt cho từng nhóm
+const GROUP_LABELS: Record<string, string> = {
+  suppliers:    'Đối tác Cung ứng',
+  documents:    'Hợp đồng PDF',
+  standards:    'Tiêu chuẩn',
+  violations:   'Vi phạm',
+  users:        'Người dùng',
+  systemConfigs: 'Cấu hình Hệ thống',
+  auditLogs:   'Nhật ký Bảo mật',
+}
+
+function getResultLabel(group: string, item: Record<string, unknown>): string {
+  switch (group) {
+    case 'suppliers':    return (item['company_name'] as string) || ''
+    case 'documents':    return (item['file_name'] as string) || ''
+    case 'standards':    return `[${item['standard_code']}] ${item['name']}`
+    case 'violations':   return (item['violation_desc'] as string)?.substring(0, 60) + '...' || ''
+    case 'users':        return `${item['full_name'] || item['email']} · ${item['email']}`
+    case 'systemConfigs': return `${item['config_key']}: ${item['config_value']}`
+    case 'auditLogs':   return `${item['action_type']} › ${item['target_table']}`
+    default: return ''
+  }
+}
+
+function getDetailRoute(group: string, _item: Record<string, unknown>): string {
+  // Tất cả các nhóm đều điều hướng về trang quản lý tương ứng của nó
+  return RESULT_ROUTES[group] || '/'
+}
+
+function GlobalSearchBar() {
+  const navigate = useNavigate()
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<SearchResults | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [open, setOpen] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Đóng dropdown khi click ra ngoài
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  // Gọi API search với debounce 300ms
+  const doSearch = useCallback(async (kw: string) => {
+    if (!kw.trim()) {
+      setResults(null)
+      setOpen(false)
+      return
+    }
+    setLoading(true)
+    setOpen(true)
+    try {
+      const res = await axiosClient.get<SearchResults>('/search', { params: { q: kw } })
+      setResults(res.data)
+    } catch {
+      setResults(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    setQuery(val)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => doSearch(val), 300)
+  }
+
+  const handleSelect = (group: string, item: Record<string, unknown>) => {
+    const route = getDetailRoute(group, item)
+    navigate(route)
+    setQuery('')
+    setResults(null)
+    setOpen(false)
+  }
+
+  const handleGroupNav = (group: string) => {
+    navigate(RESULT_ROUTES[group] || '/')
+    setQuery('')
+    setResults(null)
+    setOpen(false)
+  }
+
+  // Kiểm tra có nhóm nào có kết quả không
+  const hasAnyResult = results
+    ? Object.values(results).some((arr) => Array.isArray(arr) && arr.length > 0)
+    : false
+
+  return (
+    <div className="relative hidden lg:flex items-center w-80" ref={wrapperRef}>
+      {/* Input */}
+      <div className="relative w-full">
+        {loading
+          ? <Loader2 className="w-4 h-4 text-Mist absolute left-3.5 top-1/2 -translate-y-1/2 animate-spin" />
+          : <Search className="w-4 h-4 text-Mist absolute left-3.5 top-1/2 -translate-y-1/2" />
+        }
+        <input
+          type="text"
+          value={query}
+          onChange={handleChange}
+          onFocus={() => { if (results && query.trim()) setOpen(true) }}
+          placeholder="Tìm nhanh hợp đồng, đối tác, tiêu chuẩn..."
+          className="w-full pl-9 pr-4 py-2 text-xs font-medium bg-Snowflake/60 hover:bg-Snowflake focus:bg-white border border-Mist/30 rounded-2xl text-Pine placeholder-Branch/60 focus:outline-none focus:border-Pine transition-all"
+          autoComplete="off"
+        />
+      </div>
+
+      {/* Dropdown Popup */}
+      {open && query.trim() && (
+        <div className="absolute top-[calc(100%+8px)] left-0 w-[420px] max-h-[480px] overflow-y-auto bg-white rounded-2xl shadow-[0_20px_60px_rgba(39,54,63,0.22)] border border-Mist/30 z-[60]">
+          {loading && !results && (
+            <div className="flex items-center justify-center py-10 gap-2 text-Mist text-xs">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Đang tìm kiếm...
+            </div>
+          )}
+
+          {!loading && !hasAnyResult && results && (
+            <div className="py-10 text-center text-xs text-Mist">
+              Không tìm thấy kết quả nào cho &quot;{query}&quot;
+            </div>
+          )}
+
+          {results && hasAnyResult && (
+            <div className="py-2">
+              {(Object.keys(results) as Array<keyof SearchResults>).map((group) => {
+                const items = results[group] as unknown as Record<string, unknown>[]
+                if (!items || items.length === 0) return null
+                return (
+                  <div key={group} className="mb-1">
+                    {/* Tiêu đề nhóm */}
+                    <div className="flex items-center justify-between px-4 py-2">
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-Pine/60">
+                        {GROUP_LABELS[group] || group}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleGroupNav(group)}
+                        className="text-[10px] font-bold text-Merlot hover:underline"
+                      >
+                        Xem tất cả →
+                      </button>
+                    </div>
+
+                    {/* Các kết quả trong nhóm */}
+                    {items.map((item) => (
+                      <button
+                        key={item['id'] as number}
+                        type="button"
+                        onClick={() => handleSelect(group, item)}
+                        className="w-full text-left flex items-center gap-3 px-4 py-2.5 hover:bg-Snowflake/60 transition-colors"
+                      >
+                        {/* Icon nhóm */}
+                        <span className="w-7 h-7 rounded-xl bg-Pine/8 text-Pine flex items-center justify-center flex-shrink-0">
+                          {group === 'suppliers'    && <Building2 className="w-3.5 h-3.5" />}
+                          {group === 'documents'    && <FileText className="w-3.5 h-3.5" />}
+                          {group === 'standards'    && <ListChecks className="w-3.5 h-3.5" />}
+                          {group === 'violations'   && <ShieldCheck className="w-3.5 h-3.5" />}
+                          {group === 'users'        && <Users className="w-3.5 h-3.5" />}
+                          {group === 'systemConfigs' && <Settings className="w-3.5 h-3.5" />}
+                          {group === 'auditLogs'   && <ClipboardList className="w-3.5 h-3.5" />}
+                        </span>
+
+                        {/* Label chính */}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-Branch truncate">
+                            {getResultLabel(group, item)}
+                          </p>
+                          {/* Sub-label tùy nhóm */}
+                          {group === 'suppliers' && (
+                            <p className="text-[10px] text-Mist mt-0.5">
+                              MST: {(item['tax_code'] as string | null) || '—'}
+                              {item['risk_score'] !== null && ` · Điểm rủi ro: ${item['risk_score']}`}
+                            </p>
+                          )}
+                          {group === 'documents' && (
+                            <p className="text-[10px] text-Mist mt-0.5">
+                              {(item['Suppliers'] as { company_name: string } | null)?.company_name || '—'}
+                              {' · '}
+                              <span className={`font-semibold ${
+                                item['status'] === 'Analyzed' ? 'text-SafeGreen'
+                                : item['status'] === 'Analyzing' ? 'text-Berry'
+                                : 'text-Mist'
+                              }`}>{item['status'] as string}</span>
+                            </p>
+                          )}
+                          {group === 'violations' && (
+                            <p className="text-[10px] mt-0.5 font-semibold">
+                              <span className={`${
+                                item['risk_level'] === 'High' ? 'text-Berry'
+                                : item['risk_level'] === 'Medium' ? 'text-[#C08000]'
+                                : 'text-Mist'
+                              }`}>{item['risk_level'] as string}</span>
+                              {' · '}
+                              <span className="text-Mist">
+                                {(item['Documents'] as { file_name: string } | null)?.file_name || '—'}
+                              </span>
+                            </p>
+                          )}
+                          {group === 'auditLogs' && (
+                            <p className="text-[10px] text-Mist mt-0.5">
+                              {(item['Users'] as { full_name: string | null } | null)?.full_name || '—'}
+                              {' · '}
+                              {new Date(item['created_at'] as string).toLocaleString('vi-VN')}
+                            </p>
+                          )}
+                        </div>
+
+                        <ChevronRight className="w-3.5 h-3.5 text-Mist flex-shrink-0" />
+                      </button>
+                    ))}
+
+                    {/* Divider giữa các nhóm */}
+                    <div className="mx-4 mt-1 border-t border-Mist/10" />
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Topbar ───────────────────────────────────────────────────────────────────
 
 function Topbar({
@@ -393,10 +660,9 @@ function Topbar({
   const { user, logout, role, hasPermission } = useAuth()
   const navigate = useNavigate()
   const [profileOpen, setProfileOpen] = useState(false)
-  const [quickQuery, setQuickQuery] = useState('')
   const profileRef = useRef<HTMLDivElement>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
         setProfileOpen(false)
@@ -410,13 +676,6 @@ function Topbar({
     logout()
     toast.success('Đã đăng xuất khỏi phiên làm việc.')
     navigate('/login')
-  }
-
-  const handleQuickSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!quickQuery.trim()) return
-    navigate('/documents')
-    setQuickQuery('')
   }
 
   return (
@@ -442,17 +701,8 @@ function Topbar({
         </div>
       </div>
 
-      {/* Center: Search Bar */}
-      <form onSubmit={handleQuickSearch} className="hidden lg:flex items-center w-80 relative">
-        <Search className="w-4 h-4 text-Mist absolute left-3.5 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          value={quickQuery}
-          onChange={(e) => setQuickQuery(e.target.value)}
-          placeholder="Tìm nhanh hợp đồng, đối tác, tiêu chuẩn..."
-          className="w-full pl-9 pr-4 py-2 text-xs font-medium bg-Snowflake/60 hover:bg-Snowflake focus:bg-white border border-Mist/30 rounded-2xl text-Pine placeholder-Branch/60 focus:outline-none focus:border-Pine transition-all"
-        />
-      </form>
+      {/* Center: Global Search Bar */}
+      <GlobalSearchBar />
 
       {/* Right: Quick Action + Bell + Profile */}
       <div className="flex items-center gap-2.5">

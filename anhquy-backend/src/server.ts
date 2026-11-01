@@ -12,7 +12,9 @@ import aiRouter from "./routes/ai.route";
 import violationRouter from "./routes/violation.route";
 import adminRouter from "./routes/admin.route";
 import dashboardRouter from "./routes/dashboard.route";
+import searchRouter from "./routes/search.route";
 import { cleanupOldAuditLogsService } from './services/admin.service';
+
 
 const app = express();
 const PORT = process.env.PORT ?? 3000;
@@ -56,6 +58,9 @@ app.use("/api/dashboard", dashboardRouter);
 
 /** Module 1 — Admin */
 app.use("/api/admin", adminRouter);
+
+/** Module Tìm kiếm toàn cục (Global Search) */
+app.use("/api/search", searchRouter);
 
 /** Health check */
 app.get("/api/health", (_req, res) => {
