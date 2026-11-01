@@ -368,7 +368,7 @@ export default function ViolationsPage() {
           <button
             type="button"
             onClick={() => handleSelectKpiTab('all')}
-            className={`text-left rounded-3xl border p-4 transition-colors cursor-pointer flex items-center justify-between ${
+            className={`text-left rounded-xl border p-4 transition-colors cursor-pointer flex items-center justify-between ${
               activeKpiTab === 'all'
                 ? 'bg-Pine text-white border-Pine shadow-md'
                 : 'bg-white text-Branch border-white hover:border-Pine/40 shadow-sm'
@@ -399,7 +399,7 @@ export default function ViolationsPage() {
           <button
             type="button"
             onClick={() => handleSelectKpiTab('pending')}
-            className={`text-left rounded-3xl border p-4 transition-colors cursor-pointer flex items-center justify-between ${
+            className={`text-left rounded-xl border p-4 transition-colors cursor-pointer flex items-center justify-between ${
               activeKpiTab === 'pending'
                 ? 'bg-Sunny text-Branch border-Sunny shadow-md ring-2 ring-Branch/15'
                 : 'bg-white text-Branch border-white hover:border-Sunny shadow-sm'
@@ -424,7 +424,7 @@ export default function ViolationsPage() {
           <button
             type="button"
             onClick={() => handleSelectKpiTab('high')}
-            className={`text-left rounded-3xl border p-4 transition-colors cursor-pointer flex items-center justify-between ${
+            className={`text-left rounded-xl border p-4 transition-colors cursor-pointer flex items-center justify-between ${
               activeKpiTab === 'high'
                 ? 'bg-Berry text-white border-Berry shadow-md'
                 : 'bg-white text-Branch border-white hover:border-Berry/40 shadow-sm'
@@ -468,7 +468,7 @@ export default function ViolationsPage() {
         ) : (
           <>
             {/* Thanh Bộ lọc tìm kiếm */}
-            <div className="bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(10,16,32,0.06)] p-4">
+            <div className="bg-white rounded-xl border border-white shadow-[0_10px_28px_rgba(10,16,32,0.06)] p-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
                 <div className="relative">
                   <Search className="w-4 h-4 text-Mist absolute left-3 top-1/2 -translate-y-1/2" />
@@ -531,9 +531,9 @@ export default function ViolationsPage() {
 
             {/* NỘI DUNG CẤP ĐỘ 1: LƯỚI THẺ CÔNG TY */}
             {loading ? (
-              <div className="flex justify-center py-16 bg-white rounded-3xl"><Spinner size="lg" /></div>
+              <div className="flex justify-center py-16 bg-white rounded-xl"><Spinner size="lg" /></div>
             ) : displayedViolations.length === 0 ? (
-              <div className="bg-white rounded-3xl p-8">
+              <div className="bg-white rounded-xl p-8">
                 <EmptyState message="Không tìm thấy cảnh báo vi phạm nào thuộc Tab đang chọn" />
               </div>
             ) : displayMode === 'companies' ? (
@@ -544,7 +544,7 @@ export default function ViolationsPage() {
                     <div
                       key={group.companyKey}
                       onClick={() => setSelectedCompanyKey(group.companyKey)}
-                      className="bg-white rounded-3xl border border-white hover:border-Pine p-5 shadow-[0_10px_28px_rgba(10,16,32,0.06)] hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between group"
+                      className="bg-white rounded-xl border border-white hover:border-Pine p-5 shadow-[0_10px_28px_rgba(10,16,32,0.06)] hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between group"
                     >
                       <div>
                         <div className="flex items-start justify-between gap-3 mb-3">
@@ -626,7 +626,7 @@ export default function ViolationsPage() {
               </div>
             ) : (
               /* CHẾ ĐỘ 2: BẢNG PHẲNG TẤT CẢ DÒNG */
-              <div className="bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(10,16,32,0.06)] p-4 sm:p-5">
+              <div className="bg-white rounded-xl border border-white shadow-[0_10px_28px_rgba(10,16,32,0.06)] p-4 sm:p-5">
                 <div className="overflow-x-auto rounded-2xl border border-Mist/20">
                   <table className="min-w-full divide-y divide-Mist/15">
                     <thead>
@@ -714,7 +714,7 @@ export default function ViolationsPage() {
             )}
 
             {!loading && displayMode === 'flat' && (
-              <div className="bg-white rounded-3xl border border-white px-5 py-2 shadow-sm">
+              <div className="bg-white rounded-xl border border-white px-5 py-2 shadow-sm">
                 <Pagination
                   page={page}
                   total={total}

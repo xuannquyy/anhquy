@@ -409,7 +409,7 @@ export default function DocumentsPage() {
           <button
             type="button"
             onClick={() => { setFilterStatus(''); setPage(1) }}
-            className={`text-left rounded-3xl border p-4 transition-all cursor-pointer flex items-center justify-between ${
+            className={`text-left rounded-xl border p-4 transition-all cursor-pointer flex items-center justify-between ${
               filterStatus === ''
                 ? 'bg-Pine text-white border-Pine shadow-md'
                 : 'bg-white text-Branch border-white hover:border-Pine/40 shadow-sm'
@@ -440,7 +440,7 @@ export default function DocumentsPage() {
           <button
             type="button"
             onClick={() => { setFilterStatus('Analyzed'); setPage(1) }}
-            className={`text-left rounded-3xl border p-4 transition-all cursor-pointer flex items-center justify-between ${
+            className={`text-left rounded-xl border p-4 transition-all cursor-pointer flex items-center justify-between ${
               filterStatus === 'Analyzed'
                 ? 'bg-SafeGreen text-white border-SafeGreen shadow-md'
                 : 'bg-white text-Branch border-white hover:border-SafeGreen/40 shadow-sm'
@@ -471,7 +471,7 @@ export default function DocumentsPage() {
           <button
             type="button"
             onClick={() => { setFilterStatus('Uploaded'); setPage(1) }}
-            className={`text-left rounded-3xl border p-4 transition-all cursor-pointer flex items-center justify-between ${
+            className={`text-left rounded-xl border p-4 transition-all cursor-pointer flex items-center justify-between ${
               filterStatus === 'Uploaded'
                 ? 'bg-Berry text-white border-Berry shadow-md'
                 : 'bg-white text-Branch border-white hover:border-Berry/40 shadow-sm'
@@ -501,7 +501,7 @@ export default function DocumentsPage() {
         </div>
 
         {/* Filter & Table Card */}
-        <div className="bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(10,16,32,0.06)] p-4 sm:p-5 space-y-4">
+        <div className="bg-white rounded-xl border border-white shadow-[0_10px_28px_rgba(10,16,32,0.06)] p-4 sm:p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-Mist" />

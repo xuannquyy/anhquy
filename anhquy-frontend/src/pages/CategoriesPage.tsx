@@ -417,7 +417,7 @@ export default function CategoriesPage() {
           {/* Card 1 (Màu chủ đạo Pine): Số Nhóm Loại Danh mục */}
           <div
             onClick={() => setTypeManagerOpen(true)}
-            className="bg-Pine text-white rounded-3xl p-4 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between"
+            className="bg-Pine text-white rounded-xl p-4 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between"
           >
             <div className="flex items-center gap-3.5">
               <div className="w-10 h-10 rounded-2xl bg-white/15 text-Sunny flex items-center justify-center flex-shrink-0">
@@ -439,7 +439,7 @@ export default function CategoriesPage() {
           <button
             type="button"
             onClick={() => { setStatusTab('active'); setPage(1) }}
-            className={`text-left bg-white rounded-3xl border p-4 shadow-sm transition-all flex items-center justify-between ${
+            className={`text-left bg-white rounded-xl border p-4 shadow-sm transition-all flex items-center justify-between ${
               statusTab === 'active' ? 'border-Pine ring-2 ring-Pine/15' : 'border-Mist/25 hover:border-Pine/40'
             }`}
           >
@@ -463,7 +463,7 @@ export default function CategoriesPage() {
           <button
             type="button"
             onClick={() => { setStatusTab('inactive'); setPage(1) }}
-            className={`text-left bg-white rounded-3xl border p-4 shadow-sm transition-all flex items-center justify-between ${
+            className={`text-left bg-white rounded-xl border p-4 shadow-sm transition-all flex items-center justify-between ${
               statusTab === 'inactive' ? 'border-Berry ring-2 ring-Berry/15' : 'border-Mist/25 hover:border-Berry/40'
             }`}
           >
@@ -485,7 +485,7 @@ export default function CategoriesPage() {
         </div>
 
         {/* ─── Thanh Lọc Loại Danh mục Động (Cuộn ngang mượt, dù có 20-50 loại cũng không bị tràn) ─── */}
-        <div className="bg-white rounded-3xl border border-Mist/25 p-3 shadow-sm flex items-center justify-between gap-3">
+        <div className="bg-white rounded-xl border border-Mist/25 p-3 shadow-sm flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 flex-1 min-w-0">
             <span className="text-xs font-extrabold text-Branch px-2 flex items-center gap-1 flex-shrink-0">
               <Tag className="w-3.5 h-3.5 text-Pine" />
@@ -536,7 +536,7 @@ export default function CategoriesPage() {
         </div>
 
         {/* ─── Bảng Dữ liệu Chính (Đã bỏ cái Dropdown trùng lặp, chỉ giữ Tab Trạng thái & Ô Tìm kiếm) ─── */}
-        <div className="bg-white rounded-3xl border border-Mist/25 shadow-[0_10px_28px_rgba(39,54,63,0.06)] p-4 sm:p-5 space-y-4">
+        <div className="bg-white rounded-xl border border-Mist/25 shadow-[0_10px_28px_rgba(39,54,63,0.06)] p-4 sm:p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-Mist/15 pb-3">
             {/* Tabs lọc trạng thái */}
             <div className="flex items-center gap-1 bg-Snowflake/60 p-1 rounded-2xl w-fit">

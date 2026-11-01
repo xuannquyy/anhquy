@@ -191,7 +191,7 @@ function Sidebar({
 
       {/* Floating Island Sidebar trên nền Sunny */}
       <aside
-        className={`fixed top-0 left-0 h-full w-64 md:w-[256px] md:h-[calc(100vh-24px)] md:my-3 md:ml-3 bg-Sunny text-Pine z-40 flex flex-col md:rounded-3xl border border-white/70 shadow-[0_18px_45px_rgba(39,54,63,0.18)]
+        className={`fixed top-0 left-0 h-full w-64 md:w-[256px] md:h-[calc(100vh-24px)] md:my-3 md:ml-3 bg-[#FAF8F5] text-Pine z-40 flex flex-col md:rounded-xl border border-white/70 shadow-[0_18px_45px_rgba(39,54,63,0.18)]
           transform transition-transform duration-300 ease-in-out overflow-hidden
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
           md:translate-x-0 md:relative md:z-auto`}
@@ -241,8 +241,8 @@ function Sidebar({
                         className={`group flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-extrabold transition-all duration-200
                           ${
                             isActive
-                              ? 'bg-white text-Merlot shadow-[0_8px_20px_rgba(39,54,63,0.14)] border border-white'
-                              : 'text-Pine hover:bg-white/55 hover:text-Merlot'
+                              ? 'bg-Sunny text-Merlot shadow-[0_8px_20px_rgba(39,54,63,0.14)] border border-white'
+                              : 'text-Pine hover:bg-[#F5E1BE] hover:text-Pine'
                           }`}
                       >
                         <div className="flex items-center gap-3">

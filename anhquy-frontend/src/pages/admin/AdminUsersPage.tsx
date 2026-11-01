@@ -317,7 +317,7 @@ export default function AdminUsersPage() {
 
         {/* Summary Strip */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-3xl border border-white p-4 shadow-sm flex items-center gap-3.5">
+          <div className="bg-white rounded-xl border border-white p-4 shadow-sm flex items-center gap-3.5">
             <div className="w-10 h-10 rounded-2xl bg-Pine text-white flex items-center justify-center flex-shrink-0">
               <Users className="w-5 h-5" />
             </div>
@@ -326,7 +326,7 @@ export default function AdminUsersPage() {
               <p className="text-xl font-extrabold text-Pine">{total}</p>
             </div>
           </div>
-          <div className="bg-white rounded-3xl border border-white p-4 shadow-sm flex items-center gap-3.5">
+          <div className="bg-white rounded-xl border border-white p-4 shadow-sm flex items-center gap-3.5">
             <div className="w-10 h-10 rounded-2xl bg-Mist text-Pine flex items-center justify-center flex-shrink-0">
               <UserCheck className="w-5 h-5" />
             </div>
@@ -335,7 +335,7 @@ export default function AdminUsersPage() {
               <p className="text-xl font-extrabold text-Pine">{activeCount}</p>
             </div>
           </div>
-          <div className="bg-white rounded-3xl border border-white p-4 shadow-sm flex items-center gap-3.5">
+          <div className="bg-white rounded-xl border border-white p-4 shadow-sm flex items-center gap-3.5">
             <div className="w-10 h-10 rounded-2xl bg-Berry text-white flex items-center justify-center flex-shrink-0">
               <ShieldAlert className="w-5 h-5" />
             </div>
@@ -347,7 +347,7 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Filter Bar + Table Card */}
-        <div className="bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] p-4 sm:p-5 space-y-4">
+        <div className="bg-white rounded-xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] p-4 sm:p-5 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-Mist/15 pb-3">
             {/* Status Tabs */}
             <div className="flex items-center gap-1 bg-Snowflake/60 p-1 rounded-2xl w-fit">

@@ -581,7 +581,7 @@ export default function AdminAuditLogsPage() {
 
         {/* ─── 2. 3 THẺ TÓM TẮT TRỰC QUAN (MÀU CHỦ ĐẠO PINE #014BAA) ─────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-Pine text-white rounded-3xl p-4 shadow-md flex items-center justify-between">
+          <div className="bg-Pine text-white rounded-xl p-4 shadow-md flex items-center justify-between">
             <div className="flex items-center gap-3.5">
               <div className="w-11 h-11 rounded-2xl bg-white/15 text-Sunny flex items-center justify-center flex-shrink-0">
                 <Calendar className="w-5 h-5" />
@@ -598,7 +598,7 @@ export default function AdminAuditLogsPage() {
             </span>
           </div>
 
-          <div className="bg-white rounded-3xl border border-Mist/25 p-4 shadow-sm flex items-center justify-between">
+          <div className="bg-white rounded-xl border border-Mist/25 p-4 shadow-sm flex items-center justify-between">
             <div className="flex items-center gap-3.5">
               <div className="w-11 h-11 rounded-2xl bg-Pine/10 text-Pine flex items-center justify-center flex-shrink-0">
                 <UserCheck className="w-5 h-5" />
@@ -618,7 +618,7 @@ export default function AdminAuditLogsPage() {
           <button
             type="button"
             onClick={() => setOnlySensitive(!onlySensitive)}
-            className={`text-left rounded-3xl border p-4 transition-colors flex items-center justify-between ${
+            className={`text-left rounded-xl border p-4 transition-colors flex items-center justify-between ${
               onlySensitive
                 ? 'bg-Berry text-white border-Berry shadow-md'
                 : 'bg-white text-Branch border-Mist/25 hover:border-Berry/40 shadow-sm'
@@ -648,7 +648,7 @@ export default function AdminAuditLogsPage() {
         </div>
 
         {/* ─── 3. THANH BỘ LỌC ĐỜI THƯỜNG (KHÔNG CÒN TÊN BẢNG SQL) ───────────── */}
-        <div className="bg-white rounded-3xl border border-Mist/25 shadow-sm p-4">
+        <div className="bg-white rounded-xl border border-Mist/25 shadow-sm p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <label className="block text-[11px] font-extrabold uppercase text-Pine mb-1">Từ ngày</label>
@@ -726,17 +726,17 @@ export default function AdminAuditLogsPage() {
             NỘI DUNG CHÍNH: CHẾ ĐỘ 1 (TIMELINE) HOẶC CHẾ ĐỘ 2 (1 DÒNG / NGÀY)
         ═════════════════════════════════════════════════════════════════════ */}
         {loading ? (
-          <div className="flex items-center justify-center py-20 bg-white rounded-3xl">
+          <div className="flex items-center justify-center py-20 bg-white rounded-xl">
             <Spinner size="lg" />
           </div>
         ) : dateGroups.length === 0 ? (
-          <div className="bg-white rounded-3xl p-8">
+          <div className="bg-white rounded-xl p-8">
             <EmptyState message="Không tìm thấy hoạt động nào trong khoảng thời gian đã chọn." />
           </div>
         ) : viewMode === 'timeline' ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             {/* ── CỘT TRÁI (4/12): DANH SÁCH NGÀY THÁNG NĂM ── */}
-            <div className="lg:col-span-4 bg-white rounded-3xl border border-Mist/25 p-4 shadow-sm">
+            <div className="lg:col-span-4 bg-white rounded-xl border border-Mist/25 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3 px-1">
                 <h2 className="text-xs font-extrabold uppercase tracking-wider text-Pine flex items-center gap-1.5">
                   <Calendar className="w-4 h-4 text-Pine" />
@@ -803,7 +803,7 @@ export default function AdminAuditLogsPage() {
             {/* ── CỘT PHẢI (8/12): HÔM ĐÓ CÓ NHỮNG AI & HỌ ĐÃ LÀM GÌ ── */}
             <div className="lg:col-span-8 space-y-4">
               {/* KHỐI A: Tóm tắt những ai đã làm việc trong ngày đang chọn */}
-              <div className="bg-white rounded-3xl border border-Mist/25 p-5 shadow-sm">
+              <div className="bg-white rounded-xl border border-Mist/25 p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                   <div>
                     <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-Pine flex items-center gap-1.5">
@@ -881,7 +881,7 @@ export default function AdminAuditLogsPage() {
               </div>
 
               {/* KHỐI B: Dòng thời gian chi tiết bằng câu tiếng Việt tự nhiên */}
-              <div className="bg-white rounded-3xl border border-Mist/25 p-5 shadow-sm">
+              <div className="bg-white rounded-xl border border-Mist/25 p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-4 pb-3 border-b border-Mist/20">
                   <div>
                     <h2 className="text-sm font-extrabold text-Pine flex items-center gap-2">
@@ -991,7 +991,7 @@ export default function AdminAuditLogsPage() {
           /* ═══════════════════════════════════════════════════════════════════
              CHẾ ĐỘ 2: BẢNG GỘP THEO NGÀY (MỖI NGÀY 1 HÀNG DUY NHẤT ĐÚNG Ý THẦY)
           ═══════════════════════════════════════════════════════════════════ */
-          <div className="bg-white rounded-3xl border border-Mist/25 shadow-sm p-5 space-y-4">
+          <div className="bg-white rounded-xl border border-Mist/25 shadow-sm p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-Mist/20">
               <div>
                 <h2 className="text-sm sm:text-base font-extrabold text-Pine">

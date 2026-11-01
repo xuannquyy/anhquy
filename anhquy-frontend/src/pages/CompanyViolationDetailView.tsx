@@ -302,7 +302,7 @@ export default function CompanyViolationDetailView({
   return (
     <div className="space-y-4">
       {/* ── Thanh Header Công ty: Hiển thị rõ Báo cáo Tổng hợp Toàn Công ty (Gộp tất cả hợp đồng) ── */}
-      <div className="bg-white rounded-3xl border border-white p-5 shadow-[0_10px_28px_rgba(10,16,32,0.06)] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="bg-white rounded-xl border border-white p-5 shadow-[0_10px_28px_rgba(10,16,32,0.06)] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex items-start sm:items-center gap-3.5">
           <button
             type="button"
@@ -375,7 +375,7 @@ export default function CompanyViolationDetailView({
 
       {/* ── CHẾ ĐỘ XEM 1: BÁO CÁO TỔNG HỢP TOÀN CÔNG TY (GỘP CẢ 2 HỢP ĐỒNG) ── */}
       {viewMode === 'company_summary' ? (
-        <div className="bg-white rounded-3xl border border-Mist/25 p-6 sm:p-8 shadow-sm space-y-6">
+        <div className="bg-white rounded-xl border border-Mist/25 p-6 sm:p-8 shadow-sm space-y-6">
           <div className="border-b-2 border-Pine pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-Pine bg-Pine/10 px-2.5 py-1 rounded-lg">
@@ -486,7 +486,7 @@ export default function CompanyViolationDetailView({
         /* ── CHẾ ĐỘ XEM 2: BỐ CỤC 2 CỘT THẨM ĐỊNH TỪNG HỢP ĐỒNG ── */
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* CỘT TRÁI (4 Cột): Chọn Hợp đồng — Mỗi hợp đồng có nút "Báo cáo Hợp đồng" riêng biệt */}
-          <div className="lg:col-span-4 bg-white rounded-3xl border border-white p-4 shadow-[0_10px_28px_rgba(10,16,32,0.06)] space-y-3">
+          <div className="lg:col-span-4 bg-white rounded-xl border border-white p-4 shadow-[0_10px_28px_rgba(10,16,32,0.06)] space-y-3">
             <div className="flex items-center justify-between px-1">
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-Pine flex items-center gap-1.5">
                 <FileText className="w-4 h-4 text-Berry" />
@@ -596,7 +596,7 @@ export default function CompanyViolationDetailView({
           {/* CỘT PHẢI (8 Cột): Chi tiết Vi phạm của Hợp đồng đang chọn */}
           <div className="lg:col-span-8 space-y-3">
             {/* Thanh tiêu đề chỉ rõ đang xem Hợp đồng nào + Nút mở Báo cáo của riêng hợp đồng đó */}
-            <div className="bg-white rounded-3xl border border-white p-4 shadow-[0_10px_28px_rgba(10,16,32,0.06)] space-y-3">
+            <div className="bg-white rounded-xl border border-white p-4 shadow-[0_10px_28px_rgba(10,16,32,0.06)] space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-Mist/20">
                 <div className="flex items-center gap-2 min-w-0">
                   <FileText className="w-4 h-4 text-Pine flex-shrink-0" />
@@ -663,7 +663,7 @@ export default function CompanyViolationDetailView({
             </div>
 
             {filteredViolations.length === 0 ? (
-              <div className="bg-white rounded-3xl p-12 text-center border border-Mist/20">
+              <div className="bg-white rounded-xl p-12 text-center border border-Mist/20">
                 <ShieldCheck className="w-10 h-10 text-SafeGreen mx-auto mb-2" />
                 <p className="text-sm font-bold text-Branch">Không có cảnh báo nào trong mục đang chọn.</p>
               </div>
@@ -671,7 +671,7 @@ export default function CompanyViolationDetailView({
               filteredViolations.map((v, idx) => (
                 <div
                   key={v.id}
-                  className="bg-white rounded-3xl border border-Mist/25 border-l-4 border-l-Berry p-4 shadow-sm space-y-3"
+                  className="bg-white rounded-xl border border-Mist/25 border-l-4 border-l-Berry p-4 shadow-sm space-y-3"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2">

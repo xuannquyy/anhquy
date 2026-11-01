@@ -96,13 +96,13 @@ export default function ProfilePage() {
       <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* ─── Cột Trái (4 cột): Thẻ Nhận diện Cá nhân ─────────────────────── */}
         <div className="lg:col-span-4">
-          <div className="bg-gradient-to-b from-Pine to-Pine rounded-3xl p-6 text-white shadow-[0_14px_34px_rgba(39,54,63,0.2)] relative overflow-hidden">
+          <div className="bg-gradient-to-b from-Pine to-Pine rounded-xl p-6 text-white shadow-[0_14px_34px_rgba(39,54,63,0.2)] relative overflow-hidden">
             <div
               className="pointer-events-none absolute -top-16 -right-16 w-40 h-40 rounded-full opacity-25 blur-2xl"
               style={{ background: 'radial-gradient(circle, #6B212C 0%, transparent 70%)' }}
             />
             <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-20 h-20 rounded-3xl bg-Snowflake text-Pine flex items-center justify-center text-3xl font-extrabold shadow-lg border-2 border-Frostysilver mb-3">
+              <div className="w-20 h-20 rounded-xl bg-Snowflake text-Pine flex items-center justify-center text-3xl font-extrabold shadow-lg border-2 border-Frostysilver mb-3">
                 {user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
               <h2 className="text-lg font-extrabold text-white">{user?.full_name}</h2>
@@ -134,7 +134,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ─── Cột Phải (8 cột): Không gian Tùy chỉnh Hồ sơ & Mật khẩu ────── */}
-        <div className="lg:col-span-8 bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] overflow-hidden flex flex-col">
+        <div className="lg:col-span-8 bg-white rounded-xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] overflow-hidden flex flex-col">
           {/* Pill Tabs */}
           <div className="p-4 border-b border-Mist/15 bg-Snowflake/30">
             <div className="flex gap-1.5 bg-Snowflake/80 p-1.5 rounded-2xl">

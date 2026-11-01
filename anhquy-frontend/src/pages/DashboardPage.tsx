@@ -206,7 +206,7 @@ function KpiMetricCard({
 }) {
   if (isPrimaryHero) {
     const heroCard = (
-      <div className="bg-Pine text-white rounded-3xl p-4 sm:p-5 shadow-[0_12px_28px_rgba(1,75,170,0.22)] hover:shadow-[0_16px_34px_rgba(1,75,170,0.3)] hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between h-full border border-Pine">
+      <div className="bg-Pine text-white rounded-xl p-4 sm:p-5 shadow-[0_12px_28px_rgba(1,75,170,0.22)] hover:shadow-[0_16px_34px_rgba(1,75,170,0.3)] hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between h-full border border-Pine">
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-9 h-9 rounded-2xl bg-white/15 text-Sunny flex items-center justify-center flex-shrink-0">
@@ -273,7 +273,7 @@ function KpiMetricCard({
   }[tone]
 
   const card = (
-    <div className="bg-white rounded-3xl border border-Mist/25 p-4 sm:p-5 shadow-[0_8px_24px_rgba(10,16,32,0.04)] hover:border-Pine/40 hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full">
+    <div className="bg-white rounded-xl border border-Mist/25 p-4 sm:p-5 shadow-[0_8px_24px_rgba(10,16,32,0.04)] hover:border-Pine/40 hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full">
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className={`w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0 ${styles.iconBg}`}>
@@ -940,7 +940,7 @@ export default function DashboardPage() {
         {/* ─── 3. HÀNG 2: 2 BIỂU ĐỒ PHÂN TÍCH + 1 KHỐI PINE CHỈ SỐ KIỂM SOÁT ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
           {/* Cột 1 (4/12): Biểu đồ Donut Tỷ lệ Hợp đồng Vi phạm */}
-          <div className="lg:col-span-4 bg-white rounded-3xl border border-Mist/25 p-5 shadow-[0_8px_24px_rgba(10,16,32,0.04)] flex flex-col justify-between">
+          <div className="lg:col-span-4 bg-white rounded-xl border border-Mist/25 p-5 shadow-[0_8px_24px_rgba(10,16,32,0.04)] flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-extrabold text-Pine flex items-center gap-1.5">
@@ -964,7 +964,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Cột 2 (4/12): Phân tích Lỗi Vi phạm theo 4 Nhóm Tiêu chuẩn RBA & VN */}
-          <div className="lg:col-span-4 bg-white rounded-3xl border border-Mist/25 p-5 shadow-[0_8px_24px_rgba(10,16,32,0.04)] flex flex-col justify-between">
+          <div className="lg:col-span-4 bg-white rounded-xl border border-Mist/25 p-5 shadow-[0_8px_24px_rgba(10,16,32,0.04)] flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-extrabold text-Pine flex items-center gap-1.5">
@@ -988,7 +988,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Cột 3 (4/12): Khối Màu Chính PINE (#014BAA) - Chỉ số Kiểm soát Hệ thống */}
-          <div className="lg:col-span-4 bg-Pine text-white rounded-3xl p-5 shadow-[0_14px_32px_rgba(1,75,170,0.22)] flex flex-col justify-between gap-3">
+          <div className="lg:col-span-4 bg-Pine text-white rounded-xl p-5 shadow-[0_14px_32px_rgba(1,75,170,0.22)] flex flex-col justify-between gap-3">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-extrabold text-white flex items-center gap-1.5">
@@ -1063,7 +1063,7 @@ export default function DashboardPage() {
         {/* ─── 4. HÀNG 3: BẢNG ĐIỂM TÍN NHIỆM ĐỐI TÁC & KHUNG ĐIỀU HÀNH THEO VAI TRÒ ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
           {/* Cột Trái (6/12): Bảng Điểm Tín nhiệm Đối tác (Có Tab lọc & Cuộn cố định, không tràn khi có 10-50 đối tác) */}
-          <div className="lg:col-span-6 bg-white rounded-3xl border border-Mist/25 p-5 shadow-[0_8px_24px_rgba(10,16,32,0.04)] flex flex-col justify-between">
+          <div className="lg:col-span-6 bg-white rounded-xl border border-Mist/25 p-5 shadow-[0_8px_24px_rgba(10,16,32,0.04)] flex flex-col justify-between">
             <div>
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <div>
@@ -1144,7 +1144,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Cột Phải (6/12): Khung Điều hành theo Vai trò (Đã dịch Nhật ký Admin sang Tiếng Việt 100%) */}
-          <div className="lg:col-span-6 bg-white rounded-3xl border border-Mist/25 p-5 shadow-[0_8px_24px_rgba(10,16,32,0.04)] flex flex-col justify-between">
+          <div className="lg:col-span-6 bg-white rounded-xl border border-Mist/25 p-5 shadow-[0_8px_24px_rgba(10,16,32,0.04)] flex flex-col justify-between">
             {role === 'Admin' ? (
               /* VIEW RIÊNG CỦA ADMIN: Nhật ký Hoạt động bằng Tiếng Việt rõ nghĩa */
               <>

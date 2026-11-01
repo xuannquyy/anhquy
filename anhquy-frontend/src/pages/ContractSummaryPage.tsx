@@ -481,7 +481,7 @@ const currentScore = Math.max(0, 100 - penaltyPoints)
         </div>
 
         {/* GIAO DIỆN BÁO CÁO HÀNH CHÍNH - PHÁP CHẾ TRÊN MÀN HÌNH */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-[0_10px_28px_rgba(10,16,32,0.06)] border border-Mist/25">
+        <div className="bg-white rounded-xl p-6 sm:p-8 shadow-[0_10px_28px_rgba(10,16,32,0.06)] border border-Mist/25">
           {/* 1. QUỐC HIỆU - TIÊU NGỮ & LOGO ĐƠN VỊ KIỂM TOÁN */}
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b-2 border-Pine pb-4 mb-5">
             <div className="flex items-center gap-3">

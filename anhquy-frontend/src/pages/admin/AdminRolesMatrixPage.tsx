@@ -258,7 +258,7 @@ export default function AdminRolesMatrixPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             {/* ─── Cột Trái (4 cột): Danh sách Vai trò (Mở rộng thoải mái 10+ Role) ─── */}
             <div className="lg:col-span-4 space-y-3">
-              <div className="bg-white rounded-3xl border border-white p-4 shadow-[0_10px_28px_rgba(39,54,63,0.06)]">
+              <div className="bg-white rounded-xl border border-white p-4 shadow-[0_10px_28px_rgba(39,54,63,0.06)]">
                 <div className="flex items-center justify-between mb-3 px-1">
                   <span className="text-xs font-extrabold uppercase tracking-wider text-Pine flex items-center gap-1.5">
                     <Layers className="w-4 h-4 text-Berry" />
@@ -319,7 +319,7 @@ export default function AdminRolesMatrixPage() {
             {/* ─── Cột Phải (8 cột): Bảng Điều khiển Quyền của Vai trò đang chọn ─── */}
             <div className="lg:col-span-8 space-y-4">
               {selectedRole && (
-                <div className="bg-white rounded-3xl border border-white p-5 sm:p-6 shadow-[0_10px_28px_rgba(39,54,63,0.06)] space-y-5">
+                <div className="bg-white rounded-xl border border-white p-5 sm:p-6 shadow-[0_10px_28px_rgba(39,54,63,0.06)] space-y-5">
                   {/* Top Control Header */}
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-Mist/15">
                     <div>

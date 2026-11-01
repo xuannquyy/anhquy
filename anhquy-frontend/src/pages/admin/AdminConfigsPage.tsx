@@ -215,7 +215,7 @@ export default function AdminConfigsPage() {
     <MainLayout breadcrumb="Tham số & Ngưỡng">
       <div className="space-y-5 max-w-5xl">
         {/* Header với nút Lưu luôn hiển thị rõ ràng */}
-        <div className="bg-white rounded-3xl border border-white p-5 shadow-[0_10px_28px_rgba(39,54,63,0.06)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="bg-white rounded-xl border border-white p-5 shadow-[0_10px_28px_rgba(39,54,63,0.06)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-extrabold text-Pine tracking-tight flex items-center gap-2">
               <Settings className="w-6 h-6 text-Berry" />
@@ -249,7 +249,7 @@ export default function AdminConfigsPage() {
           <>
             {/* Các nhóm tham số cấu hình */}
             {Object.entries(configsByGroup).map(([group, items]) => (
-              <div key={group} className="bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] overflow-hidden">
+              <div key={group} className="bg-white rounded-xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] overflow-hidden">
                 <div className="px-6 py-4 border-b border-Mist/15 bg-Snowflake/40 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sliders className="w-4 h-4 text-Merlot" />
@@ -361,7 +361,7 @@ export default function AdminConfigsPage() {
             ))}
 
             {/* Ngưỡng Rủi ro Đối tác */}
-            <div className="bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] overflow-hidden">
+            <div className="bg-white rounded-xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] overflow-hidden">
               <div className="px-6 py-4 border-b border-Mist/15 bg-Snowflake/40 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-Berry" />

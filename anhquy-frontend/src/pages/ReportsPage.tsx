@@ -460,7 +460,7 @@ export default function ReportsPage() {
     <MainLayout breadcrumb="Trung tâm Xuất Báo cáo">
       <div className="space-y-5">
         {/* ─── Header Banner ── */}
-        <div className="bg-gradient-to-r from-Pine via-[#1E293B] to-Berry rounded-3xl p-6 text-white shadow-[0_14px_34px_rgba(11,19,43,0.18)] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="bg-gradient-to-r from-Pine via-[#1E293B] to-Berry rounded-xl p-6 text-white shadow-[0_14px_34px_rgba(11,19,43,0.18)] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-white/15 text-Snowflake text-xs font-bold mb-2">
               <BarChart3 className="w-4 h-4 text-Frostysilver" />
@@ -504,7 +504,7 @@ export default function ReportsPage() {
 
         {/* ─── 3 Thẻ Tóm tắt Nhanh Kết quả Truy vấn ─────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-3xl border border-Mist/20 p-4 shadow-sm flex items-center gap-3.5">
+          <div className="bg-white rounded-xl border border-Mist/20 p-4 shadow-sm flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-2xl bg-Pine text-white flex items-center justify-center flex-shrink-0">
               <Building2 className="w-5 h-5" />
             </div>
@@ -513,7 +513,7 @@ export default function ReportsPage() {
               <p className="text-2xl font-extrabold text-Pine">{filteredSuppliers.length}</p>
             </div>
           </div>
-          <div className="bg-white rounded-3xl border border-Mist/20 p-4 shadow-sm flex items-center gap-3.5">
+          <div className="bg-white rounded-xl border border-Mist/20 p-4 shadow-sm flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-2xl bg-Berry text-white flex items-center justify-center flex-shrink-0">
               <AlertTriangle className="w-5 h-5" />
             </div>
@@ -522,7 +522,7 @@ export default function ReportsPage() {
               <p className="text-2xl font-extrabold text-Berry">{filteredViolations.length}</p>
             </div>
           </div>
-          <div className="bg-white rounded-3xl border border-Mist/20 p-4 shadow-sm flex items-center gap-3.5">
+          <div className="bg-white rounded-xl border border-Mist/20 p-4 shadow-sm flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-2xl bg-Mist text-Pine flex items-center justify-center flex-shrink-0">
               <FileText className="w-5 h-5" />
             </div>
@@ -534,7 +534,7 @@ export default function ReportsPage() {
         </div>
 
         {/* ─── Khung Cấu hình Truy vấn (Tuần / Ngày / Tháng / Năm / Tất cả) ─── */}
-        <div className="bg-white rounded-3xl border border-Mist/20 p-6 shadow-sm space-y-5">
+        <div className="bg-white rounded-xl border border-Mist/20 p-6 shadow-sm space-y-5">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-Mist/20 pb-4">
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-Berry" />
@@ -783,7 +783,7 @@ export default function ReportsPage() {
         ) : (
           <div className="space-y-5">
             {reportScope !== 'violations' && (
-              <div className="bg-white rounded-3xl border border-Mist/20 p-6 shadow-sm">
+              <div className="bg-white rounded-xl border border-Mist/20 p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-extrabold text-Pine">
                     Bảng 1: Điểm Tín nhiệm Đối tác Cung ứng ({filteredSuppliers.length} đơn vị)
@@ -824,7 +824,7 @@ export default function ReportsPage() {
             )}
 
             {reportScope !== 'suppliers' && (
-              <div className="bg-white rounded-3xl border border-Mist/20 p-6 shadow-sm">
+              <div className="bg-white rounded-xl border border-Mist/20 p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-extrabold text-Pine">
                     Bảng 2: Danh sách Chi tiết Cảnh báo Vi phạm ({filteredViolations.length} bản ghi)

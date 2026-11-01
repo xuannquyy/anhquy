@@ -981,7 +981,7 @@ export default function AuditWorkspacePage() {
             activeTab === 'pdf' ? 'hidden md:flex' : 'flex'
           }`}
         >
-          <div className="bg-white rounded-3xl border border-white shadow-[0_10px_28px_rgba(10,16,32,0.06)] p-4 mb-3 flex-shrink-0">
+          <div className="bg-white rounded-xl border border-white shadow-[0_10px_28px_rgba(10,16,32,0.06)] p-4 mb-3 flex-shrink-0">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -1122,7 +1122,7 @@ export default function AuditWorkspacePage() {
 
           <div className="flex-1 overflow-y-auto pr-1">
             {filteredViolations.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 bg-white rounded-3xl border border-Mist/20 text-Mist px-4 text-center">
+              <div className="flex flex-col items-center justify-center py-12 bg-white rounded-xl border border-Mist/20 text-Mist px-4 text-center">
                 <AlertTriangle className="w-10 h-10 mb-3 text-Pine/40" />
                 <p className="text-sm font-bold text-Branch">
                   {violations.length === 0
@@ -1166,7 +1166,7 @@ export default function AuditWorkspacePage() {
 
         {/* RIGHT COLUMN */}
         <div
-          className={`flex-1 rounded-3xl overflow-hidden border border-Mist/30 shadow-[0_10px_28px_rgba(10,16,32,0.08)] ${
+          className={`flex-1 rounded-xl overflow-hidden border border-Mist/30 shadow-[0_10px_28px_rgba(10,16,32,0.08)] ${
             activeTab === 'violations' ? 'hidden md:flex md:flex-col' : 'flex flex-col'
           }`}
         >
