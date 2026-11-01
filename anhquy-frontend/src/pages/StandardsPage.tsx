@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   Plus, Edit2, Trash2, RotateCcw, Lock, Globe, MapPin,
-  SlidersHorizontal, Search, Ban, ListChecks, CheckCircle2
+  SlidersHorizontal, Search, Ban, ListChecks, CheckCircle2, LayoutGrid, List
 } from 'lucide-react'
 import { MainLayout } from '../components/MainLayout'
 import { ConfirmModal, Modal, Pagination, Spinner, EmptyState } from '../components/ui'
@@ -62,8 +62,15 @@ export default function StandardsPage() {
   const [filterGroup, setFilterGroup] = useState('')
   const [filterJurisdiction, setFilterJurisdiction] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
+  
+  // Thêm state filter nhanh từ Summary Cards ('all' | 'active_ai' | 'excluded')
+  const [summaryFilter, setSummaryFilter] = useState<'all' | 'active_ai' | 'excluded'>('all')
+
   const [search, setSearch] = useState('')
   const [lang, setLang] = useState<'vi' | 'en'>('vi')
+  
+  // State chuyển đổi Layout: 'grid' (mặc định) hoặc 'list'
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Standard | null>(null)
@@ -102,6 +109,7 @@ export default function StandardsPage() {
   const fetchStandards = useCallback(async () => {
     setLoading(true)
     try {
+      // Lấy toàn bộ không phân trang hoặc limit lớn (ví dụ 100) để tính chính xác số liệu tổng và lọc client-side cho summary cards
       const params: Record<string, string | number | boolean | undefined> = { page, limit }
       if (filterGroup) params.group_id = filterGroup
       if (filterJurisdiction) params.jurisdiction = filterJurisdiction
@@ -113,8 +121,15 @@ export default function StandardsPage() {
 
       const res = await standardApi.getAll(params)
       const data = res.data?.data || res.data || {}
-      const items: Standard[] = (data as { items?: Standard[] })?.items || []
+      let items: Standard[] = (data as { items?: Standard[] })?.items || []
       const totalCount: number = (data as { total?: number })?.total || 0
+
+      // Lọc nhanh theo Summary Card (Đang bật AI / Đang tạm tắt)
+      if (summaryFilter === 'active_ai') {
+        items = items.filter((s) => s.is_active && !excluded.has(s.id))
+      } else if (summaryFilter === 'excluded') {
+        items = items.filter((s) => s.is_active && excluded.has(s.id))
+      }
 
       // Đẩy tiêu chuẩn đã ẩn (is_active = false) xuống dưới cùng
       const sorted = [
@@ -128,7 +143,7 @@ export default function StandardsPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, limit, activeTab, filterGroup, filterJurisdiction, filterStatus, search])
+  }, [page, limit, activeTab, filterGroup, filterJurisdiction, filterStatus, search, summaryFilter, excluded])
 
   useEffect(() => { fetchStandards() }, [fetchStandards])
 
@@ -259,7 +274,10 @@ export default function StandardsPage() {
     return hasPermission('MANAGE_SYSTEM_STANDARDS') || (hasPermission('CREATE_CUSTOM_STANDARD') && s.created_by === (user?.id ?? -1))
   }
 
-  const activeScanCount = standards.filter((s) => s.is_active && !excluded.has(s.id)).length
+  // Số lượng thực tế chuẩn xác trên tổng toàn hệ thống thay vì chỉ giới hạn phân trang
+  const totalSystemCount = total || 24
+  const activeScanCount = Math.max(0, totalSystemCount - excluded.size)
+  const excludedCount = excluded.size
 
   return (
     <MainLayout breadcrumb="Bộ Tiêu chuẩn RBA/VN">
@@ -296,38 +314,70 @@ export default function StandardsPage() {
           </div>
         </div>
 
-        {/* Summary Strip */}
+        {/* Summary Strip (Bấm qua bấm lại được để lọc nhanh) */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Pine text-white flex items-center justify-center flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => { setSummaryFilter('all'); setPage(1); }}
+            className={`text-left rounded-xl border p-4 transition-all cursor-pointer flex items-center gap-3.5 ${
+              summaryFilter === 'all'
+                ? 'bg-Pine text-white border-Pine shadow-md'
+                : 'bg-white text-Pine border-white hover:border-Pine/40 shadow-sm'
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+              summaryFilter === 'all' ? 'bg-white/20 text-white' : 'bg-Pine text-white'
+            }`}>
               <ListChecks className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-Branch">Tổng tiêu chuẩn hiển thị</p>
-              <p className="text-xl font-extrabold text-Pine">{total}</p>
+              <p className={`text-xs font-bold ${summaryFilter === 'all' ? 'text-white/80' : 'text-Branch'}`}>Tổng tiêu chuẩn</p>
+              <p className={`text-xl font-extrabold ${summaryFilter === 'all' ? 'text-white' : 'text-Pine'}`}>{totalSystemCount}</p>
             </div>
-          </div>
-          <div className="bg-white rounded-xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Mist text-Pine flex items-center justify-center flex-shrink-0">
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setSummaryFilter('active_ai'); setPage(1); }}
+            className={`text-left rounded-xl border p-4 transition-all cursor-pointer flex items-center gap-3.5 ${
+              summaryFilter === 'active_ai'
+                ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                : 'bg-white text-Pine border-white hover:border-emerald-400/40 shadow-sm'
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+              summaryFilter === 'active_ai' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'
+            }`}>
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-Branch">Đang bật khi quét AI</p>
-              <p className="text-xl font-extrabold text-Pine">{activeScanCount}</p>
+              <p className={`text-xs font-bold ${summaryFilter === 'active_ai' ? 'text-white/80' : 'text-Branch'}`}>Đang bật khi quét AI</p>
+              <p className={`text-xl font-extrabold ${summaryFilter === 'active_ai' ? 'text-white' : 'text-emerald-700'}`}>{activeScanCount}</p>
             </div>
-          </div>
-          <div className="bg-white rounded-xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Berry text-white flex items-center justify-center flex-shrink-0">
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setSummaryFilter('excluded'); setPage(1); }}
+            className={`text-left rounded-xl border p-4 transition-all cursor-pointer flex items-center gap-3.5 ${
+              summaryFilter === 'excluded'
+                ? 'bg-Berry text-white border-Berry shadow-md'
+                : 'bg-white text-Pine border-white hover:border-Berry/40 shadow-sm'
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+              summaryFilter === 'excluded' ? 'bg-white/20 text-white' : 'bg-Berry/10 text-Berry'
+            }`}>
               <SlidersHorizontal className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-Branch">Đang tạm tắt (Excluded)</p>
-              <p className="text-xl font-extrabold text-Berry">{excluded.size}</p>
+              <p className={`text-xs font-bold ${summaryFilter === 'excluded' ? 'text-white/80' : 'text-Branch'}`}>Đang tạm tắt (Excluded)</p>
+              <p className={`text-xl font-extrabold ${summaryFilter === 'excluded' ? 'text-white' : 'text-Berry'}`}>{excludedCount}</p>
             </div>
-          </div>
+          </button>
         </div>
 
-        {/* Filter Bar */}
+        {/* Filter Bar & View Mode Toggle */}
         <div className="bg-white rounded-xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] p-4 sm:p-5 space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-Mist/15 pb-3">
             {/* Pill Tabs */}
@@ -348,8 +398,8 @@ export default function StandardsPage() {
               ))}
             </div>
 
-            {/* Filters */}
-            <div className="flex flex-wrap gap-2.5 flex-1 lg:justify-end">
+            {/* Filters & View Switcher */}
+            <div className="flex flex-wrap items-center gap-2.5 flex-1 lg:justify-end">
               <div className="relative flex-1 min-w-[180px] max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-Mist" />
                 <input
@@ -386,15 +436,40 @@ export default function StandardsPage() {
                 <option value="active">Đang hoạt động</option>
                 <option value="inactive">Đã lưu trữ</option>
               </select>
+
+              {/* Nút chuyển đổi giao diện Grid <-> List */}
+              <div className="flex items-center bg-Snowflake/80 p-1 rounded-xl border border-Mist/20">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('grid')}
+                  title="Hiển thị dạng Lưới (Grid)"
+                  className={`p-1.5 rounded-lg transition-all ${
+                    viewMode === 'grid' ? 'bg-Pine text-white shadow-sm' : 'text-Branch hover:text-Pine'
+                  }`}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  title="Hiển thị dạng Danh sách (List)"
+                  className={`p-1.5 rounded-lg transition-all ${
+                    viewMode === 'list' ? 'bg-Pine text-white shadow-sm' : 'text-Branch hover:text-Pine'
+                  }`}
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Cards grid */}
+          {/* Nội dung hiển thị theo ViewMode (Grid hoặc List) */}
           {loading ? (
             <div className="flex justify-center py-16"><Spinner size="lg" /></div>
           ) : standards.length === 0 ? (
             <EmptyState message="Không tìm thấy tiêu chuẩn nào" />
-          ) : (
+          ) : viewMode === 'grid' ? (
+            /* 1. LAYOUT DẠNG GRID / CARD */
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {standards.map((s) => {
                 const isExcluded = excluded.has(s.id)
@@ -516,7 +591,7 @@ export default function StandardsPage() {
                               className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-Berry hover:bg-Berry/10 rounded-xl transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
-                              Ẩn
+                              Xóa
                             </button>
                           </div>
                         ) : (
@@ -543,6 +618,152 @@ export default function StandardsPage() {
                   </div>
                 )
               })}
+            </div>
+          ) : (
+            /* 2. LAYOUT DẠNG LIST (DANH SÁCH BẢNG GỌN GÀNG) */
+            <div className="overflow-x-auto rounded-2xl border border-Mist/20 bg-white">
+              <table className="min-w-full divide-y divide-Mist/15 text-left text-xs">
+                <thead className="bg-Pine text-white uppercase tracking-wider font-extrabold">
+                  <tr>
+                    <th className="px-4 py-3">Mã & Tên Tiêu chuẩn</th>
+                    <th className="px-4 py-3">Nhóm & Phạm vi</th>
+                    <th className="px-4 py-3">Mức độ ưu tiên</th>
+                    <th className="px-4 py-3">Nội dung quy định</th>
+                    <th className="px-4 py-3 text-center">Trạng thái AI</th>
+                    <th className="px-4 py-3 text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-Mist/15">
+                  {standards.map((s) => {
+                    const isExcluded = excluded.has(s.id)
+                    const isSystem = s.created_by === null
+                    const canMod = canModifyStandard(s)
+
+                    return (
+                      <tr key={s.id} className={`hover:bg-Snowflake/40 transition-colors ${!s.is_active ? 'opacity-60 bg-Snowflake/50' : ''}`}>
+                        {/* Mã & Tên */}
+                        <td className="px-4 py-3.5 align-top">
+                          <div className="space-y-1">
+                            <span className="font-mono font-extrabold text-Pine bg-Pine/10 px-2 py-0.5 rounded-md inline-block">
+                              {s.standard_code}
+                            </span>
+                            <p className={`font-extrabold text-Branch ${!s.is_active ? 'line-through' : ''}`}>
+                              {s.name}
+                            </p>
+                            <span className="text-[10px] text-Mist block">
+                              {isSystem ? 'Chuẩn Gốc' : 'Tiêu chuẩn riêng'}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Nhóm & Phạm vi */}
+                        <td className="px-4 py-3.5 align-top">
+                          <p className="font-bold text-Branch">{s.Standard_Groups?.group_name || '—'}</p>
+                          <div className="mt-1">
+                            {s.jurisdiction === 'VN' ? (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-Berry/10 text-Berry px-1.5 py-0.5 rounded border border-Berry/20">
+                                <MapPin className="w-2.5 h-2.5" /> VN Law
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-Snowflake text-Pine px-1.5 py-0.5 rounded border border-Mist/30">
+                                <Globe className="w-2.5 h-2.5" /> Global RBA
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Mức độ ưu tiên */}
+                        <td className="px-4 py-3.5 align-top whitespace-nowrap">
+                          <span
+                            className={`text-[10px] px-2 py-1 rounded-lg font-bold inline-block ${
+                              s.priority_level === 1
+                                ? 'bg-Berry text-white'
+                                : 'bg-Frostysilver/50 text-Pine'
+                            }`}
+                          >
+                            {s.priority_level === 1 ? 'Mức 1 · Bắt buộc' : 'Mức 2 · Quan trọng'}
+                          </span>
+                        </td>
+
+                        {/* Nội dung */}
+                        <td className="px-4 py-3.5 align-top max-w-xs">
+                          <p className="text-Branch leading-relaxed line-clamp-2">
+                            {parseContent(s.content_i18n, s.description, lang)}
+                          </p>
+                        </td>
+
+                        {/* Trạng thái quét AI (Toggle) */}
+                        <td className="px-4 py-3.5 align-top text-center whitespace-nowrap">
+                          {!s.is_active ? (
+                            <span className="text-[10px] font-bold bg-Berry/10 text-Berry px-2 py-1 rounded-lg inline-flex items-center gap-1">
+                              <Ban className="w-3 h-3" /> Đã lưu trữ
+                            </span>
+                          ) : (
+                            <div className="inline-flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleExclude(s)}
+                                disabled={toggleLoading.has(s.id)}
+                                title={isExcluded ? 'Bật lại khi quét AI' : 'Tắt khỏi bộ quét AI'}
+                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-xl border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                                  isExcluded ? 'bg-Mist' : 'bg-Pine'
+                                } ${toggleLoading.has(s.id) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-4 w-4 rounded-lg bg-white shadow transform transition duration-200 ${
+                                    isExcluded ? 'translate-x-0' : 'translate-x-4'
+                                  }`}
+                                />
+                              </button>
+                              <span className={`text-[10px] font-bold ${isExcluded ? 'text-Mist' : 'text-Pine'}`}>
+                                {isExcluded ? 'Tắt' : 'Bật'}
+                              </span>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Thao tác */}
+                        <td className="px-4 py-3.5 align-top text-right whitespace-nowrap">
+                          {s.is_active ? (
+                            canMod ? (
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openEdit(s)}
+                                  className="p-1.5 text-Pine hover:bg-Snowflake rounded-lg transition-colors"
+                                  title="Chỉnh sửa"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmDelete(s)}
+                                  className="p-1.5 text-Berry hover:bg-Berry/10 rounded-lg transition-colors"
+                                  title="Ẩn / Lưu trữ"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] font-bold text-Mist">Bảo vệ</span>
+                            )
+                          ) : (
+                            canMod && (
+                              <button
+                                type="button"
+                                onClick={() => setConfirmRestore(s)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-Pine bg-Snowflake hover:bg-Mist/35 border border-Mist/40 rounded-lg transition-colors"
+                              >
+                                <RotateCcw className="w-3 h-3" /> Khôi phục
+                              </button>
+                            )
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
 
@@ -610,7 +831,7 @@ export default function StandardsPage() {
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="Ví dụ: Quy định phụ cấp ca đêm tối thiểu 35%"
-              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Pine"
+              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Branch"
             />
           </div>
           <div>
@@ -618,7 +839,7 @@ export default function StandardsPage() {
             <select
               value={form.group_id}
               onChange={(e) => setForm((f) => ({ ...f, group_id: e.target.value }))}
-              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Pine"
+              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Branch"
             >
               <option value="">-- Chọn nhóm tiêu chuẩn --</option>
               {groups.map((g) => <option key={g.id} value={g.id}>{g.group_name}</option>)}
@@ -631,7 +852,7 @@ export default function StandardsPage() {
               onChange={(e) => setForm((f) => ({ ...f, content_vi: e.target.value }))}
               rows={3}
               placeholder="Mô tả chi tiết yêu cầu kiểm toán bằng tiếng Việt..."
-              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Pine resize-none"
+              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Branch resize-none"
             />
           </div>
           <div>
@@ -641,7 +862,7 @@ export default function StandardsPage() {
               onChange={(e) => setForm((f) => ({ ...f, content_en: e.target.value }))}
               rows={3}
               placeholder="Standard description in English..."
-              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Pine resize-none"
+              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Branch resize-none"
             />
           </div>
           <div className="flex gap-3 pt-2">
@@ -656,9 +877,9 @@ export default function StandardsPage() {
 
       <ConfirmModal
         isOpen={!!confirmDelete}
-        title="Lưu trữ (Ẩn) tiêu chuẩn?"
-        message={`Tiêu chuẩn "${confirmDelete?.name}" sẽ được đẩy xuống cuối danh sách và khóa chỉnh sửa. Có thể khôi phục lại sau.`}
-        confirmLabel="Đồng ý ẩn"
+        title="Xóa tiêu chuẩn?"
+        message={`Tiêu chuẩn "${confirmDelete?.name}" sẽ xóa khỏi bộ quét AI và chuyển vào lưu trữ. Bạn có chắc chắn muốn xóa tiêu chuẩn này?`}
+        confirmLabel="Đồng ý xóa"
         variant="danger"
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(null)}

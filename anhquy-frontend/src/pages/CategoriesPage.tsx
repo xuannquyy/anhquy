@@ -995,9 +995,9 @@ export default function CategoriesPage() {
 
       <ConfirmModal
         isOpen={!!confirmDelete}
-        title="Lưu trữ (Vô hiệu hóa) danh mục?"
-        message={`Danh mục "${confirmDelete?.name}" sẽ được đẩy xuống cuối bảng và khóa chỉnh sửa. Có thể kích hoạt lại sau.`}
-        confirmLabel="Đồng ý lưu trữ"
+        title="Xóa danh mục?"
+        message={`Danh mục "${confirmDelete?.name}" sẽ xóa khỏi danh sách hoạt động và chuyển vào lưu trữ. Bạn có chắc chắn muốn xóa?`}
+        confirmLabel="Đồng ý xóa"
         variant="danger"
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(null)}

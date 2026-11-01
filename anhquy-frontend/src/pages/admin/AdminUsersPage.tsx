@@ -776,7 +776,7 @@ export default function AdminUsersPage() {
         isOpen={!!confirmToggle}
         title={confirmToggle?.is_active ? 'Khóa tài khoản người dùng?' : 'Mở khóa tài khoản?'}
         message={confirmToggle?.is_active
-          ? `Tài khoản "${confirmToggle?.full_name}" sẽ bị khóa ngay lập tức, đẩy xuống cuối bảng và thu hồi quyền truy cập.`
+          ? `Tài khoản "${confirmToggle?.full_name}" sẽ bị khóa ngay lập tức và thu hồi quyền truy cập.`
           : `Tài khoản "${confirmToggle?.full_name}" sẽ được mở khóa và cho phép đăng nhập trở lại.`}
         confirmLabel={confirmToggle?.is_active ? 'Đồng ý khóa' : 'Mở khóa ngay'}
         variant={confirmToggle?.is_active ? 'danger' : 'info'}
