@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Settings, Save, RefreshCw, Sliders, ShieldCheck, CheckCircle2 } from 'lucide-react'
 import { MainLayout } from '../../components/MainLayout'
@@ -26,8 +26,19 @@ interface RiskThreshold {
 // Danh mục cấu hình thân thiện (Đã loại bỏ AI_MODEL_NAME và các mã kỹ thuật trong ngoặc)
 const CONFIG_META: Record<
   string,
-  { label: string; desc: string; group: string; unit?: string; isBoolean?: boolean }
+  { label: string; desc: string; group: string; unit?: string; isBoolean?: boolean; isPassword?: boolean }
 > = {
+  GEMINI_API_KEY: {
+    label: 'Google Gemini API Key của doanh nghiệp',
+    desc: 'Khóa API Gemini bản quyền của công ty. Nếu để trống, hệ thống sẽ sử dụng key mặc định.',
+    group: '2. Phân tích Hợp đồng & Bảo mật Dữ liệu AI',
+    isPassword: true,
+  },
+  AI_MODEL_NAME: { 
+    label: 'Mô hình AI (Model Name) sử dụng',
+    desc: 'Tên model Gemini sẽ gọi (Ví dụ: gemini-2.5-flash, gemini-1.5-flash, gemini-3.5-flash-lite)',
+    group: '2. Phân tích Hợp đồng & Bảo mật Dữ liệu AI',
+  },
   ACCOUNT_LOCK_MINUTES: {
     label: 'Thời gian khóa tạm thời khi nhập sai mật khẩu',
     desc: 'Số phút khóa tài khoản tự động khi đăng nhập sai quá giới hạn',
@@ -139,7 +150,7 @@ export default function AdminConfigsPage() {
   const handleSaveConfig = async (key: string) => {
     setSavingKeys((prev) => new Set(prev).add(key))
     try {
-      const val = (editValues[key] ?? '').trim()
+      const val = editValues[key] ?? ''
       await adminApi.updateSystemConfig(key, val)
       toast.success(`Đã lưu thiết lập "${CONFIG_META[key]?.label || key}".`)
       setConfigs((prev) => prev.map((c) => c.config_key === key ? { ...c, config_value: val } : c))
@@ -284,7 +295,18 @@ export default function AdminConfigsPage() {
                         </div>
 
                         <div className="flex items-center gap-2.5 justify-end">
-                          {isBool ? (
+                          {meta?.isPassword ? (
+                            <div className="relative flex items-center">
+                              <input
+                                type="password"
+                                value={currentVal}
+                                onChange={(e) => setEditValues((prev) => ({ ...prev, [cfg.config_key]: e.target.value }))}
+                                onKeyDown={(e) => { if (e.key === "Enter") handleSaveConfig(cfg.config_key) }}
+                                placeholder="Nhập API Key..."
+                                className="w-72 pl-3.5 pr-3.5 py-2 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white font-mono tracking-widest text-Pine"
+                              />
+                            </div>
+                          ) : isBool ? (
                             <button
                               type="button"
                               onClick={() =>

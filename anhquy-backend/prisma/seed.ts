@@ -194,6 +194,7 @@ async function main() {
 
   // =================================================================
   // 5. NẠP 24 TIÊU CHUẨN GỐC HỆ THỐNG SONG NGỮ VI-EN (STANDARDS)
+  // Kèm thông tin nguồn pháp lý, điều khoản và link tra cứu chính thống (B2B Standard)
   // =================================================================
   const standardsData = [
     // --- NHÓM 1: LAO ĐỘNG (GRP-LABOR) ---
@@ -208,6 +209,9 @@ async function main() {
         en: 'Child labor under 15 years of age is strictly prohibited. Workers aged 15 to under 18 shall not perform night work (22:00-06:00), overtime, or hazardous/heavy work.',
       }),
       description: 'RBA Code of Conduct v8.0 - Mục A1',
+      legal_document_name: 'RBA Code of Conduct v8.0',
+      article_reference: 'Mục A1 (Free Choice of Employment / Child Labor)',
+      official_url: 'https://www.responsiblebusiness.org/media/docs/RBACodeofConduct8.0_English.pdf',
     },
     {
       group_code: 'GRP-LABOR',
@@ -220,6 +224,9 @@ async function main() {
         en: 'Employment of persons under 15 is prohibited, except for persons aged 13 to under 15 performing light work on the list issued by MOLISA with parental consent.',
       }),
       description: 'Bộ luật Lao động 2019 - Điều 145',
+      legal_document_name: 'Bộ luật Lao động 2019 (Luật số 45/2019/QH14)',
+      article_reference: 'Điều 145 (Lao động chưa thành niên)',
+      official_url: 'https://vanban.chinhphu.vn/?pageid=27160&docid=198540',
     },
     {
       group_code: 'GRP-LABOR',
@@ -232,6 +239,9 @@ async function main() {
         en: 'Forced labor is prohibited. Retaining original identity documents (ID card, Passport) or requiring deposits or financial guarantees from workers in any form is strictly forbidden.',
       }),
       description: 'RBA Code of Conduct v8.0 - Mục A2',
+      legal_document_name: 'RBA Code of Conduct v8.0',
+      article_reference: 'Mục A2 (Forced Labor)',
+      official_url: 'https://www.responsiblebusiness.org/media/docs/RBACodeofConduct8.0_English.pdf',
     },
     {
       group_code: 'GRP-LABOR',
@@ -244,6 +254,9 @@ async function main() {
         en: 'Employers are strictly prohibited from keeping original identity documents, diplomas, or certificates of employees, or requiring employees to provide cash or asset guarantees.',
       }),
       description: 'Bộ luật Lao động 2019 - Điều 17',
+      legal_document_name: 'Bộ luật Lao động 2019 (Luật số 45/2019/QH14)',
+      article_reference: 'Điều 17 (Cấm các hành vi khác của người sử dụng lao động khi giao kết, thực hiện hợp đồng)',
+      official_url: 'https://vanban.chinhphu.vn/?pageid=27160&docid=198540',
     },
     {
       group_code: 'GRP-LABOR',
@@ -256,6 +269,9 @@ async function main() {
         en: 'Total working hours including overtime shall not exceed 60 hours per week. Workers must be allowed at least one day off (24 consecutive hours) every 7 days.',
       }),
       description: 'RBA Code of Conduct v8.0 - Mục A3',
+      legal_document_name: 'RBA Code of Conduct v8.0',
+      article_reference: 'Mục A3 (Working Hours)',
+      official_url: 'https://www.responsiblebusiness.org/media/docs/RBACodeofConduct8.0_English.pdf',
     },
     {
       group_code: 'GRP-LABOR',
@@ -268,6 +284,9 @@ async function main() {
         en: 'Normal working hours shall not exceed 08 hours per day and 48 hours per week. The State encourages employers to implement a 40-hour workweek.',
       }),
       description: 'Bộ luật Lao động 2019 - Điều 105',
+      legal_document_name: 'Bộ luật Lao động 2019 (Luật số 45/2019/QH14)',
+      article_reference: 'Điều 105 (Thời giờ làm việc bình thường)',
+      official_url: 'https://vanban.chinhphu.vn/?pageid=27160&docid=198540',
     },
     {
       group_code: 'GRP-LABOR',
@@ -280,6 +299,9 @@ async function main() {
         en: 'Overtime work requires voluntary employee consent. Overtime shall not exceed 50% of normal daily hours, 40 hours per month, and 200 hours per year (300 hours per year for specific regulated industries).',
       }),
       description: 'Bộ luật Lao động 2019 - Điều 107',
+      legal_document_name: 'Bộ luật Lao động 2019 (Luật số 45/2019/QH14)',
+      article_reference: 'Điều 107 (Làm thêm giờ)',
+      official_url: 'https://vanban.chinhphu.vn/?pageid=27160&docid=198540',
     },
     {
       group_code: 'GRP-LABOR',
@@ -292,6 +314,9 @@ async function main() {
         en: 'Wages must be paid on time, meeting at least the legal minimum wage, including full overtime premiums. Disciplinary wage deductions are strictly prohibited.',
       }),
       description: 'RBA Code of Conduct v8.0 - Mục A4',
+      legal_document_name: 'RBA Code of Conduct v8.0',
+      article_reference: 'Mục A4 (Wages and Benefits)',
+      official_url: 'https://www.responsiblebusiness.org/media/docs/RBACodeofConduct8.0_English.pdf',
     },
     {
       group_code: 'GRP-LABOR',
@@ -304,6 +329,9 @@ async function main() {
         en: 'Agreed wages must not be lower than the regional minimum wage announced by the Government. Enterprises must fully contribute to Social, Health, and Unemployment Insurance as prescribed by law.',
       }),
       description: 'BLLĐ 2019 - Điều 90 & Điều 168',
+      legal_document_name: 'Bộ luật Lao động 2019 (Luật số 45/2019/QH14)',
+      article_reference: 'Điều 90 (Tiền lương) & Điều 168 (Tham gia BHXH, BHYT, BHTN)',
+      official_url: 'https://vanban.chinhphu.vn/?pageid=27160&docid=198540',
     },
     {
       group_code: 'GRP-LABOR',
@@ -316,6 +344,9 @@ async function main() {
         en: 'No discrimination based on gender, age, religion, race, or disability. Zero tolerance for sexual harassment, physical violence, or mental coercion in the workplace.',
       }),
       description: 'RBA Code of Conduct v8.0 - Mục A5',
+      legal_document_name: 'RBA Code of Conduct v8.0',
+      article_reference: 'Mục A5 (Humane Treatment / Non-Discrimination)',
+      official_url: 'https://www.responsiblebusiness.org/media/docs/RBACodeofConduct8.0_English.pdf',
     },
 
     // --- NHÓM 2: AN TOÀN & SỨC KHỎE (GRP-OHS) ---
@@ -330,6 +361,9 @@ async function main() {
         en: 'Emergency exits and escape routes must remain clear and unlocked from the inside at all times. Evacuation maps and emergency exit lighting must be installed.',
       }),
       description: 'RBA Code of Conduct v8.0 - Mục B1',
+      legal_document_name: 'RBA Code of Conduct v8.0',
+      article_reference: 'Mục B1 (Occupational Safety)',
+      official_url: 'https://www.responsiblebusiness.org/media/docs/RBACodeofConduct8.0_English.pdf',
     },
     {
       group_code: 'GRP-OHS',
@@ -342,6 +376,9 @@ async function main() {
         en: 'Factories and facilities must obtain fire safety design approval and acceptance certificates before operation. Sufficient fire extinguishers and at least one annual fire drill are mandatory.',
       }),
       description: 'Nghị định 136/2020/NĐ-CP - Điều 13, 15',
+      legal_document_name: 'Nghị định 136/2020/NĐ-CP',
+      article_reference: 'Điều 13 & Điều 15 (Thẩm duyệt thiết kế và nghiệm thu PCCC)',
+      official_url: 'https://vanban.chinhphu.vn/?pageid=27160&docid=201688',
     },
     {
       group_code: 'GRP-OHS',
@@ -354,6 +391,9 @@ async function main() {
         en: 'Provide adequate, free Personal Protective Equipment (PPE) meeting technical standards to workers in hazardous, toxic, dusty, or high-noise environments.',
       }),
       description: 'RBA Code of Conduct v8.0 - Mục B2',
+      legal_document_name: 'RBA Code of Conduct v8.0',
+      article_reference: 'Mục B2 (Emergency Preparedness & Industrial Hygiene)',
+      official_url: 'https://www.responsiblebusiness.org/media/docs/RBACodeofConduct8.0_English.pdf',
     },
     {
       group_code: 'GRP-OHS',
@@ -366,6 +406,9 @@ async function main() {
         en: 'Provide free potable water and clean, compliant restroom facilities; unreasonable restrictions on time or frequency of restroom use are prohibited.',
       }),
       description: 'RBA Code of Conduct v8.0 - Mục B3',
+      legal_document_name: 'RBA Code of Conduct v8.0',
+      article_reference: 'Mục B3 (Sanitation, Food and Housing)',
+      official_url: 'https://www.responsiblebusiness.org/media/docs/RBACodeofConduct8.0_English.pdf',
     },
     {
       group_code: 'GRP-OHS',
@@ -378,6 +421,9 @@ async function main() {
         en: 'Conduct periodic health check-ups at least once a year for general workers, and at least every 6 months for workers in heavy, toxic, hazardous jobs or juvenile workers.',
       }),
       description: 'RBA Mục B4 & Luật ATVSLĐ Điều 21',
+      legal_document_name: 'RBA Code of Conduct v8.0 & Luật An toàn, vệ sinh lao động 2015',
+      article_reference: 'Mục B4 (Health and Safety Communication) & Điều 21 Luật ATVSLĐ',
+      official_url: 'https://www.responsiblebusiness.org/media/docs/RBACodeofConduct8.0_English.pdf',
     },
 
     // --- NHÓM 3: MÔI TRƯỜNG (GRP-ENV) ---
@@ -392,6 +438,9 @@ async function main() {
         en: 'Hazardous waste must be segregated, labeled, stored separately in secure areas, and transferred only to licensed hazardous waste treatment contractors.',
       }),
       description: 'RBA Code of Conduct v8.0 - Mục C1',
+      legal_document_name: 'RBA Code of Conduct v8.0',
+      article_reference: 'Mục C1 (Environmental Permits and Reporting)',
+      official_url: 'https://www.responsiblebusiness.org/media/docs/RBACodeofConduct8.0_English.pdf',
     },
     {
       group_code: 'GRP-ENV',
@@ -404,6 +453,9 @@ async function main() {
         en: 'Hazardous waste must be classified at source, labeled with identification codes, stored in specialized containers in covered areas with secondary containment, and strictly separated from regular waste.',
       }),
       description: 'Luật Bảo vệ môi trường 2020 - Điều 83',
+      legal_document_name: 'Luật Bảo vệ môi trường 2020 (Luật số 72/2020/QH14)',
+      article_reference: 'Điều 83 (Quản lý chất thải rắn sinh hoạt, chất thải công nghiệp và chất thải nguy hại)',
+      official_url: 'https://vanban.chinhphu.vn/?pageid=27160&docid=202613',
     },
     {
       group_code: 'GRP-ENV',
@@ -416,6 +468,9 @@ async function main() {
         en: 'Regulated manufacturing facilities must obtain a valid Environmental Permit prior to official operation. Discharging untreated wastewater or emissions failing National Technical Regulations is strictly prohibited.',
       }),
       description: 'Luật Bảo vệ môi trường 2020 - Điều 6, 39, 40',
+      legal_document_name: 'Luật Bảo vệ môi trường 2020 (Luật số 72/2020/QH14)',
+      article_reference: 'Điều 39 & Điều 40 (Giấy phép môi trường)',
+      official_url: 'https://vanban.chinhphu.vn/?pageid=27160&docid=202613',
     },
     {
       group_code: 'GRP-ENV',
@@ -428,6 +483,9 @@ async function main() {
         en: 'Wastewater and air emissions generated from operations must be monitored, controlled, and treated to meet technical standards prior to discharge into the environment.',
       }),
       description: 'RBA Code of Conduct v8.0 - Mục C3 & C4',
+      legal_document_name: 'RBA Code of Conduct v8.0',
+      article_reference: 'Mục C3 (Wastewater) & Mục C4 (Air Emissions)',
+      official_url: 'https://www.responsiblebusiness.org/media/docs/RBACodeofConduct8.0_English.pdf',
     },
     {
       group_code: 'GRP-ENV',
@@ -440,6 +498,9 @@ async function main() {
         en: 'All hazardous chemicals must carry GHS warning labels, maintain Material Safety Data Sheets (MSDS), and be stored with spill and leak secondary containment.',
       }),
       description: 'RBA Code of Conduct v8.0 - Mục C2',
+      legal_document_name: 'RBA Code of Conduct v8.0',
+      article_reference: 'Mục C2 (Hazardous Substances)',
+      official_url: 'https://www.responsiblebusiness.org/media/docs/RBACodeofConduct8.0_English.pdf',
     },
 
     // --- NHÓM 4: ĐẠO ĐỨC (GRP-ETHICS) ---
@@ -454,6 +515,9 @@ async function main() {
         en: 'Enforce a Zero Tolerance policy against all forms of bribery, extortion, embezzlement, or illegal commissions and kickbacks.',
       }),
       description: 'RBA Code of Conduct v8.0 - Mục D1',
+      legal_document_name: 'RBA Code of Conduct v8.0',
+      article_reference: 'Mục D1 (Business Integrity)',
+      official_url: 'https://www.responsiblebusiness.org/media/docs/RBACodeofConduct8.0_English.pdf',
     },
     {
       group_code: 'GRP-ETHICS',
@@ -466,6 +530,9 @@ async function main() {
         en: 'Personnel in enterprises are strictly prohibited from giving, receiving, or brokering bribes in any form (cash, gifts, kickbacks) for personal gain or unlawful commercial advantage.',
       }),
       description: 'Luật Phòng, chống tham nhũng 2018 - Điều 2, 80',
+      legal_document_name: 'Luật Phòng, chống tham nhũng 2018 (Luật số 36/2018/QH14)',
+      article_reference: 'Điều 80 (Xử lý hành vi tham nhũng trong doanh nghiệp, tổ chức khu vực ngoài nhà nước)',
+      official_url: 'https://vanban.chinhphu.vn/?docid=206104&pageid=27160',
     },
     {
       group_code: 'GRP-ETHICS',
@@ -478,6 +545,9 @@ async function main() {
         en: 'Enterprises must issue and enforce codes of conduct, conflict-of-interest controls, and internal self-inspection mechanisms, alongside confidential whistleblowing channels with non-retaliation protection.',
       }),
       description: 'Luật Phòng, chống tham nhũng 2018 - Điều 79, 81',
+      legal_document_name: 'Luật Phòng, chống tham nhũng 2018 (Luật số 36/2018/QH14)',
+      article_reference: 'Điều 79 & Điều 81 (Công khai, minh bạch và kiểm soát nội bộ trong doanh nghiệp)',
+      official_url: 'https://vanban.chinhphu.vn/?docid=206104&pageid=27160',
     },
     {
       group_code: 'GRP-ETHICS',
@@ -490,6 +560,9 @@ async function main() {
         en: 'Ensure supply chain material transparency; conduct due diligence and refrain from sourcing or using illegal conflict minerals (Tin, Tantalum, Tungsten, Gold - 3TG).',
       }),
       description: 'RBA Code of Conduct v8.0 - Mục D2',
+      legal_document_name: 'RBA Code of Conduct v8.0',
+      article_reference: 'Mục D2 (Responsible Sourcing of Minerals)',
+      official_url: 'https://www.responsiblebusiness.org/media/docs/RBACodeofConduct8.0_English.pdf',
     },
   ];
 
@@ -505,6 +578,9 @@ async function main() {
         priority_level: std.priority_level,
         content_i18n: std.content_i18n,
         description: std.description,
+        legal_document_name: std.legal_document_name,
+        article_reference: std.article_reference,
+        official_url: std.official_url,
         is_active: true,
       },
       create: {
@@ -515,13 +591,16 @@ async function main() {
         priority_level: std.priority_level,
         content_i18n: std.content_i18n,
         description: std.description,
+        legal_document_name: std.legal_document_name,
+        article_reference: std.article_reference,
+        official_url: std.official_url,
         created_by: null, // NULL = 24 Tiêu chuẩn gốc cố định của hệ thống
         is_active: true,
       },
     });
     allStandardIds.push(savedStd.id);
   }
-  console.log('✅ 5. Đã nạp 24 Tiêu chuẩn gốc cố định (Song ngữ VI-EN).');
+  console.log('✅ 5. Đã nạp 24 Tiêu chuẩn gốc cố định (Song ngữ VI-EN) kèm nguồn pháp lý & link tra cứu.');
 
   // =================================================================
   // 6. NẠP DANH MỤC NGÀNH NGHỀ & LOẠI HỢP ĐỒNG (CATEGORIES)
@@ -682,8 +761,13 @@ async function main() {
   // =================================================================
   const systemConfigsData = [
     {
+      config_key: 'GEMINI_API_KEY',
+      config_value: '', // Để trống hoặc điền sẵn key của bạn
+      description: 'Khóa API Gemini bản quyền của doanh nghiệp (để trống sẽ dùng .env)',
+    },
+    {
       config_key: 'AI_MODEL_NAME',
-      config_value: 'gemini-1.5-flash',
+      config_value: 'gemini-2.5-flash',
       description: 'Mô hình AI mặc định dùng để phân tích và rà soát hợp đồng PDF',
     },
     {

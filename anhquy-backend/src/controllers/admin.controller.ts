@@ -302,10 +302,19 @@ export const getSystemConfigs = async (_req: Request, res: Response): Promise<vo
  */
 export const updateSystemConfig = async (req: Request, res: Response): Promise<void> => {
   const configKey = req.params["key"] as string;
-  const { value } = req.body;
+  
+  // Hứng dữ liệu linh hoạt: chấp nhận req.body.value, req.body.config_value hoặc req.body dạng chuỗi thô
+  let value = req.body?.value;
+  if (value === undefined || value === null) {
+    if (typeof req.body === 'string') {
+      value = req.body;
+    } else if (req.body?.config_value !== undefined) {
+      value = req.body.config_value;
+    }
+  }
 
-  if (!value || typeof value !== "string") {
-    res.status(400).json({ message: "value là bắt buộc." });
+  if (value === undefined || value === null || typeof value !== 'string') {
+    res.status(400).json({ message: "value là bắt buộc và phải là chuỗi." });
     return;
   }
 

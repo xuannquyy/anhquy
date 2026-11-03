@@ -52,6 +52,7 @@ CREATE TABLE Users (
     is_active BIT DEFAULT 1,
     failed_login_attempts INT DEFAULT 0,
     locked_until DATETIME NULL,
+	gemini_api_key VARCHAR(255) NULL,
     refresh_token VARCHAR(512) NULL,
     refresh_token_expiry DATETIME NULL,
     created_at DATETIME DEFAULT GETDATE(),
@@ -102,6 +103,9 @@ CREATE TABLE Standards (
     priority_level INT DEFAULT 1,              
     content_i18n NVARCHAR(MAX) NULL,           
     description NVARCHAR(MAX) NULL,
+	legal_document_name NVARCHAR(255) NULL, -- Ví dụ: "Bộ luật Lao động 2019 (Luật số 45/2019/QH14)" hoặc "RBA Code of Conduct v8.0"
+    article_reference NVARCHAR(100) NULL,    -- Ví dụ: "Điều 105, 107" hoặc "Mục A3"
+    official_url NVARCHAR(500) NULL,         -- Ví dụ đường dẫn chính thống: "https://vanban.chinhphu.vn/?pageid=27160&docid=198889"
     created_by INT NULL, -- NẾU NULL LÀ BỘ TIÊU CHUẨN GỐC, NẾU CÓ ID USER THÌ LÀ BỘ CÁ NHÂN DO USER TẠO
     is_active BIT DEFAULT 1,
     created_at DATETIME DEFAULT GETDATE(),
@@ -228,3 +232,4 @@ CREATE NONCLUSTERED INDEX IX_AuditLogs_Action ON Audit_Logs(action_type);
 
 -- Tạo Index để tối ưu truy vấn khi Filter theo nhóm
 CREATE NONCLUSTERED INDEX IX_Standards_Group ON Standards(group_id);
+

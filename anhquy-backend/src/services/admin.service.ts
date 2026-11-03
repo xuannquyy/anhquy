@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import { Prisma } from "@prisma/client";
 import prisma from "../config/prisma";
+import { GoogleGenAI } from "@google/genai";
 
 interface ServiceError extends Error {
   httpStatus: number;
@@ -334,7 +335,7 @@ export const getSystemConfigsService = async () => {
 
 /**
  * Cập nhật giá trị một System_Config theo config_key.
- * Trả { oldValue, newValue } để ghi Audit_Log.
+ * Tích hợp tự động Test Gemini API Key trước khi lưu vào Database.
  */
 export const updateSystemConfigService = async (
   configKey: string,
@@ -343,9 +344,41 @@ export const updateSystemConfigService = async (
   const config = await prisma.system_Configs.findUnique({ where: { config_key: configKey } });
   if (!config) throw makeError(`Config key '${configKey}' không tồn tại.`, 404);
 
+  const trimmedVal = typeof newValue === "string" ? newValue.trim() : "";
+
+  // ── KIỂM TRA NGẦM GEMINI API KEY NẾU KHÔNG ĐỂ TRỐNG ──
+  if (configKey === "GEMINI_API_KEY" && trimmedVal !== "") {
+    try {
+      // Đọc động tên model đang được cấu hình trong hệ thống (AI_MODEL_NAME)
+      const modelConfig = await prisma.system_Configs.findUnique({
+        where: { config_key: "AI_MODEL_NAME" },
+      });
+      const targetModel = modelConfig?.config_value?.trim() || "gemini-2.5-flash";
+
+      const genai = new GoogleGenAI({ apiKey: trimmedVal });
+      // Test kết nối bằng đúng Model mà doanh nghiệp đang cài đặt
+      await genai.models.generateContent({
+        model: targetModel,
+        contents: "Test connection",
+        config: { maxOutputTokens: 5 },
+      });
+    } catch (error: unknown) {
+      const errStr = error instanceof Error ? error.message : String(error);
+      const isActualKeyError = /401|403|api.?key|permission_denied|invalid/i.test(errStr);
+
+      if (isActualKeyError) {
+        throw makeError(
+          "Google Gemini API Key không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra lại key của doanh nghiệp!",
+          400
+        );
+      }
+      console.warn("[Admin Service] Cảnh báo test kết nối (vẫn cho phép lưu):", errStr);
+    }
+  }
+
   const updated = await prisma.system_Configs.update({
     where: { config_key: configKey },
-    data: { config_value: newValue.trim(), updated_at: new Date() },
+    data: { config_value: trimmedVal, updated_at: new Date() },
   });
 
   return {

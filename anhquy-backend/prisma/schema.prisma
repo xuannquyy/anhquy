@@ -111,6 +111,9 @@ model Standards {
   priority_level          Int?                      @default(1, map: "DF__Standards__prior__46E78A0C")
   content_i18n            String?                   @db.NVarChar(Max)
   description             String?                   @db.NVarChar(Max)
+  legal_document_name       String?                 @db.NVarChar(255)
+  article_reference         String?                 @db.NVarChar(100)
+  official_url              String?                 @db.NVarChar(500)
   created_by              Int?
   is_active               Boolean?                  @default(true, map: "DF__Standards__is_ac__47DBAE45")
   created_at              DateTime?                 @default(now(), map: "DF__Standards__creat__48CFD27E") @db.DateTime
@@ -182,6 +185,7 @@ model Users {
   locked_until            DateTime?                 @db.DateTime
   refresh_token           String?                   @db.VarChar(512)
   refresh_token_expiry    DateTime?                 @db.DateTime
+  gemini_api_key          String?                   @db.VarChar(255)
   created_at              DateTime?                 @default(now(), map: "DF__Users__created_a__30F848ED") @db.DateTime
   updated_at              DateTime?                 @default(now(), map: "DF__Users__updated_a__31EC6D26") @db.DateTime
   Audit_Logs              Audit_Logs[]

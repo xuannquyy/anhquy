@@ -241,9 +241,25 @@ const callGeminiWithRagChunks = async (
   modelName: string,
   strictMode: boolean
 ): Promise<GeminiViolationFinding[]> => {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  // ── Ưu tiên 1: Đọc GEMINI_API_KEY từ bảng System_Configs (được Admin quản lý) ──
+  // ── Ưu tiên 2: Fallback về process.env.GEMINI_API_KEY từ file .env ────────────
+  const configMap = await getSystemConfigMap();
+  const dbApiKey = configMap["GEMINI_API_KEY"]?.trim();
+  const apiKey = (dbApiKey && !dbApiKey.startsWith("Điền_"))
+    ? dbApiKey
+    : process.env.GEMINI_API_KEY?.trim();
+
   if (!apiKey || apiKey.startsWith("Điền_")) {
-    throw makeError("GEMINI_API_KEY chưa được cấu hình trong file .env của Backend.", 500);
+    throw makeError(
+      "GEMINI_API_KEY chưa được cấu hình. Vui lòng thiết lập trong Quản trị → Cấu hình Hệ thống hoặc file .env của Backend.",
+      500
+    );
+  }
+
+  if (dbApiKey && !dbApiKey.startsWith("Điền_")) {
+    console.info("[AI Service] Sử dụng GEMINI_API_KEY từ System_Configs (quản lý bởi Admin).");
+  } else {
+    console.info("[AI Service] Sử dụng GEMINI_API_KEY từ file .env (fallback mặc định).");
   }
 
   const genai = new GoogleGenAI({ apiKey });
@@ -378,7 +394,8 @@ const _runAiScanBackground = async (
 
     const configMap = await getSystemConfigMap();
     const maskingEnabled = configMap["DATA_MASKING_ENABLED"] !== "false";
-    const modelName = getConfiguredAnalysisModel();
+    const dbModelName = configMap["AI_MODEL_NAME"]?.trim();
+    const modelName = (dbModelName && dbModelName !== "") ? dbModelName : "gemini-2.5-flash";
     const strictMode = configMap["AI_STRICT_RULE_MODE"] !== "false";
 
     // BƯỚC 1: Smart Chunking + Data Masking
