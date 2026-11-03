@@ -118,6 +118,12 @@ const NAV_ITEMS: NavItem[] = [
     permission: 'VIEW_AUDIT_LOGS',
     group: 'Quản trị Hệ thống',
   },
+  {
+    label: 'Thực nghiệm & Khoa học',
+    path: '/evaluation-analytics',
+    icon: <BarChart3 className="w-4 h-4" />,
+    group: 'Không gian Kiểm toán',
+  },
 ]
 
 // ─── Global Search Types ──────────────────────────────────────────────────────

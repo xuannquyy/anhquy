@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   Plus, Edit2, Trash2, RotateCcw, Lock, Globe, MapPin,
-  SlidersHorizontal, Search, Ban, ListChecks, CheckCircle2, LayoutGrid, List, BookOpen
+  SlidersHorizontal, Search, Ban, ListChecks, CheckCircle2, LayoutGrid, List, BookOpen, ExternalLink
 } from 'lucide-react'
 import { MainLayout } from '../components/MainLayout'
 import { ConfirmModal, Modal, Pagination, Spinner, EmptyState } from '../components/ui'
@@ -20,6 +20,10 @@ interface Standard {
   jurisdiction: 'Global' | 'VN' | null
   content_i18n: string | null
   description?: string | null
+  // Bổ sung các trường pháp lý mới
+  legal_document_name?: string | null
+  article_reference?: string | null
+  official_url?: string | null
   is_active: boolean
   priority_level: number | null
   created_by: number | null
@@ -63,17 +67,17 @@ export default function StandardsPage() {
   const [filterJurisdiction, setFilterJurisdiction] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
   
-  // Thêm state filter nhanh từ Summary Cards ('all' | 'active_ai' | 'excluded')
   const [summaryFilter, setSummaryFilter] = useState<'all' | 'active_ai' | 'excluded'>('all')
 
   const [search, setSearch] = useState('')
   const [lang, setLang] = useState<'vi' | 'en'>('vi')
   
-  // State chuyển đổi Layout: 'grid' (mặc định) hoặc 'list'
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Standard | null>(null)
+  
+  // Cập nhật form state với 3 trường pháp lý chuẩn hóa
   const [form, setForm] = useState({
     standard_code: '',
     name: '',
@@ -82,7 +86,9 @@ export default function StandardsPage() {
     jurisdiction: 'Global',
     priority_level: '1',
     group_id: '',
-    legal_reference: '',
+    legal_document_name: '',
+    article_reference: '',
+    official_url: '',
   })
   const [saving, setSaving] = useState(false)
 
@@ -110,7 +116,6 @@ export default function StandardsPage() {
   const fetchStandards = useCallback(async () => {
     setLoading(true)
     try {
-      // Lấy toàn bộ không phân trang hoặc limit lớn để tính chính xác số liệu tổng và lọc client-side cho summary cards
       const params: Record<string, string | number | boolean | undefined> = { page, limit }
       if (filterGroup) params.group_id = filterGroup
       if (filterJurisdiction) params.jurisdiction = filterJurisdiction
@@ -179,7 +184,9 @@ export default function StandardsPage() {
       jurisdiction: 'Global',
       priority_level: '1',
       group_id: groups[0] ? String(groups[0].id) : '1',
-      legal_reference: 'Quy định nội bộ doanh nghiệp',
+      legal_document_name: '',
+      article_reference: '',
+      official_url: '',
     })
     setModalOpen(true)
   }
@@ -203,7 +210,9 @@ export default function StandardsPage() {
       jurisdiction: s.jurisdiction || 'Global',
       priority_level: String(s.priority_level || 1),
       group_id: String(s.Standard_Groups?.id || '1'),
-      legal_reference: s.description || 'Quy định nội bộ doanh nghiệp',
+      legal_document_name: s.legal_document_name || '',
+      article_reference: s.article_reference || '',
+      official_url: s.official_url || '',
     })
     setModalOpen(true)
   }
@@ -224,10 +233,13 @@ export default function StandardsPage() {
         standard_code: form.standard_code.trim(),
         name: form.name.trim(),
         content_i18n,
-        description: form.legal_reference.trim() || form.name.trim(),
+        description: form.legal_document_name ? `${form.legal_document_name} - ${form.article_reference}` : form.name.trim(),
         jurisdiction: form.jurisdiction,
         priority_level: Number(form.priority_level),
         group_id: Number(form.group_id),
+        legal_document_name: form.legal_document_name.trim() || null,
+        article_reference: form.article_reference.trim() || null,
+        official_url: form.official_url.trim() || null,
       }
       if (editTarget) {
         await standardApi.update(editTarget.id, payload)
@@ -559,12 +571,28 @@ export default function StandardsPage() {
                         {parseContent(s.content_i18n, s.description, lang)}
                       </p>
 
-                      {/* NGUỒN GỐC / CĂN CỨ PHÁP LÝ (Hiển thị gọn gàng ở dạng Grid) */}
-                      {s.description && (
-                        <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-Pine bg-Snowflake/80 px-2.5 py-1.5 rounded-xl border border-Mist/30 w-full">
-                          <BookOpen className="w-3.5 h-3.5 text-Merlot flex-shrink-0" />
-                          <span className="font-extrabold text-Branch flex-shrink-0">Căn cứ pháp lý:</span>
-                          <span className="truncate font-semibold text-Pine" title={s.description}>{s.description}</span>
+                      {/* NGUỒN GỐC / CĂN CỨ PHÁP LÝ (Có gắn nút mở link chính thức) */}
+                      {(s.legal_document_name || s.description) && (
+                        <div className="mt-2.5 pt-2 border-t border-Mist/15 flex items-center justify-between gap-2 text-[11px]">
+                          <div className="flex items-center gap-1.5 text-Branch truncate">
+                            <BookOpen className="w-3.5 h-3.5 text-Berry flex-shrink-0" />
+                            <span className="font-extrabold text-Pine">Căn cứ:</span>
+                            <span className="truncate font-semibold text-Branch" title={s.legal_document_name ? `${s.legal_document_name} (${s.article_reference || ''})` : (s.description || '')}>
+                              {s.legal_document_name ? `${s.legal_document_name} ${s.article_reference ? `(${s.article_reference})` : ''}` : s.description}
+                            </span>
+                          </div>
+
+                          {s.official_url && (
+                            <a
+                              href={s.official_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-shrink-0 font-bold text-Pine bg-Snowflake px-2.5 py-1 rounded-xl border border-Mist/30 hover:bg-Pine hover:text-white transition-all flex items-center gap-1"
+                              title="Mở văn bản gốc chính thức"
+                            >
+                              🌐 Xem bản gốc <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
                         </div>
                       )}
 
@@ -636,7 +664,7 @@ export default function StandardsPage() {
                     <th className="px-4 py-3">Mã & Tên Tiêu chuẩn</th>
                     <th className="px-4 py-3">Nhóm & Phạm vi</th>
                     <th className="px-4 py-3">Mức độ ưu tiên</th>
-                    <th className="px-4 py-3">Nội dung quy định & Căn cứ</th>
+                    <th className="px-4 py-3">Nội dung quy định & Căn cứ pháp lý</th>
                     <th className="px-4 py-3 text-center">Trạng thái AI</th>
                     <th className="px-4 py-3 text-right">Thao tác</th>
                   </tr>
@@ -698,10 +726,22 @@ export default function StandardsPage() {
                           <p className="text-Branch leading-relaxed line-clamp-2">
                             {parseContent(s.content_i18n, s.description, lang)}
                           </p>
-                          {s.description && (
-                            <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold text-Pine bg-Snowflake px-2 py-0.5 rounded border border-Mist/30">
-                              <BookOpen className="w-3 h-3 text-Merlot flex-shrink-0" />
-                              <span className="truncate max-w-[260px]" title={s.description}>{s.description}</span>
+                          {(s.legal_document_name || s.description) && (
+                            <div className="mt-1.5 flex items-center justify-between gap-1 text-[10px] font-semibold text-Pine bg-Snowflake px-2 py-1 rounded-lg border border-Mist/30">
+                              <span className="truncate flex items-center gap-1" title={s.legal_document_name ? `${s.legal_document_name} (${s.article_reference || ''})` : (s.description || '')}>
+                                <BookOpen className="w-3 h-3 text-Berry flex-shrink-0" />
+                                {s.legal_document_name ? `${s.legal_document_name} ${s.article_reference ? `(${s.article_reference})` : ''}` : s.description}
+                              </span>
+                              {s.official_url && (
+                                <a
+                                  href={s.official_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-Pine hover:underline font-bold flex-shrink-0 flex items-center gap-0.5"
+                                >
+                                  🌐 Bản gốc
+                                </a>
+                              )}
                             </div>
                           )}
                         </td>
@@ -860,17 +900,47 @@ export default function StandardsPage() {
                 {groups.map((g) => <option key={g.id} value={g.id}>{g.group_name}</option>)}
               </select>
             </div>
+          </div>
+
+          {/* SECTION NHẬP THÔNG TIN PHÁP LÝ (B2B Standard) */}
+          <div className="p-4 bg-Snowflake/50 rounded-2xl border border-Mist/20 space-y-3">
+            <h4 className="text-xs font-extrabold text-Pine uppercase tracking-wider flex items-center gap-1.5">
+              <BookOpen className="w-4 h-4 text-Berry" /> Trích dẫn Nguồn gốc & Căn cứ Pháp lý (B2B Standard)
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-Branch mb-1">Tên văn bản gốc</label>
+                <input
+                  type="text"
+                  value={form.legal_document_name}
+                  onChange={(e) => setForm((f) => ({ ...f, legal_document_name: e.target.value }))}
+                  placeholder="VD: Bộ luật Lao động 2019 hoặc RBA v8.0"
+                  className="w-full px-3 py-2 border border-Mist/40 rounded-xl text-xs bg-white text-Pine focus:outline-none focus:border-Pine font-medium"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-Branch mb-1">Điều khoản / Mục áp dụng</label>
+                <input
+                  type="text"
+                  value={form.article_reference}
+                  onChange={(e) => setForm((f) => ({ ...f, article_reference: e.target.value }))}
+                  placeholder="VD: Điều 105, 107 hoặc Mục A3"
+                  className="w-full px-3 py-2 border border-Mist/40 rounded-xl text-xs bg-white text-Pine focus:outline-none focus:border-Pine font-medium"
+                />
+              </div>
+            </div>
             <div>
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Căn cứ pháp lý / Nguồn tham khảo</label>
+              <label className="block text-[11px] font-bold text-Branch mb-1">Đường dẫn tra cứu chính thức (Official URL)</label>
               <input
-                type="text"
-                value={form.legal_reference}
-                onChange={(e) => setForm((f) => ({ ...f, legal_reference: e.target.value }))}
-                placeholder="VD: Bộ luật Lao động 2019 - Điều 105"
-                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Branch font-medium"
+                type="url"
+                value={form.official_url}
+                onChange={(e) => setForm((f) => ({ ...f, official_url: e.target.value }))}
+                placeholder="VD: https://vanban.chinhphu.vn/?pageid=27160&docid=198540"
+                className="w-full px-3 py-2 border border-Mist/40 rounded-xl text-xs bg-white text-Pine focus:outline-none focus:border-Pine font-mono"
               />
             </div>
           </div>
+
           <div>
             <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Nội dung quy định (Tiếng Việt)</label>
             <textarea

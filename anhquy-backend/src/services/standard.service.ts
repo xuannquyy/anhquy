@@ -70,6 +70,10 @@ export interface CreateStandardInput {
   priority_level?: 1 | 2;
   content_i18n?: string;
   description?: string;
+  // Bổ sung các trường pháp lý mới
+  legal_document_name?: string;
+  article_reference?: string;
+  official_url?: string;
 }
 
 export interface UpdateStandardInput {
@@ -79,6 +83,10 @@ export interface UpdateStandardInput {
   content_i18n?: string;
   description?: string;
   is_active?: boolean;
+  // Bổ sung các trường pháp lý mới
+  legal_document_name?: string | null;
+  article_reference?: string | null;
+  official_url?: string | null;
 }
 
 /**
@@ -124,6 +132,7 @@ export const getStandardsService = async (filter: StandardFilter) => {
         { name: { contains: search } },
         { standard_code: { contains: search } },
         { description: { contains: search } },
+        { legal_document_name: { contains: search } },
       ],
     });
   }
@@ -199,6 +208,10 @@ export const createStandardService = async (data: CreateStandardInput, userId: n
         priority_level: data.priority_level ?? 1,
         content_i18n: data.content_i18n ?? null,
         description: data.description?.trim() ?? null,
+        // Lưu trữ thông tin pháp lý mới
+        legal_document_name: data.legal_document_name?.trim() ?? null,
+        article_reference: data.article_reference?.trim() ?? null,
+        official_url: data.official_url?.trim() ?? null,
         created_by: userId,
         is_active: true,
       },
@@ -263,7 +276,11 @@ export const updateStandardService = async (
       ...(data.jurisdiction !== undefined && { jurisdiction: data.jurisdiction }),
       ...(data.priority_level !== undefined && { priority_level: data.priority_level }),
       ...(data.content_i18n !== undefined && { content_i18n: data.content_i18n }),
-      ...(data.description !== undefined && { description: data.description.trim() }),
+      ...(data.description !== undefined && { description: data.description?.trim() ?? null }),
+      // Cập nhật các trường pháp lý mới
+      ...(data.legal_document_name !== undefined && { legal_document_name: data.legal_document_name?.trim() ?? null }),
+      ...(data.article_reference !== undefined && { article_reference: data.article_reference?.trim() ?? null }),
+      ...(data.official_url !== undefined && { official_url: data.official_url?.trim() ?? null }),
       ...(data.is_active !== undefined && { is_active: data.is_active }),
       updated_at: new Date(),
     },
@@ -275,6 +292,9 @@ export const updateStandardService = async (
     priority_level: existing.priority_level,
     content_i18n: existing.content_i18n,
     description: existing.description,
+    legal_document_name: existing.legal_document_name,
+    article_reference: existing.article_reference,
+    official_url: existing.official_url,
     is_active: existing.is_active,
   };
   const newValue = {
@@ -283,6 +303,9 @@ export const updateStandardService = async (
     priority_level: updated.priority_level,
     content_i18n: updated.content_i18n,
     description: updated.description,
+    legal_document_name: updated.legal_document_name,
+    article_reference: updated.article_reference,
+    official_url: updated.official_url,
     is_active: updated.is_active,
   };
 
@@ -291,7 +314,6 @@ export const updateStandardService = async (
 
 /**
  * Soft Delete Standard: is_active = false.
- * MUST NOT dùng .delete() với tiêu chuẩn hệ thống (created_by IS NULL).
  * Trả oldValue để controller ghi Audit_Log.
  */
 export const deleteStandardService = async (

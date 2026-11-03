@@ -7,4 +7,4 @@ const router = Router();
 // Endpoint: GET /api/search?q=tu_khoa
 router.get('/', requireAuth, globalSearchController);
 
-export default router;
+export const searchRouter = router;

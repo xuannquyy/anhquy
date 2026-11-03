@@ -12,7 +12,7 @@ import aiRouter from "./routes/ai.route";
 import violationRouter from "./routes/violation.route";
 import adminRouter from "./routes/admin.route";
 import dashboardRouter from "./routes/dashboard.route";
-import searchRouter from "./routes/search.route";
+import { searchRouter } from "./routes/search.route";
 import { cleanupOldAuditLogsService } from './services/admin.service';
 
 

@@ -709,40 +709,149 @@ async function main() {
   console.log('✅ 6. Đã nạp 9 Danh mục (Ngành nghề & Loại hợp đồng) và ánh xạ mặc định 24 tiêu chuẩn cho mọi loại hợp đồng.');
 
   // =================================================================
-  // 7. NẠP NHÀ CUNG CẤP MẪU (SUPPLIERS) ĐỂ SẴN SÀNG TEST UPLOAD PDF
+  // 7. NẠP 15 NHÀ CUNG CẤP MẪU (SUPPLIERS) THEO ĐÚNG CÁC NGÀNH NGHỀ
   // =================================================================
   const suppliersData = [
     {
-      company_name: 'Công ty TNHH Dệt May Á Châu',
-      tax_code: '3600123456',
-      industry_id: industryMap['Dệt may & Da giày'],
-      contact_email: 'compliance@achautextile.vn',
-      contact_phone: '02513888999',
-      address: 'KCN Amata, Phường Long Bình, TP. Biên Hòa, Đồng Nai',
-      risk_score: 100,
+      company_name: 'CÔNG TY TNHH DỊCH VỤ KỸ THUẬT & VỆ SINH HOÀN MỸ',
+      tax_code: '0315544332',
+      industry_id: industryMap['Vận tải, Kho bãi & Dịch vụ'],
+      contact_email: 'contact@hoanmy-tech.vn',
+      contact_phone: '0938776655',
+      address: 'Số 124 Điện Biên Phủ, Phường 15, Quận Bình Thạnh, TP. Hồ Chí Minh',
+      risk_score: 85,
     },
     {
-      company_name: 'Công ty Cổ phần Linh Kiện Điện Tử Thái Bình Dương',
-      tax_code: '0309876543',
-      industry_id: industryMap['Điện tử & Bán dẫn'],
-      contact_email: 'legal@pacificelectronics.vn',
-      contact_phone: '02839997777',
-      address: 'Khu Công Nghệ Cao, TP. Thủ Đức, TP. Hồ Chí Minh',
-      risk_score: 100,
-    },
-    {
-      company_name: 'Công ty TNHH Hóa Chất & Bao Bì Đại Nam',
-      tax_code: '3702468135',
+      company_name: 'CÔNG TY TNHH HÓA CHẤT & BAO BÌ ĐẠI NAM',
+      tax_code: '3602345671',
       industry_id: industryMap['Hóa chất, Nhựa & Bao bì'],
-      contact_email: 'info@dainampackaging.com',
-      contact_phone: '02743666555',
-      address: 'KCN VSIP 1, TP. Thuận An, Bình Dương',
-      risk_score: 100,
+      contact_email: 'contact@dainampack.vn',
+      contact_phone: '0913445566',
+      address: 'Đường số 3, KCN Biên Hòa 2, Phường An Bình, TP. Biên Hòa, Đồng Nai',
+      risk_score: 45,
+    },
+    {
+      company_name: 'CÔNG TY CỔ PHẦN DỆT MAY XUẤT KHẨU HOÀNG GIA',
+      tax_code: '3601998877',
+      industry_id: industryMap['Dệt may & Da giày'],
+      contact_email: 'hr@hoanggiatextile.vn',
+      contact_phone: '02513889900',
+      address: 'Đường số 5, KCN Amata, Phường Long Bình, TP. Biên Hòa, Đồng Nai',
+      risk_score: 55,
+    },
+    {
+      company_name: 'CÔNG TY CỔ PHẦN KHOÁNG SẢN & LINH KIỆN BẮC VIỆT',
+      tax_code: '0108899112',
+      industry_id: industryMap['Điện tử & Bán dẫn'],
+      contact_email: 'info@bacviet-semicon.vn',
+      contact_phone: '0945112233',
+      address: 'Khu công nghiệp Bắc Thăng Long, TP. Hà Nội',
+      risk_score: 40,
+    },
+    {
+      company_name: 'CÔNG TY TNHH VẬT LIỆU XÂY DỰNG THÉP MIỀN NAM',
+      tax_code: '3501122334',
+      industry_id: industryMap['Vận tải, Kho bãi & Dịch vụ'],
+      contact_email: 'sales@thepmiennam.com.vn',
+      contact_phone: '02543889900',
+      address: 'Khu công nghiệp Phú Mỹ 1, Thị xã Phú Mỹ, Tỉnh Bà Rịa - Vũng Tàu',
+      risk_score: 95,
+    },
+    {
+      company_name: 'CÔNG TY TNHH MAY MẶC PHONG PHÚ',
+      tax_code: '0301122331',
+      industry_id: industryMap['Dệt may & Da giày'],
+      contact_email: 'contact@phongphutextile.vn',
+      contact_phone: '02838383838',
+      address: 'Đường Tăng Nhơn Phú, Phường Phước Long B, TP. Thủ Đức, TP. Hồ Chí Minh',
+      risk_score: 88,
+    },
+    {
+      company_name: 'CÔNG TY CỔ PHẦN BÁN DẪN SÀI GÒN (SGS)',
+      tax_code: '0314455667',
+      industry_id: industryMap['Điện tử & Bán dẫn'],
+      contact_email: 'info@saigonsemi.com',
+      contact_phone: '02837776666',
+      address: 'Lô T2, Đường D1, Khu Công Nghệ Cao, TP. Thủ Đức, TP. Hồ Chí Minh',
+      risk_score: 92,
+    },
+    {
+      company_name: 'CÔNG TY TNHH NHỰA & BAO BÌ BÌNH MINH SÁNG',
+      tax_code: '3701188992',
+      industry_id: industryMap['Hóa chất, Nhựa & Bao bì'],
+      contact_email: 'sales@binhminhplastic.vn',
+      contact_phone: '02743777888',
+      address: 'KCN Sóng Thần 2, Dĩ An, Bình Dương',
+      risk_score: 78,
+    },
+    {
+      company_name: 'CÔNG TY CỔ PHẦN LOGISTICS VẬN TẢI MIỀN ĐÔNG',
+      tax_code: '3603344558',
+      industry_id: industryMap['Vận tải, Kho bãi & Dịch vụ'],
+      contact_email: 'dispatch@miendonglogistics.vn',
+      contact_phone: '02513666777',
+      address: 'Quốc lộ 51, Phường Long Bình Tân, TP. Biên Hòa, Đồng Nai',
+      risk_score: 82,
+    },
+    {
+      company_name: 'CÔNG TY TNHH ĐIỆN TỬ VIỄN THÔNG VN-SING',
+      tax_code: '3702233446',
+      industry_id: industryMap['Điện tử & Bán dẫn'],
+      contact_email: 'support@vnsing-tech.com',
+      contact_phone: '02743555444',
+      address: 'KCN VSIP 2, Phường Hòa Phú, TP. Thủ Dầu Một, Bình Dương',
+      risk_score: 90,
+    },
+    {
+      company_name: 'CÔNG TY CỔ PHẦN DA GIÀY BIÊN HÒA',
+      tax_code: '3600998811',
+      industry_id: industryMap['Dệt may & Da giày'],
+      contact_email: 'hr@bienhoashoes.vn',
+      contact_phone: '02513555111',
+      address: 'Khu công nghiệp Biên Hòa 1, TP. Biên Hòa, Đồng Nai',
+      risk_score: 65,
+    },
+    {
+      company_name: 'CÔNG TY TNHH BAO BÌ GIẤY TÂN BÌNH',
+      tax_code: '0305566778',
+      industry_id: industryMap['Hóa chất, Nhựa & Bao bì'],
+      contact_email: 'contact@tanbinhpaper.vn',
+      contact_phone: '02838111222',
+      address: 'Khu công nghiệp Tân Bình, Quận Tân Phú, TP. Hồ Chí Minh',
+      risk_score: 80,
+    },
+    {
+      company_name: 'CÔNG TY TNHH DỊCH VỤ BẢO VỆ AN NINH LONG BÌNH',
+      tax_code: '3604455662',
+      industry_id: industryMap['Vận tải, Kho bãi & Dịch vụ'],
+      contact_email: 'security@longbinhsec.vn',
+      contact_phone: '02513444333',
+      address: 'Đường Bùi Văn Hòa, Phường Long Bình, TP. Biên Hòa, Đồng Nai',
+      risk_score: 70,
+    },
+    {
+      company_name: 'CÔNG TY CỔ PHẦN KHO BÃI NGOẠI QUAN ĐỒNG NAI',
+      tax_code: '3602211449',
+      industry_id: industryMap['Vận tải, Kho bãi & Dịch vụ'],
+      contact_email: 'warehouse@dn-logistics.vn',
+      contact_phone: '02513222333',
+      address: 'Khu công nghiệp Nhơn Trạch 3, Đồng Nai',
+      risk_score: 94,
+    },
+    {
+      company_name: 'CÔNG TY TNHH HÓA CHẤT CÔNG NGHIỆP MIỀN NAM',
+      tax_code: '0307788995',
+      industry_id: industryMap['Hóa chất, Nhựa & Bao bì'],
+      contact_email: 'info@southchem.com.vn',
+      contact_phone: '02838999888',
+      address: 'Khu chế xuất Linh Trung, TP. Thủ Đức, TP. Hồ Chí Minh',
+      risk_score: 60,
     },
   ];
 
+  const supplierMap: Record<string, number> = {};
   for (const sup of suppliersData) {
-    await prisma.suppliers.upsert({
+    const savedSup = await prisma.suppliers.upsert({
       where: { tax_code: sup.tax_code },
       update: {
         company_name: sup.company_name,
@@ -750,11 +859,13 @@ async function main() {
         contact_email: sup.contact_email,
         contact_phone: sup.contact_phone,
         address: sup.address,
+        risk_score: sup.risk_score,
       },
       create: sup,
     });
+    supplierMap[sup.tax_code] = savedSup.id;
   }
-  console.log('✅ 7. Đã nạp 3 Nhà cung cấp mẫu (Suppliers).');
+  console.log('✅ 7. Đã nạp 15 Nhà cung cấp mẫu.');
 
   // =================================================================
   // 8. NẠP CẤU HÌNH HỆ THỐNG (SYSTEM_CONFIGS)

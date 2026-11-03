@@ -102,7 +102,18 @@ export const getStandardById = async (req: Request, res: Response): Promise<void
  * Tạo tiêu chuẩn cá nhân — created_by tự động gắn userId từ JWT.
  */
 export const createStandard = async (req: Request, res: Response): Promise<void> => {
-  const { group_id, standard_code, name, jurisdiction, priority_level, content_i18n, description } = req.body;
+  const { 
+    group_id, 
+    standard_code, 
+    name, 
+    jurisdiction, 
+    priority_level, 
+    content_i18n, 
+    description,
+    legal_document_name,
+    article_reference,
+    official_url
+  } = req.body;
 
   if (!group_id || !standard_code || !name) {
     res.status(400).json({ message: "group_id, standard_code và name là bắt buộc." });
@@ -122,6 +133,9 @@ export const createStandard = async (req: Request, res: Response): Promise<void>
         priority_level: validPriorityCreate,
         content_i18n,
         description,
+        legal_document_name,
+        article_reference,
+        official_url,
       },
       req.user!.userId
     );
@@ -140,7 +154,17 @@ export const updateStandard = async (req: Request, res: Response): Promise<void>
   const id = parseInt(req.params["id"] as string, 10);
   if (isNaN(id)) { res.status(400).json({ message: "ID không hợp lệ." }); return; }
 
-  const { name, jurisdiction, priority_level, content_i18n, description, is_active } = req.body;
+  const { 
+    name, 
+    jurisdiction, 
+    priority_level, 
+    content_i18n, 
+    description, 
+    is_active,
+    legal_document_name,
+    article_reference,
+    official_url
+  } = req.body;
 
   try {
     const parsedPriorityUpdate = priority_level !== undefined ? parseInt(priority_level, 10) : undefined;
@@ -160,6 +184,9 @@ export const updateStandard = async (req: Request, res: Response): Promise<void>
       content_i18n,
       description,
       is_active,
+      legal_document_name,
+      article_reference,
+      official_url,
     }, req.user!.userId, isAdmin);
 
     await prisma.audit_Logs.create({
