@@ -161,6 +161,14 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/admin/system-performance"
+              element={
+                <ProtectedRoute permission="VIEW_SQA">
+                  <SystemPerformancePage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* ── Error Routes (403 & 404) ── */}
             <Route
@@ -175,14 +183,6 @@ export default function App() {
             <Route path="/audit/:id/summary" element={<ProtectedRoute><ContractSummaryPage /></ProtectedRoute>} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<NotFoundPage />} />
-            <Route
-              path="/system-performance"
-              element={
-                <ProtectedRoute permission="VIEW_SQA">
-                  <SystemPerformancePage />
-                </ProtectedRoute>
-              }
-            />
           </Routes>
         </RealtimeProvider>
       </BrowserRouter>

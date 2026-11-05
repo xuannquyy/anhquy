@@ -120,10 +120,11 @@ const NAV_ITEMS: NavItem[] = [
     group: 'Quản trị Hệ thống',
   },
   {
-    label: 'Kiểm định Hiệu năng AI',
-    path: '/system-performance',
+    label: 'Kiểm soát AI',
+    path: '/admin/system-performance',
     icon: <Activity className="w-4 h-4" />,
-    group: 'Không gian Kiểm toán',
+    permission: 'VIEW_SQA',
+    group: 'Quản trị Hệ thống',
   },
 ]
 

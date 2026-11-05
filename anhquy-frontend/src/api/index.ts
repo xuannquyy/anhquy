@@ -175,3 +175,24 @@ export const adminApi = {
   updateRiskThreshold: (id: number, data: Record<string, unknown>) =>
     axiosClient.put(`/admin/risk-thresholds/${id}`, data),
 }
+
+// ─── SQA & AI Quality Control ────────────────────────────────────────────────
+export const sqaApi = {
+  getOverview: (params?: { from?: string; to?: string; period?: string }) =>
+    axiosClient.get('/sqa/overview', { params }),
+
+  getAIQuality: (params?: { from?: string; to?: string; period?: string }) =>
+    axiosClient.get('/sqa/ai-quality', { params }),
+
+  getDocumentHealth: (params?: { from?: string; to?: string; period?: string; page?: number; limit?: number }) =>
+    axiosClient.get('/sqa/document-health', { params }),
+
+  getSupplierRisk: (params?: { from?: string; to?: string; period?: string }) =>
+    axiosClient.get('/sqa/supplier-risk', { params }),
+
+  getDiagnostics: (params?: { from?: string; to?: string; period?: string; severity?: string }) =>
+    axiosClient.get('/sqa/diagnostics', { params }),
+
+  getAnalysisLogs: (params?: { document_id?: number; status?: string; from?: string; to?: string; period?: string; page?: number; limit?: number }) =>
+    axiosClient.get('/sqa/analysis-logs', { params }),
+}

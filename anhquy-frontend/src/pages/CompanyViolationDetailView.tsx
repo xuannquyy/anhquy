@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
-  ChevronLeft, Building2, FileText, AlertTriangle, CheckCircle2,
+  ChevronLeft, Building2, FileText, CheckCircle2,
   XCircle, ExternalLink, BookOpen, Lightbulb, Eye, Layers,
   ClipboardCheck, Printer, ShieldCheck
 } from 'lucide-react'
@@ -258,8 +258,6 @@ export default function CompanyViolationDetailView({
   onBatchApproveContract,
   onOpenDetailModal,
 }: Props) {
-  const navigate = useNavigate()
-
   const contractsList = useMemo(
     () => Array.from(companyGroup.contractsMap.values()),
     [companyGroup]

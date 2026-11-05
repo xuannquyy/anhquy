@@ -57,11 +57,16 @@ model Documents {
   storage_url      String       @db.VarChar(Max)
   status           String       @db.VarChar(20)
   uploaded_at      DateTime?    @default(now(), map: "DF__Documents__uploa__571DF1D5") @db.DateTime
-  last_analyzed_at DateTime?    @db.DateTime
-  updated_at       DateTime?    @default(now(), map: "DF__Documents__updat__5812160E") @db.DateTime
-  Categories       Categories   @relation(fields: [category_id], references: [id], onUpdate: NoAction, map: "FK_Documents_Categories")
-  Suppliers        Suppliers    @relation(fields: [supplier_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Documents_Suppliers")
-  Violations       Violations[]
+  last_analyzed_at      DateTime?          @db.DateTime
+  analysis_started_at   DateTime?          @db.DateTime
+  analysis_completed_at DateTime?          @db.DateTime
+  last_error_code       String?            @db.VarChar(50)
+  last_error_message    String?            @db.NVarChar(Max)
+  updated_at            DateTime?          @default(now(), map: "DF__Documents__updat__5812160E") @db.DateTime
+  Categories            Categories         @relation(fields: [category_id], references: [id], onUpdate: NoAction, map: "FK_Documents_Categories")
+  Suppliers             Suppliers          @relation(fields: [supplier_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Documents_Suppliers")
+  Violations            Violations[]
+  AI_Analysis_Logs      AI_Analysis_Logs[]
 
   @@index([category_id], map: "IX_Documents_Category")
   @@index([status], map: "IX_Documents_Status")
@@ -226,4 +231,41 @@ model Standard_Groups {
   group_name  String      @db.NVarChar(100)
   description String?     @db.NVarChar(Max)
   Standards   Standards[]
+}
+
+model AI_Analysis_Logs {
+  id             Int       @id @default(autoincrement())
+  document_id    Int
+  model_name     String    @db.VarChar(100)
+  prompt_version String?   @db.VarChar(50)
+  status         String    @db.VarChar(20)
+  started_at     DateTime  @default(now()) @db.DateTime
+  completed_at   DateTime? @db.DateTime
+  duration_ms    Int?
+  input_tokens   Int?
+  output_tokens  Int?
+  total_tokens   Int?
+  error_code     String?   @db.VarChar(50)
+  error_message  String?   @db.NVarChar(Max)
+  created_at     DateTime? @default(now()) @db.DateTime
+  Documents      Documents @relation(fields: [document_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_AI_Analysis_Logs_Documents")
+
+  @@index([document_id], map: "IX_AI_Analysis_Logs_Document")
+  @@index([status], map: "IX_AI_Analysis_Logs_Status")
+  @@index([started_at], map: "IX_AI_Analysis_Logs_Started")
+  @@index([completed_at], map: "IX_AI_Analysis_Logs_Completed")
+}
+
+model SQA_Thresholds {
+  id                   Int       @id @default(autoincrement())
+  metric_code          String    @unique @db.VarChar(100)
+  warning_value        Float
+  critical_value       Float
+  comparison_operator  String    @db.VarChar(10)
+  minimum_sample_size  Int       @default(20)
+  is_active            Boolean?  @default(true)
+  description          String?   @db.NVarChar(255)
+  updated_by           Int?
+  created_at           DateTime? @default(now()) @db.DateTime
+  updated_at           DateTime? @default(now()) @db.DateTime
 }

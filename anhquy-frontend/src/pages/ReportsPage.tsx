@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { violationApi, supplierApi, documentApi } from '../api'
 import {
   BarChart3, Download, Printer, Filter, Calendar, Building2,
-  AlertTriangle, FileText, RotateCcw, ExternalLink
+  AlertTriangle, FileText, RotateCcw, ExternalLink, ArrowUpDown, Info
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -47,6 +47,7 @@ interface DocumentItem {
 
 type PeriodMode = 'week' | 'day' | 'month' | 'year' | 'all'
 type WeekPreset = 'this_week' | 'last_7_days' | 'last_week' | 'custom_week'
+type SupplierSortField = 'score_asc' | 'score_desc' | 'name_asc' | 'name_desc' | 'date_desc' | 'date_asc'
 
 // ─── Helper làm sạch ký tự cho Excel ──────────────────────────────────────────
 function cleanText(str: string | null | undefined): string {
@@ -146,6 +147,9 @@ export default function ReportsPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [supplierFilter, setSupplierFilter] = useState('')
 
+  // Sắp xếp bảng nhà cung ứng
+  const [supplierSort, setSupplierSort] = useState<SupplierSortField>('score_asc')
+
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true)
@@ -170,6 +174,34 @@ export default function ReportsPage() {
     }
     fetchAll()
   }, [])
+
+  // ─── Đồng bộ Điểm Tín nhiệm Nhà cung ứng Thực tế (Đúng chuẩn nghiệp vụ) ─────
+  // Điểm = MAX(0, 100 - Tổng điểm phạt của các vi phạm Approved thuộc nhà cung ứng)
+  const syncedSuppliers = useMemo(() => {
+    return suppliers.map((s) => {
+      const supApproved = violations.filter(
+        (v) =>
+          v.status === 'Approved' &&
+          (v.Documents?.Suppliers?.id === s.id ||
+            v.Documents?.Suppliers?.company_name === s.company_name)
+      )
+      const highCount = supApproved.filter((v) => v.risk_level === 'High').length
+      const medCount = supApproved.filter((v) => v.risk_level === 'Medium').length
+      const lowCount = supApproved.filter((v) => v.risk_level === 'Low').length
+      const penalty = highCount * 10 + medCount * 5 + lowCount * 2
+      const computedScore = Math.max(0, 100 - penalty)
+
+      return {
+        ...s,
+        risk_score: computedScore,
+        approvedCount: supApproved.length,
+        approvedHighCount: highCount,
+        approvedMediumCount: medCount,
+        approvedLowCount: lowCount,
+        penalty,
+      }
+    })
+  }, [suppliers, violations])
 
   const matchesPeriod = (dateStr?: string) => {
     if (!dateStr || periodMode === 'all') return true
@@ -222,13 +254,34 @@ export default function ReportsPage() {
   }, [violations, periodMode, weekPreset, customWeek, dateFrom, dateTo, fromMonth, fromMonthYear, toMonth, toMonthYear, fromYear, toYear, riskFilter, statusFilter, supplierFilter])
 
   const filteredSuppliers = useMemo(() => {
-    return suppliers.filter((s) => {
+    return syncedSuppliers.filter((s) => {
       if (!matchesPeriod(s.created_at)) return false
       if (supplierFilter && String(s.id) !== supplierFilter) return false
       return true
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [suppliers, periodMode, weekPreset, customWeek, dateFrom, dateTo, fromMonth, fromMonthYear, toMonth, toMonthYear, fromYear, toYear, supplierFilter])
+  }, [syncedSuppliers, periodMode, weekPreset, customWeek, dateFrom, dateTo, fromMonth, fromMonthYear, toMonth, toMonthYear, fromYear, toYear, supplierFilter])
+
+  // Sắp xếp danh sách nhà cung ứng
+  const sortedSuppliers = useMemo(() => {
+    const list = [...filteredSuppliers]
+    if (supplierSort === 'score_asc') {
+      return list.sort((a, b) => (a.risk_score ?? 100) - (b.risk_score ?? 100))
+    }
+    if (supplierSort === 'score_desc') {
+      return list.sort((a, b) => (b.risk_score ?? 100) - (a.risk_score ?? 100))
+    }
+    if (supplierSort === 'name_asc') {
+      return list.sort((a, b) => a.company_name.localeCompare(b.company_name, 'vi'))
+    }
+    if (supplierSort === 'name_desc') {
+      return list.sort((a, b) => b.company_name.localeCompare(a.company_name, 'vi'))
+    }
+    if (supplierSort === 'date_asc') {
+      return list.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    }
+    return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  }, [filteredSuppliers, supplierSort])
 
   const periodDescription = useMemo(() => {
     if (periodMode === 'all') return 'Toàn bộ thời gian'
@@ -246,6 +299,7 @@ export default function ReportsPage() {
     setSupplierFilter('')
     setDateFrom('')
     setDateTo('')
+    setSupplierSort('score_asc')
     toast.success('Đã đặt lại toàn bộ bộ lọc báo cáo.')
   }
 
@@ -259,11 +313,11 @@ export default function ReportsPage() {
         <style>
           body { font-family: "Times New Roman", Arial, sans-serif; font-size: 11pt; }
           table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }
-          th { background-color: #0B132B; color: #FFFFFF; font-weight: bold; padding: 10px 8px; border: 1px solid #475569; text-align: center; vertical-align: middle; }
+          th { background-color: #014BAA; color: #FFFFFF; font-weight: bold; padding: 10px 8px; border: 1px solid #475569; text-align: center; vertical-align: middle; }
           td { padding: 8px; border: 1px solid #CBD5E1; vertical-align: top; mso-number-format:"\\@"; }
-          .header-title { font-size: 16pt; font-weight: bold; color: #0B132B; text-align: left; border: none; padding: 6px 0; }
+          .header-title { font-size: 16pt; font-weight: bold; color: #014BAA; text-align: left; border: none; padding: 6px 0; }
           .header-meta { font-size: 11pt; color: #475569; text-align: left; border: none; padding-bottom: 16px; font-style: italic; }
-          .section-title { font-size: 13pt; font-weight: bold; color: #791127; text-align: left; border: none; padding: 12px 0 6px 0; }
+          .section-title { font-size: 13pt; font-weight: bold; color: #6B212C; text-align: left; border: none; padding: 12px 0 6px 0; }
         </style>
       </head>
       <body>
@@ -273,10 +327,10 @@ export default function ReportsPage() {
         </table>`
 
     if (reportScope === 'suppliers' || reportScope === 'all') {
-      const supRows = filteredSuppliers.map((s, idx) => {
+      const supRows = sortedSuppliers.map((s, idx) => {
         const sc = s.risk_score ?? 100
         const rank = sc >= 80 ? 'An toàn' : sc >= 50 ? 'Cảnh báo' : 'Nguy hiểm'
-        const color = sc >= 80 ? '#0B132B' : sc >= 50 ? '#B45309' : '#791127'
+        const color = sc >= 80 ? '#014BAA' : sc >= 50 ? '#B45309' : '#6B212C'
         return `
           <tr>
             <td style="text-align:center;font-weight:bold">${idx + 1}</td>
@@ -292,7 +346,7 @@ export default function ReportsPage() {
 
       excelHtml += `
         <table>
-          <tr><td colspan="8" class="section-title">I. BẢNG TỔNG HỢP ĐIỂM TÍN NHIỆM ĐỐI TÁC (${filteredSuppliers.length} đối tác)</td></tr>
+          <tr><td colspan="8" class="section-title">I. BẢNG TỔNG HỢP ĐIỂM TÍN NHIỆM ĐỐI TÁC (${sortedSuppliers.length} đối tác)</td></tr>
           <thead>
             <tr>
               <th style="width:45px">STT</th>
@@ -314,7 +368,7 @@ export default function ReportsPage() {
     if (reportScope === 'violations' || reportScope === 'all') {
       const violRows = filteredViolations.map((v, idx) => {
         const riskText = v.risk_level === 'High' ? 'Cao (-10đ)' : v.risk_level === 'Medium' ? 'Trung bình (-5đ)' : 'Thấp (-2đ)'
-        const riskColor = v.risk_level === 'High' ? '#791127' : v.risk_level === 'Medium' ? '#B45309' : '#0B132B'
+        const riskColor = v.risk_level === 'High' ? '#6B212C' : v.risk_level === 'Medium' ? '#B45309' : '#014BAA'
         const statusText = v.status === 'Pending' ? 'Chờ thẩm định' : v.status === 'Approved' ? 'Đã duyệt' : 'Đã bác bỏ'
         
         return `
@@ -377,13 +431,13 @@ export default function ReportsPage() {
       return
     }
 
-    const supRows = filteredSuppliers.map((s, i) => `
+    const supRows = sortedSuppliers.map((s, i) => `
       <tr>
         <td style="text-align:center">${i + 1}</td>
         <td style="font-weight:bold">${escapeHtml(s.company_name)}</td>
         <td style="font-family:monospace">${escapeHtml(s.tax_code)}</td>
         <td>${escapeHtml(s.Categories?.name || '—')}</td>
-        <td style="text-align:center;font-weight:bold;color:${(s.risk_score ?? 100)>=80?'#0B132B':(s.risk_score ?? 100)>=50?'#B45309':'#791127'}">${s.risk_score ?? 100}/100</td>
+        <td style="text-align:center;font-weight:bold;color:${(s.risk_score ?? 100)>=80?'#014BAA':(s.risk_score ?? 100)>=50?'#B45309':'#6B212C'}">${s.risk_score ?? 100}/100</td>
       </tr>`).join('')
 
     const violRows = filteredViolations.map((v, i) => `
@@ -391,7 +445,7 @@ export default function ReportsPage() {
         <td style="text-align:center">${i + 1}</td>
         <td style="font-weight:bold">${escapeHtml(v.Documents?.Suppliers?.company_name || '—')}</td>
         <td style="font-family:monospace;font-weight:bold">${escapeHtml(v.Standards?.standard_code || '—')}</td>
-        <td style="font-weight:bold;text-align:center;color:${v.risk_level==='High'?'#791127':v.risk_level==='Medium'?'#B45309':'#0B132B'}">${v.risk_level}</td>
+        <td style="font-weight:bold;text-align:center;color:${v.risk_level==='High'?'#6B212C':v.risk_level==='Medium'?'#B45309':'#014BAA'}">${v.risk_level}</td>
         <td style="text-align:center">${v.status === 'Approved'?'Đã duyệt':v.status==='Pending'?'Chờ duyệt':'Bác bỏ'}</td>
         <td style="font-size:11px">${escapeHtml(cleanText(v.violation_desc))}</td>
       </tr>`).join('')
@@ -399,19 +453,19 @@ export default function ReportsPage() {
     win.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8">
       <title>Báo cáo Kiểm toán Chuỗi Cung ứng – ANHQUY</title>
       <style>
-        body { font-family: "Arial", sans-serif; margin: 40px; color: #0B132B; line-height: 1.4; }
-        .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #0B132B; padding-bottom: 16px; margin-bottom: 24px; }
-        .header-left h1 { font-size: 22px; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+        body { font-family: "Arial", sans-serif; margin: 40px; color: #0A1020; line-height: 1.4; }
+        .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #014BAA; padding-bottom: 16px; margin-bottom: 24px; }
+        .header-left h1 { font-size: 22px; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px; color: #014BAA; }
         .header-left p { font-size: 12px; color: #475569; margin: 0; }
-        .brand { font-size: 28px; font-weight: 900; color: #0B132B; letter-spacing: -1px; }
-        .brand span { color: #791127; }
-        h2 { font-size: 14px; color: #791127; margin: 28px 0 10px; text-transform: uppercase; border-left: 4px solid #791127; padding-left: 8px; }
+        .brand { font-size: 28px; font-weight: 900; color: #014BAA; letter-spacing: -1px; }
+        .brand span { color: #6B212C; }
+        h2 { font-size: 14px; color: #6B212C; margin: 28px 0 10px; text-transform: uppercase; border-left: 4px solid #6B212C; padding-left: 8px; }
         .kpi-row { display: flex; gap: 12px; margin-bottom: 20px; }
         .kpi-box { flex: 1; border: 1px solid #CBD5E1; border-radius: 8px; padding: 12px; text-align: center; background: #F8FAFC; }
-        .kpi-num { font-size: 24px; font-weight: bold; color: #0B132B; }
+        .kpi-num { font-size: 24px; font-weight: bold; color: #014BAA; }
         .kpi-label { font-size: 11px; color: #475569; text-transform: uppercase; margin-top: 4px; }
         table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
-        th { background: #0B132B; color: #FFFFFF; padding: 10px 8px; text-align: left; }
+        th { background: #014BAA; color: #FFFFFF; padding: 10px 8px; text-align: left; }
         td { padding: 8px; border-bottom: 1px solid #E2E8F0; vertical-align: top; }
         .footer { margin-top: 40px; font-size: 10px; color: #64748B; text-align: center; border-top: 1px solid #E2E8F0; padding-top: 12px; }
         @media print { button { display: none !important; } }
@@ -427,8 +481,8 @@ export default function ReportsPage() {
       </div>
 
       <div class="kpi-row">
-        <div class="kpi-box"><div class="kpi-num">${filteredSuppliers.length}</div><div class="kpi-label">Hồ sơ Đối tác</div></div>
-        <div class="kpi-box"><div class="kpi-num" style="color:#791127">${filteredViolations.length}</div><div class="kpi-label">Tổng Vi phạm</div></div>
+        <div class="kpi-box"><div class="kpi-num">${sortedSuppliers.length}</div><div class="kpi-label">Hồ sơ Đối tác</div></div>
+        <div class="kpi-box"><div class="kpi-num" style="color:#6B212C">${filteredViolations.length}</div><div class="kpi-label">Tổng Vi phạm</div></div>
         <div class="kpi-box"><div class="kpi-num">${filteredViolations.filter(v=>v.risk_level==='High').length}</div><div class="kpi-label">Vi phạm Rủi ro Cao</div></div>
       </div>
 
@@ -459,17 +513,17 @@ export default function ReportsPage() {
   return (
     <MainLayout breadcrumb="Trung tâm Xuất Báo cáo">
       <div className="space-y-5">
-        {/* ─── Header Banner ── */}
-        <div className="bg-gradient-to-r from-Pine via-[#1E293B] to-Berry rounded-xl p-6 text-white shadow-[0_14px_34px_rgba(11,19,43,0.18)] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        {/* ─── Header Banner ─────────────────────────────────────────────────── */}
+        <div className="bg-gradient-to-r from-Pine via-[#1E293B] to-Berry rounded-2xl p-6 text-white shadow-md flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-white/15 text-Snowflake text-xs font-bold mb-2">
-              <BarChart3 className="w-4 h-4 text-Frostysilver" />
+              <BarChart3 className="w-4 h-4 text-Sunny" />
               <span>Báo cáo Kiểm toán Chuỗi cung ứng</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
               Trung tâm Kết xuất Báo cáo & Truy vấn
             </h1>
-            <p className="text-xs sm:text-sm text-Snowflake/85 mt-1">
+            <p className="text-xs sm:text-sm text-Snowflake/90 mt-1">
               Kỳ đang chọn: <strong className="text-white underline">{periodDescription}</strong>
             </p>
           </div>
@@ -478,15 +532,15 @@ export default function ReportsPage() {
             <button
               type="button"
               onClick={handleResetFilters}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-Snowflake text-xs font-bold rounded-2xl border border-white/15 transition-all"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-Snowflake text-xs font-bold rounded-xl border border-white/20 transition-all cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              Đặt lại
+              Đặt lại bộ lọc
             </button>
             <button
               type="button"
               onClick={handleExportExcel}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-Snowflake text-Pine text-xs font-extrabold rounded-2xl hover:bg-white shadow-md transition-all"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-Pine text-xs font-extrabold rounded-xl hover:bg-Snowflake shadow-sm transition-all cursor-pointer"
             >
               <Download className="w-4 h-4" />
               Xuất Excel
@@ -494,7 +548,7 @@ export default function ReportsPage() {
             <button
               type="button"
               onClick={handlePrintPDF}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-Berry text-white text-xs font-extrabold rounded-2xl hover:bg-Berry/90 shadow-md border border-white/20 transition-all"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-Berry text-white text-xs font-extrabold rounded-xl hover:bg-Berry/90 shadow-sm border border-white/20 transition-all cursor-pointer"
             >
               <Printer className="w-4 h-4" />
               In Báo cáo (PDF)
@@ -502,48 +556,98 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        {/* ─── 3 Thẻ Tóm tắt Nhanh Kết quả Truy vấn ─────────────────────────── */}
+        {/* ─── 3 Thẻ Tóm tắt Nhanh Tương tác (Interactive Metric Cards) ─────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl border border-Mist/20 p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-Pine text-white flex items-center justify-center flex-shrink-0">
-              <Building2 className="w-5 h-5" />
+          {/* Thẻ 1: Đối tác trong kỳ lọc */}
+          <button
+            type="button"
+            onClick={() => setReportScope(reportScope === 'suppliers' ? 'all' : 'suppliers')}
+            className={`text-left rounded-2xl border p-4 shadow-sm transition-all flex items-center justify-between gap-3 cursor-pointer ${
+              reportScope === 'suppliers'
+                ? 'bg-Pine/10 border-Pine shadow-md ring-2 ring-Pine/30'
+                : 'bg-white border-Mist/25 hover:border-Pine/50 hover:shadow-md'
+            }`}
+          >
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-11 h-11 rounded-2xl bg-Pine text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-Branch truncate">Đối tác trong kỳ lọc</p>
+                <p className="text-2xl font-black text-Pine font-mono">{filteredSuppliers.length}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-bold text-Branch">Đối tác trong kỳ lọc</p>
-              <p className="text-2xl font-extrabold text-Pine">{filteredSuppliers.length}</p>
+            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-lg border flex-shrink-0 ${
+              reportScope === 'suppliers' ? 'bg-Pine text-white border-Pine' : 'bg-Snowflake text-Branch border-Mist/30'
+            }`}>
+              {reportScope === 'suppliers' ? 'Đang lọc bảng này' : 'Nhấn để lọc'}
+            </span>
+          </button>
+
+          {/* Thẻ 2: Vi phạm khớp điều kiện */}
+          <button
+            type="button"
+            onClick={() => setReportScope(reportScope === 'violations' ? 'all' : 'violations')}
+            className={`text-left rounded-2xl border p-4 shadow-sm transition-all flex items-center justify-between gap-3 cursor-pointer ${
+              reportScope === 'violations'
+                ? 'bg-Berry/10 border-Berry shadow-md ring-2 ring-Berry/30'
+                : 'bg-white border-Mist/25 hover:border-Berry/50 hover:shadow-md'
+            }`}
+          >
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-11 h-11 rounded-2xl bg-Berry text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-Branch truncate">Vi phạm khớp điều kiện</p>
+                <p className="text-2xl font-black text-Berry font-mono">{filteredViolations.length}</p>
+              </div>
             </div>
-          </div>
-          <div className="bg-white rounded-xl border border-Mist/20 p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-Berry text-white flex items-center justify-center flex-shrink-0">
-              <AlertTriangle className="w-5 h-5" />
+            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-lg border flex-shrink-0 ${
+              reportScope === 'violations' ? 'bg-Berry text-white border-Berry' : 'bg-Snowflake text-Branch border-Mist/30'
+            }`}>
+              {reportScope === 'violations' ? 'Đang lọc bảng này' : 'Nhấn để lọc'}
+            </span>
+          </button>
+
+          {/* Thẻ 3: Tổng hợp đồng hệ thống */}
+          <button
+            type="button"
+            onClick={() => setReportScope('all')}
+            className={`text-left rounded-2xl border p-4 shadow-sm transition-all flex items-center justify-between gap-3 cursor-pointer ${
+              reportScope === 'all'
+                ? 'bg-white border-Pine shadow-md ring-2 ring-Pine/20'
+                : 'bg-white border-Mist/25 hover:border-Mist/50 hover:shadow-md'
+            }`}
+          >
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-11 h-11 rounded-2xl bg-Mist/20 text-Pine flex items-center justify-center flex-shrink-0 shadow-xs border border-Mist/30">
+                <FileText className="w-5 h-5 text-Pine" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-Branch truncate">Tổng hợp đồng hệ thống</p>
+                <p className="text-2xl font-black text-Pine font-mono">{documents.length}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-bold text-Branch">Vi phạm khớp điều kiện</p>
-              <p className="text-2xl font-extrabold text-Berry">{filteredViolations.length}</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl border border-Mist/20 p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-Mist text-Pine flex items-center justify-center flex-shrink-0">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-Branch">Tổng hợp đồng hệ thống</p>
-              <p className="text-2xl font-extrabold text-Pine">{documents.length}</p>
-            </div>
-          </div>
+            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-lg border flex-shrink-0 ${
+              reportScope === 'all' ? 'bg-Pine/10 text-Pine border-Pine/30' : 'bg-Snowflake text-Branch border-Mist/30'
+            }`}>
+              {reportScope === 'all' ? 'Toàn diện (Cả 2 bảng)' : 'Xem toàn bộ'}
+            </span>
+          </button>
         </div>
 
         {/* ─── Khung Cấu hình Truy vấn (Tuần / Ngày / Tháng / Năm / Tất cả) ─── */}
-        <div className="bg-white rounded-xl border border-Mist/20 p-6 shadow-sm space-y-5">
+        <div className="bg-white rounded-2xl border border-Mist/25 p-5 sm:p-6 shadow-sm space-y-5">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-Mist/20 pb-4">
             <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-Berry" />
+              <Calendar className="w-4 h-4 text-Pine" />
               <h3 className="text-sm font-extrabold text-Pine">
                 1. Chọn Chu kỳ Thời gian Kết xuất
               </h3>
             </div>
 
-            <div className="flex flex-wrap gap-1.5 bg-Snowflake/70 p-1.5 rounded-2xl border border-Mist/30">
+            <div className="flex flex-wrap gap-1.5 bg-Snowflake/80 p-1 rounded-xl border border-Mist/30">
               {[
                 { key: 'week',  label: 'Theo Tuần' },
                 { key: 'day',   label: 'Theo Ngày' },
@@ -555,10 +659,10 @@ export default function ReportsPage() {
                   key={tab.key}
                   type="button"
                   onClick={() => setPeriodMode(tab.key as PeriodMode)}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     periodMode === tab.key
                       ? 'bg-Pine text-white shadow-sm'
-                      : 'text-Pine hover:bg-white border border-transparent hover:border-Mist/30'
+                      : 'text-Branch/80 hover:text-Pine'
                   }`}
                 >
                   {tab.label}
@@ -569,15 +673,15 @@ export default function ReportsPage() {
 
           {/* 1. Bộ chọn Theo Tuần */}
           {periodMode === 'week' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-Snowflake/40 p-4 rounded-2xl border border-Mist/25">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-Snowflake/40 p-4 rounded-xl border border-Mist/25">
               <div>
-                <label className="block text-xs font-extrabold uppercase text-Pine mb-1.5">
+                <label className="block text-xs font-bold uppercase text-Pine mb-1.5">
                   Chọn nhanh tuần báo cáo
                 </label>
                 <select
                   value={weekPreset}
                   onChange={(e) => setWeekPreset(e.target.value as WeekPreset)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Pine font-bold"
+                  className="w-full px-3.5 py-2 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold outline-none cursor-pointer"
                 >
                   <option value="last_7_days">7 ngày gần nhất</option>
                   <option value="this_week">Tuần này (Thứ 2 – Chủ nhật)</option>
@@ -587,14 +691,14 @@ export default function ReportsPage() {
               </div>
               {weekPreset === 'custom_week' && (
                 <div>
-                  <label className="block text-xs font-extrabold uppercase text-Pine mb-1.5">
+                  <label className="block text-xs font-bold uppercase text-Pine mb-1.5">
                     Chọn tuần trong năm
                   </label>
                   <input
                     type="week"
                     value={customWeek}
                     onChange={(e) => setCustomWeek(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Pine font-bold"
+                    className="w-full px-3.5 py-2 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold outline-none cursor-pointer"
                   />
                 </div>
               )}
@@ -603,23 +707,23 @@ export default function ReportsPage() {
 
           {/* 2. Bộ chọn Theo Ngày */}
           {periodMode === 'day' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-Snowflake/40 p-4 rounded-2xl border border-Mist/25">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-Snowflake/40 p-4 rounded-xl border border-Mist/25">
               <div>
-                <label className="block text-xs font-extrabold uppercase text-Pine mb-1.5">Từ ngày</label>
+                <label className="block text-xs font-bold uppercase text-Pine mb-1.5">Từ ngày</label>
                 <input
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Pine font-bold"
+                  className="w-full px-3.5 py-2 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold outline-none cursor-pointer"
                 />
               </div>
               <div>
-                <label className="block text-xs font-extrabold uppercase text-Pine mb-1.5">Đến ngày</label>
+                <label className="block text-xs font-bold uppercase text-Pine mb-1.5">Đến ngày</label>
                 <input
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Pine font-bold"
+                  className="w-full px-3.5 py-2 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold outline-none cursor-pointer"
                 />
               </div>
             </div>
@@ -627,14 +731,14 @@ export default function ReportsPage() {
 
           {/* 3. Bộ chọn Theo Tháng */}
           {periodMode === 'month' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-Snowflake/40 p-4 rounded-2xl border border-Mist/25">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-Snowflake/40 p-4 rounded-xl border border-Mist/25">
               <div>
-                <label className="block text-xs font-extrabold uppercase text-Pine mb-1.5">Từ Tháng / Năm</label>
+                <label className="block text-xs font-bold uppercase text-Pine mb-1.5">Từ Tháng / Năm</label>
                 <div className="flex gap-2">
                   <select
                     value={fromMonth}
                     onChange={(e) => setFromMonth(Number(e.target.value))}
-                    className="flex-1 px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Branch font-bold"
+                    className="flex-1 px-3 py-2 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold outline-none cursor-pointer"
                   >
                     {monthsList.map((m) => (
                       <option key={m} value={m}>Tháng {m}</option>
@@ -643,7 +747,7 @@ export default function ReportsPage() {
                   <select
                     value={fromMonthYear}
                     onChange={(e) => setFromMonthYear(Number(e.target.value))}
-                    className="w-28 px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Branch font-bold"
+                    className="w-28 px-3 py-2 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold outline-none cursor-pointer"
                   >
                     {yearsList.map((y) => (
                       <option key={y} value={y}>{y}</option>
@@ -652,12 +756,12 @@ export default function ReportsPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-extrabold uppercase text-Pine mb-1.5">Đến Tháng / Năm</label>
+                <label className="block text-xs font-bold uppercase text-Pine mb-1.5">Đến Tháng / Năm</label>
                 <div className="flex gap-2">
                   <select
                     value={toMonth}
                     onChange={(e) => setToMonth(Number(e.target.value))}
-                    className="flex-1 px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Branch font-bold"
+                    className="flex-1 px-3 py-2 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold outline-none cursor-pointer"
                   >
                     {monthsList.map((m) => (
                       <option key={m} value={m}>Tháng {m}</option>
@@ -666,7 +770,7 @@ export default function ReportsPage() {
                   <select
                     value={toMonthYear}
                     onChange={(e) => setToMonthYear(Number(e.target.value))}
-                    className="w-28 px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Branch font-bold"
+                    className="w-28 px-3 py-2 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold outline-none cursor-pointer"
                   >
                     {yearsList.map((y) => (
                       <option key={y} value={y}>{y}</option>
@@ -679,13 +783,13 @@ export default function ReportsPage() {
 
           {/* 4. Bộ chọn Theo Năm */}
           {periodMode === 'year' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-Snowflake/40 p-4 rounded-2xl border border-Mist/25">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-Snowflake/40 p-4 rounded-xl border border-Mist/25">
               <div>
-                <label className="block text-xs font-extrabold uppercase text-Pine mb-1.5">Từ Năm</label>
+                <label className="block text-xs font-bold uppercase text-Pine mb-1.5">Từ Năm</label>
                 <select
                   value={fromYear}
                   onChange={(e) => setFromYear(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Branch font-bold"
+                  className="w-full px-3.5 py-2 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold outline-none cursor-pointer"
                 >
                   {yearsList.map((y) => (
                     <option key={y} value={y}>Năm {y}</option>
@@ -693,11 +797,11 @@ export default function ReportsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-extrabold uppercase text-Pine mb-1.5">Đến Năm</label>
+                <label className="block text-xs font-bold uppercase text-Pine mb-1.5">Đến Năm</label>
                 <select
                   value={toYear}
                   onChange={(e) => setToYear(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-Mist/40 bg-white text-sm text-Branch font-bold"
+                  className="w-full px-3.5 py-2 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold outline-none cursor-pointer"
                 >
                   {yearsList.map((y) => (
                     <option key={y} value={y}>Năm {y}</option>
@@ -707,17 +811,17 @@ export default function ReportsPage() {
             </div>
           )}
 
-          {/* Bộ lọc chi tiết */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
+          {/* ─── Bộ lọc chi tiết ────────────────────────────────────────────── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1 border-t border-Mist/20">
             <div>
-              <label className="block text-xs font-extrabold uppercase text-Pine mb-1.5">
-                <Filter className="w-3 h-3 inline mr-1 text-Berry" />
+              <label className="block text-xs font-bold uppercase text-Pine mb-1.5">
+                <Filter className="w-3 h-3 inline mr-1 text-Pine" />
                 Nội dung xuất
               </label>
               <select
                 value={reportScope}
                 onChange={(e) => setReportScope(e.target.value as typeof reportScope)}
-                className="w-full px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold"
+                className="w-full px-3 py-2 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold outline-none cursor-pointer"
               >
                 <option value="all">Toàn diện (Đối tác + Vi phạm)</option>
                 <option value="suppliers">Chỉ Bảng Điểm Nhà cung ứng</option>
@@ -726,30 +830,30 @@ export default function ReportsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-extrabold uppercase text-Pine mb-1.5">
+              <label className="block text-xs font-bold uppercase text-Pine mb-1.5">
                 Lọc theo Nhà cung ứng
               </label>
               <select
                 value={supplierFilter}
                 onChange={(e) => setSupplierFilter(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold"
+                className="w-full px-3 py-2 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold outline-none cursor-pointer"
               >
                 <option value="">Tất cả nhà cung ứng</option>
-                {suppliers.map((s) => (
+                {syncedSuppliers.map((s) => (
                   <option key={s.id} value={s.id}>{s.company_name}</option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-extrabold uppercase text-Pine mb-1.5">
-                Mức độ rủi ro
+              <label className="block text-xs font-bold uppercase text-Pine mb-1.5">
+                Mức độ rủi ro vi phạm
               </label>
               <select
                 value={riskFilter}
                 onChange={(e) => setRiskFilter(e.target.value)}
                 disabled={reportScope === 'suppliers'}
-                className="w-full px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold disabled:opacity-50"
+                className="w-full px-3 py-2 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold disabled:opacity-50 outline-none cursor-pointer"
               >
                 <option value="">Tất cả mức độ</option>
                 <option value="High">Rủi ro Cao (High)</option>
@@ -759,14 +863,14 @@ export default function ReportsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-extrabold uppercase text-Pine mb-1.5">
+              <label className="block text-xs font-bold uppercase text-Pine mb-1.5">
                 Trạng thái thẩm định
               </label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 disabled={reportScope === 'suppliers'}
-                className="w-full px-3 py-2.5 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold disabled:opacity-50"
+                className="w-full px-3 py-2 rounded-xl border border-Mist/40 bg-white text-xs sm:text-sm text-Branch font-bold disabled:opacity-50 outline-none cursor-pointer"
               >
                 <option value="">Tất cả trạng thái</option>
                 <option value="Approved">Đã phê duyệt (Approved)</option>
@@ -779,41 +883,100 @@ export default function ReportsPage() {
 
         {/* ─── Bảng Xem Trước Dữ Liệu Trực Tiếp (Live Preview) ──────────────── */}
         {loading ? (
-          <div className="flex justify-center py-16"><Spinner size="lg" /></div>
+          <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-Mist/25 shadow-sm space-y-3">
+            <Spinner size="lg" />
+            <p className="text-xs font-bold text-Pine">Đang đồng bộ số liệu kiểm toán và tính toán điểm đối tác...</p>
+          </div>
         ) : (
           <div className="space-y-5">
             {reportScope !== 'violations' && (
-              <div className="bg-white rounded-xl border border-Mist/20 p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-extrabold text-Pine">
-                    Bảng 1: Điểm Tín nhiệm Đối tác Cung ứng ({filteredSuppliers.length} đơn vị)
-                  </h3>
-                  <Link to="/suppliers" className="text-xs font-extrabold text-Pine hover:underline">
-                    Quản lý đối tác →
-                  </Link>
+              <div className="bg-white rounded-2xl border border-Mist/25 p-5 sm:p-6 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-Mist/15">
+                  <div>
+                    <h3 className="text-sm font-black text-Pine font-sans flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-Pine" />
+                      Bảng 1: Điểm Tín nhiệm Đối tác Cung ứng ({sortedSuppliers.length} đơn vị)
+                    </h3>
+                    <p className="text-xs text-Branch/75 mt-0.5 font-medium">
+                      Điểm được tính riêng cho từng đối tác: <strong>100 - Tổng điểm phạt từ các vi phạm đã được Phê duyệt (Approved)</strong>.
+                    </p>
+                  </div>
+                  
+                  {/* Bộ lọc sắp xếp */}
+                  <div className="flex items-center gap-2 self-start sm:self-center flex-shrink-0">
+                    <span className="text-[11px] font-bold text-Mist flex items-center gap-1">
+                      <ArrowUpDown className="w-3.5 h-3.5 text-Pine" />
+                      Sắp xếp:
+                    </span>
+                    <select
+                      value={supplierSort}
+                      onChange={(e) => setSupplierSort(e.target.value as SupplierSortField)}
+                      className="px-2.5 py-1.5 rounded-lg border border-Mist/30 bg-Snowflake text-xs font-bold text-Branch outline-none cursor-pointer"
+                    >
+                      <option value="score_asc">Điểm: Thấp &rarr; Cao (Rủi ro)</option>
+                      <option value="score_desc">Điểm: Cao &rarr; Thấp (An toàn)</option>
+                      <option value="name_asc">Tên: A &rarr; Z</option>
+                      <option value="name_desc">Tên: Z &rarr; A</option>
+                      <option value="date_desc">Mới nhất trước</option>
+                      <option value="date_asc">Cũ nhất trước</option>
+                    </select>
+                  </div>
                 </div>
-                {filteredSuppliers.length === 0 ? (
+
+                {sortedSuppliers.length === 0 ? (
                   <EmptyState message="Không có nhà cung ứng nào trong khoảng thời gian đã chọn" />
                 ) : (
-                  <div className="overflow-x-auto rounded-2xl border border-Mist/25">
+                  <div className="overflow-x-auto rounded-xl border border-Mist/20">
                     <table className="min-w-full text-xs divide-y divide-Mist/15">
-                      <thead className="bg-Pine text-white">
+                      <thead className="bg-Pine text-white font-extrabold uppercase tracking-wider text-[11px]">
                         <tr>
-                          <th className="px-4 py-3 text-left font-bold">Tên Công ty</th>
-                          <th className="px-4 py-3 text-left font-bold">Mã số thuế</th>
-                          <th className="px-4 py-3 text-left font-bold">Ngành nghề</th>
-                          <th className="px-4 py-3 text-left font-bold">Điểm tín nhiệm</th>
-                          <th className="px-4 py-3 text-left font-bold">Ngày tạo</th>
+                          <th className="px-4 py-3 text-left">Tên Công ty Đối tác</th>
+                          <th className="px-4 py-3 text-left">Mã số thuế</th>
+                          <th className="px-4 py-3 text-left">Ngành nghề</th>
+                          <th className="px-4 py-3 text-left">Điểm tín nhiệm</th>
+                          <th className="px-4 py-3 text-center">Vi phạm đã duyệt</th>
+                          <th className="px-4 py-3 text-left">Ngày tham gia</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-Mist/15">
-                        {filteredSuppliers.map((s) => (
-                          <tr key={s.id} className="hover:bg-Snowflake/40">
-                            <td className="px-4 py-3 font-bold text-Pine">{s.company_name}</td>
-                            <td className="px-4 py-3 font-mono text-Branch">{s.tax_code}</td>
-                            <td className="px-4 py-3 text-Branch">{s.Categories?.name || '—'}</td>
-                            <td className="px-4 py-3"><RiskScoreBar score={s.risk_score} /></td>
-                            <td className="px-4 py-3 text-Mist">{new Date(s.created_at).toLocaleDateString('vi-VN')}</td>
+                      <tbody className="divide-y divide-Mist/15 font-medium text-Branch">
+                        {sortedSuppliers.map((s) => (
+                          <tr key={s.id} className="hover:bg-Snowflake/40 transition-colors">
+                            <td className="px-4 py-3.5 font-bold text-Pine">
+                              <Link
+                                to={`/suppliers`}
+                                className="hover:text-Berry transition-colors inline-flex items-center gap-1.5 group"
+                              >
+                                <span>{s.company_name}</span>
+                                <ExternalLink className="w-3 h-3 text-Mist group-hover:text-Berry" />
+                              </Link>
+                            </td>
+                            <td className="px-4 py-3.5 font-mono text-Branch font-semibold">{s.tax_code}</td>
+                            <td className="px-4 py-3.5 text-Branch/90">{s.Categories?.name || '—'}</td>
+                            <td className="px-4 py-3.5">
+                              <div className="space-y-1">
+                                <RiskScoreBar score={s.risk_score} />
+                                {s.penalty > 0 ? (
+                                  <div className="flex items-center gap-1 text-[10px] text-Berry font-semibold">
+                                    <Info className="w-3 h-3 flex-shrink-0" />
+                                    <span>Trừ -{s.penalty}đ ({s.approvedHighCount} High, {s.approvedMediumCount} Medium)</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1 text-[10px] text-emerald-700 font-semibold">
+                                    <span>Đạt chuẩn 100/100đ (0 lỗi duyệt)</span>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3.5 text-center font-mono font-bold">
+                              {s.approvedCount > 0 ? (
+                                <span className="px-2 py-0.5 rounded bg-rose-50 text-Berry border border-rose-200">
+                                  {s.approvedCount} lỗi
+                                </span>
+                              ) : (
+                                <span className="text-Mist">0</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3.5 text-Mist font-mono">{new Date(s.created_at).toLocaleDateString('vi-VN')}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -824,46 +987,62 @@ export default function ReportsPage() {
             )}
 
             {reportScope !== 'suppliers' && (
-              <div className="bg-white rounded-xl border border-Mist/20 p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-extrabold text-Pine">
-                    Bảng 2: Danh sách Chi tiết Cảnh báo Vi phạm ({filteredViolations.length} bản ghi)
-                  </h3>
-                  <Link to="/violations" className="text-xs font-extrabold text-Pine hover:underline">
-                    Trung tâm thẩm định →
+              <div className="bg-white rounded-2xl border border-Mist/25 p-5 sm:p-6 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-Mist/15">
+                  <div>
+                    <h3 className="text-sm font-black text-Pine font-sans flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-Berry" />
+                      Bảng 2: Danh sách Chi tiết Cảnh báo Vi phạm ({filteredViolations.length} bản ghi)
+                    </h3>
+                    <p className="text-xs text-Branch/75 mt-0.5 font-medium">
+                      Danh sách các điểm rủi ro và điều khoản vi phạm được AI RAG bóc tách từ hợp đồng PDF.
+                    </p>
+                  </div>
+                  <Link
+                    to="/violations"
+                    className="text-xs font-bold text-Pine hover:text-Berry transition-colors inline-flex items-center gap-1 self-start sm:self-center flex-shrink-0"
+                  >
+                    <span>Trung tâm thẩm định</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
                   </Link>
                 </div>
+
                 {filteredViolations.length === 0 ? (
-                  <EmptyState message="Không có cảnh báo vi phạm nào khớp với bộ lọc thời gian" />
+                  <EmptyState message="Không có cảnh báo vi phạm nào khớp với bộ lọc thời gian và điều kiện đã chọn" />
                 ) : (
-                  <div className="overflow-x-auto rounded-2xl border border-Mist/25">
-                    <table className="min-w-full text-xs divide-y divide-Mist/15">
-                      <thead className="bg-Pine text-white">
+                  <div className="overflow-x-auto rounded-xl border border-Mist/20">
+                    <table className="min-w-full text-xs divide-y divide-Mist/15 min-w-[700px]">
+                      <thead className="bg-Pine text-white font-extrabold uppercase tracking-wider text-[11px]">
                         <tr>
-                          <th className="px-4 py-3 text-left font-bold">Đối tác / Hợp đồng</th>
-                          <th className="px-4 py-3 text-left font-bold">Tiêu chuẩn</th>
-                          <th className="px-4 py-3 text-left font-bold">Mức độ</th>
-                          <th className="px-4 py-3 text-left font-bold">Trạng thái</th>
-                          <th className="px-4 py-3 text-left font-bold">Mô tả vi phạm</th>
-                          <th className="px-4 py-3 text-center font-bold">Kiểm toán</th>
+                          <th className="px-4 py-3 text-left">Đối tác / Hợp đồng</th>
+                          <th className="px-4 py-3 text-left">Tiêu chuẩn RBA / VN</th>
+                          <th className="px-4 py-3 text-left">Mức rủi ro</th>
+                          <th className="px-4 py-3 text-left">Trạng thái thẩm định</th>
+                          <th className="px-4 py-3 text-left">Mô tả tóm tắt vi phạm</th>
+                          <th className="px-4 py-3 text-center">Kiểm toán</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-Mist/15">
+                      <tbody className="divide-y divide-Mist/15 font-medium text-Branch">
                         {filteredViolations.map((v) => (
-                          <tr key={v.id} className="hover:bg-Snowflake/40">
+                          <tr key={v.id} className="hover:bg-Snowflake/40 transition-colors">
                             <td className="px-4 py-3">
                               <p className="font-bold text-Pine">{v.Documents?.Suppliers?.company_name || '—'}</p>
-                              <p className="text-[11px] text-Mist">{v.Documents?.file_name}</p>
+                              <p className="text-[11px] text-Mist font-mono">{v.Documents?.file_name}</p>
                             </td>
-                            <td className="px-4 py-3 font-mono font-bold text-Pine">{v.Standards?.standard_code || '—'}</td>
+                            <td className="px-4 py-3">
+                              <span className="font-mono font-bold text-Pine block">{v.Standards?.standard_code || '—'}</span>
+                              <span className="text-[11px] text-Branch/75 line-clamp-1">{v.Standards?.name}</span>
+                            </td>
                             <td className="px-4 py-3"><StatusBadge status={v.risk_level} /></td>
                             <td className="px-4 py-3"><StatusBadge status={v.status} /></td>
-                            <td className="px-4 py-3 text-Branch max-w-xs truncate">{v.violation_desc}</td>
+                            <td className="px-4 py-3 text-Branch max-w-xs truncate" title={v.violation_desc}>
+                              {v.violation_desc}
+                            </td>
                             <td className="px-4 py-3 text-center">
                               {v.Documents?.id && (
                                 <Link
                                   to={`/audit/${v.Documents.id}`}
-                                  className="inline-flex items-center justify-center p-1.5 rounded-xl bg-Snowflake text-Pine hover:bg-Pine hover:text-white transition-colors border border-Mist/20"
+                                  className="inline-flex items-center justify-center p-2 rounded-xl bg-Snowflake text-Pine hover:bg-Pine hover:text-white transition-all border border-Mist/25 shadow-xs"
                                   title="Mở Phòng Kiểm toán Split-view"
                                 >
                                   <ExternalLink className="w-3.5 h-3.5" />

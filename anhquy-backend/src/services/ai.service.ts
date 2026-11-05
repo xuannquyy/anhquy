@@ -226,6 +226,16 @@ function normalizeGeminiResponse(rawParsed: unknown): GeminiResponse {
   return { findings: [] };
 }
 
+export interface CallGeminiResult {
+  findings: GeminiViolationFinding[];
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    totalTokenCount?: number;
+  };
+  modelName: string;
+}
+
 // ─── Bước 3 & 4: Đóng gói ngữ cảnh RAG & Gọi Gemini LLM ──────────────────────
 
 const callGeminiWithRagChunks = async (
@@ -240,7 +250,7 @@ const callGeminiWithRagChunks = async (
   }>,
   modelName: string,
   strictMode: boolean
-): Promise<GeminiViolationFinding[]> => {
+): Promise<CallGeminiResult> => {
   // ── Ưu tiên 1: Đọc GEMINI_API_KEY từ bảng System_Configs (được Admin quản lý) ──
   // ── Ưu tiên 2: Fallback về process.env.GEMINI_API_KEY từ file .env ────────────
   const configMap = await getSystemConfigMap();
@@ -311,6 +321,7 @@ Trả về JSON theo đúng cấu trúc sau:
 
   let rawText = "";
   let selectedModel = modelName;
+  let usageMetadata: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | undefined;
 
   const generate = async (candidate: string): Promise<string> => {
     const startedAt = Date.now();
@@ -325,6 +336,13 @@ Trả về JSON theo đúng cấu trúc sau:
         },
       });
       const text = response.text ?? "";
+      if (response.usageMetadata) {
+        usageMetadata = {
+          promptTokenCount: response.usageMetadata.promptTokenCount,
+          candidatesTokenCount: response.usageMetadata.candidatesTokenCount,
+          totalTokenCount: response.usageMetadata.totalTokenCount,
+        };
+      }
       console.info(`[AI Service] Gemini generateContent hoàn tất trong ${Date.now() - startedAt} ms.`);
       if (!text.trim()) throw makeError("AI không trả về nội dung phân tích.", 502);
       return text;
@@ -368,7 +386,7 @@ Trả về JSON theo đúng cấu trúc sau:
   // normalizeGeminiResponse xử lý cả 3 dạng: array, object đơn, chuẩn {findings:[]}
   const parsed = normalizeGeminiResponse(rawParsed);
 
-  return parsed.findings;
+  return { findings: parsed.findings, usageMetadata, modelName: selectedModel };
 };
 
 // ─── Hàm nội bộ: Toàn bộ pipeline RAG + LLM chạy nền ────────────────────────
@@ -380,10 +398,14 @@ const _runAiScanBackground = async (
   documentId: number,
   userId: number,
   storagePath: string,
-  categoryId: number
+  categoryId: number,
+  logId: number,
+  analysisStartedAt: Date
 ): Promise<void> => {
-  const jobStartedAt = Date.now();
-  console.info(`[AI Background] Bắt đầu pipeline RAG+LLM cho document #${documentId}.`);
+  const jobStartedAt = analysisStartedAt.getTime();
+  console.info(`[AI Background] Bắt đầu pipeline RAG+LLM cho document #${documentId} (Log #${logId}).`);
+
+  let appliedModelName = "gemini-2.5-flash";
 
   try {
     const filePath = path.join(process.cwd(), storagePath);
@@ -395,7 +417,7 @@ const _runAiScanBackground = async (
     const configMap = await getSystemConfigMap();
     const maskingEnabled = configMap["DATA_MASKING_ENABLED"] !== "false";
     const dbModelName = configMap["AI_MODEL_NAME"]?.trim();
-    const modelName = (dbModelName && dbModelName !== "") ? dbModelName : "gemini-2.5-flash";
+    appliedModelName = (dbModelName && dbModelName !== "") ? dbModelName : "gemini-2.5-flash";
     const strictMode = configMap["AI_STRICT_RULE_MODE"] !== "false";
 
     // BƯỚC 1: Smart Chunking + Data Masking
@@ -414,10 +436,30 @@ const _runAiScanBackground = async (
     // Lọc bộ tiêu chuẩn động
     const activeStandards = await getActiveStandardsForScan(userId, categoryId);
     if (activeStandards.length === 0) {
-      await prisma.documents.update({
-        where: { id: documentId },
-        data: { status: "Analyzed", last_analyzed_at: new Date(), updated_at: new Date() },
-      });
+      const completedAt = new Date();
+      const durationMs = completedAt.getTime() - jobStartedAt;
+      await prisma.$transaction([
+        prisma.documents.update({
+          where: { id: documentId },
+          data: {
+            status: "Analyzed",
+            last_analyzed_at: completedAt,
+            analysis_completed_at: completedAt,
+            last_error_code: null,
+            last_error_message: null,
+            updated_at: completedAt,
+          },
+        }),
+        prisma.aI_Analysis_Logs.update({
+          where: { id: logId },
+          data: {
+            status: "Success",
+            model_name: appliedModelName,
+            completed_at: completedAt,
+            duration_ms: durationMs,
+          },
+        }),
+      ]);
       console.info(`[AI Background] Document #${documentId}: không có tiêu chuẩn → Analyzed.`);
       return;
     }
@@ -429,12 +471,16 @@ const _runAiScanBackground = async (
     console.info(`[AI Background] RAG: ${relevantChunks.length}/${allChunks.length} đoạn trong ${Date.now() - ragStartedAt} ms.`);
 
     // BƯỚC 3 & 4: Gọi Gemini LLM
-    const findings = await callGeminiWithRagChunks(
+    const geminiResult = await callGeminiWithRagChunks(
       relevantChunks,
       activeStandards,
-      modelName,
+      appliedModelName,
       strictMode
     );
+
+    const findings = geminiResult.findings;
+    const usageMetadata = geminiResult.usageMetadata;
+    appliedModelName = geminiResult.modelName || appliedModelName;
 
     // BƯỚC 5: Lưu kết quả vào DB
     const validStandardIds = new Set(activeStandards.map((s) => s.id));
@@ -455,6 +501,9 @@ const _runAiScanBackground = async (
           : f.recommendation,
       }));
 
+    const completedAt = new Date();
+    const durationMs = completedAt.getTime() - jobStartedAt;
+
     await prisma.$transaction([
       prisma.violations.deleteMany({
         where: { document_id: documentId, status: "Pending" },
@@ -473,29 +522,86 @@ const _runAiScanBackground = async (
           },
         })
       ),
+      prisma.documents.update({
+        where: { id: documentId },
+        data: {
+          status: "Analyzed",
+          last_analyzed_at: completedAt,
+          analysis_completed_at: completedAt,
+          last_error_code: null,
+          last_error_message: null,
+          updated_at: completedAt,
+        },
+      }),
+      prisma.aI_Analysis_Logs.update({
+        where: { id: logId },
+        data: {
+          status: "Success",
+          model_name: appliedModelName,
+          completed_at: completedAt,
+          duration_ms: durationMs,
+          input_tokens: usageMetadata?.promptTokenCount ?? null,
+          output_tokens: usageMetadata?.candidatesTokenCount ?? null,
+          total_tokens: usageMetadata?.totalTokenCount ?? null,
+        },
+      }),
     ]);
 
-    await prisma.documents.update({
-      where: { id: documentId },
-      data: {
-        status: "Analyzed",
-        last_analyzed_at: new Date(),
-        updated_at: new Date(),
-      },
-    });
-
-    const elapsed = ((Date.now() - jobStartedAt) / 1000).toFixed(1);
+    const elapsed = (durationMs / 1000).toFixed(1);
     console.info(`[AI Background] Document #${documentId} → Analyzed. ${violationsToCreate.length} vi phạm lưu thành công (${elapsed}s).`);
   } catch (error) {
-    const elapsed = ((Date.now() - jobStartedAt) / 1000).toFixed(1);
+    const completedAt = new Date();
+    const durationMs = completedAt.getTime() - jobStartedAt;
     const msg = error instanceof Error ? error.message : String(error);
+    const elapsed = (durationMs / 1000).toFixed(1);
     console.error(`[AI Background] Document #${documentId} → Error sau ${elapsed}s: ${msg}`);
 
-    // Ghi trạng thái "Error" vào DB để frontend polling dừng lại
+    // Phân loại mã lỗi chuẩn xác theo SQA Diagnostic Rules
+    let errorCode = "UNKNOWN_ERROR";
+    const status = getGeminiHttpStatus(error);
+    if (msg.includes("PDF") || msg.includes("ảnh scan") || msg.includes("storagePath") || msg.includes("Trích xuất PDF")) {
+      errorCode = "PDF_EXTRACTION_ERROR";
+    } else if (msg.includes("Chroma") || msg.includes("RAG") || msg.includes("Embedding") || msg.includes("retrieve")) {
+      errorCode = "RAG_RETRIEVAL_ERROR";
+    } else if (status === 401 || status === 403 || /api.?key|permission_denied/i.test(msg)) {
+      errorCode = "GEMINI_AUTH_ERROR";
+    } else if (status === 429 || /resource_exhausted|quota|rate.?limit/i.test(msg)) {
+      errorCode = "GEMINI_QUOTA_ERROR";
+    } else if (/timeout|timed out|ETIMEDOUT|ECONNRESET/i.test(msg)) {
+      errorCode = "GEMINI_TIMEOUT";
+    } else if (msg.includes("JSON") || msg.includes("parse") || msg.includes("format")) {
+      errorCode = "GEMINI_RESPONSE_ERROR";
+    } else if (msg.includes("prisma") || msg.includes("database") || msg.includes("SQL")) {
+      errorCode = "DATABASE_ERROR";
+    }
+
+    // Ghi nhận log thất bại vào AI_Analysis_Logs & cập nhật Documents
+    await prisma.aI_Analysis_Logs
+      .update({
+        where: { id: logId },
+        data: {
+          status: "Failed",
+          model_name: appliedModelName,
+          completed_at: completedAt,
+          duration_ms: durationMs,
+          error_code: errorCode,
+          error_message: msg.slice(0, 1000),
+        },
+      })
+      .catch((logErr: unknown) => {
+        console.error(`[AI Background] Không thể cập nhật AI_Analysis_Logs #${logId}:`, logErr);
+      });
+
     await prisma.documents
       .update({
         where: { id: documentId },
-        data: { status: "Error", updated_at: new Date() },
+        data: {
+          status: "Error",
+          analysis_completed_at: completedAt,
+          last_error_code: errorCode,
+          last_error_message: msg.slice(0, 1000),
+          updated_at: completedAt,
+        },
       })
       .catch((dbErr: unknown) => {
         const dbMsg = dbErr instanceof Error ? dbErr.message : String(dbErr);
@@ -505,12 +611,6 @@ const _runAiScanBackground = async (
 };
 
 // ─── Service chính (exported): Validate → Set "Analyzing" → Fire-and-Forget ──
-//
-// THIẾT KẾ QUAN TRỌNG:
-//   Hàm này trả về NGAY LẬP TỨC sau khi validate và set status "Analyzing".
-//   Toàn bộ pipeline AI nặng được khởi động dưới dạng background job (không await).
-//   Controller sẽ nhận kết quả này và trả về HTTP 202 Accepted cho client.
-//   Client (frontend) thực hiện polling GET /documents/:id để theo dõi tiến trình.
 export const runAiScanService = async (
   documentId: number,
   userId: number
@@ -529,20 +629,37 @@ export const runAiScanService = async (
   if (document.status === "Analyzing")
     throw makeError("Hợp đồng đang được phân tích, vui lòng chờ.", 409);
 
-  // ── Đánh dấu "Analyzing" vào DB — đây là điểm đồng bộ duy nhất ──────────
+  const now = new Date();
+
+  // ── Đánh dấu "Analyzing" vào DB & Tạo bản ghi AI_Analysis_Logs ───────────
   await prisma.documents.update({
     where: { id: documentId },
-    data: { status: "Analyzing", updated_at: new Date() },
+    data: {
+      status: "Analyzing",
+      analysis_started_at: now,
+      last_error_code: null,
+      last_error_message: null,
+      updated_at: now,
+    },
+  });
+
+  const analysisLog = await prisma.aI_Analysis_Logs.create({
+    data: {
+      document_id: documentId,
+      model_name: "gemini-2.5-flash",
+      status: "Started",
+      started_at: now,
+    },
   });
 
   // ── Fire-and-forget: khởi chạy pipeline nền, KHÔNG await ─────────────────
-  // Node.js event loop tiếp tục phục vụ request khác trong khi pipeline chạy.
-  // Mọi lỗi trong pipeline đều được bắt bên trong _runAiScanBackground().
   void _runAiScanBackground(
     documentId,
     userId,
     document.storage_url,
-    document.category_id
+    document.category_id,
+    analysisLog.id,
+    now
   );
 
   return {

@@ -13,6 +13,7 @@ import violationRouter from "./routes/violation.route";
 import adminRouter from "./routes/admin.route";
 import dashboardRouter from "./routes/dashboard.route";
 import { searchRouter } from "./routes/search.route";
+import sqaRouter from "./routes/sqa.route";
 import { cleanupOldAuditLogsService } from './services/admin.service';
 
 
@@ -61,6 +62,9 @@ app.use("/api/admin", adminRouter);
 
 /** Module Tìm kiếm toàn cục (Global Search) */
 app.use("/api/search", searchRouter);
+
+/** Module SQA & AI Quality Control Center */
+app.use("/api/sqa", sqaRouter);
 
 /** Health check */
 app.get("/api/health", (_req, res) => {

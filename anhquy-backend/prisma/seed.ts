@@ -88,6 +88,7 @@ async function main() {
     { permission_code: 'MANAGE_ROLES', permission_name: 'Quản lý vai trò và phân quyền hệ thống' },
     { permission_code: 'MANAGE_SYSTEM_CONFIGS', permission_name: 'Cấu hình tham số hệ thống và ngưỡng rủi ro' },
     { permission_code: 'VIEW_AUDIT_LOGS', permission_name: 'Xem nhật ký kiểm toán hệ thống (Audit Logs)' },
+    { permission_code: 'VIEW_SQA', permission_name: 'Xem trung tâm giám sát chất lượng AI và chẩn đoán SQA' },
   ];
 
   // Quyền của Quản lý (Manager)
@@ -747,7 +748,7 @@ async function main() {
       contact_email: 'contact@hoanmy-tech.vn',
       contact_phone: '0938776655',
       address: 'Số 124 Điện Biên Phủ, Phường 15, Quận Bình Thạnh, TP. Hồ Chí Minh',
-      risk_score: 85,
+      risk_score: 100,
     },
     {
       company_name: 'CÔNG TY TNHH HÓA CHẤT & BAO BÌ ĐẠI NAM',
@@ -756,7 +757,7 @@ async function main() {
       contact_email: 'contact@dainampack.vn',
       contact_phone: '0913445566',
       address: 'Đường số 3, KCN Biên Hòa 2, Phường An Bình, TP. Biên Hòa, Đồng Nai',
-      risk_score: 45,
+      risk_score: 100,
     },
     {
       company_name: 'CÔNG TY CỔ PHẦN DỆT MAY XUẤT KHẨU HOÀNG GIA',
@@ -765,7 +766,7 @@ async function main() {
       contact_email: 'hr@hoanggiatextile.vn',
       contact_phone: '02513889900',
       address: 'Đường số 5, KCN Amata, Phường Long Bình, TP. Biên Hòa, Đồng Nai',
-      risk_score: 55,
+      risk_score: 100,
     },
     {
       company_name: 'CÔNG TY CỔ PHẦN KHOÁNG SẢN & LINH KIỆN BẮC VIỆT',
@@ -774,7 +775,7 @@ async function main() {
       contact_email: 'info@bacviet-semicon.vn',
       contact_phone: '0945112233',
       address: 'Khu công nghiệp Bắc Thăng Long, TP. Hà Nội',
-      risk_score: 40,
+      risk_score: 100,
     },
     {
       company_name: 'CÔNG TY TNHH VẬT LIỆU XÂY DỰNG THÉP MIỀN NAM',
@@ -783,7 +784,7 @@ async function main() {
       contact_email: 'sales@thepmiennam.com.vn',
       contact_phone: '02543889900',
       address: 'Khu công nghiệp Phú Mỹ 1, Thị xã Phú Mỹ, Tỉnh Bà Rịa - Vũng Tàu',
-      risk_score: 95,
+      risk_score: 100,
     },
     {
       company_name: 'CÔNG TY TNHH MAY MẶC PHONG PHÚ',
@@ -792,7 +793,7 @@ async function main() {
       contact_email: 'contact@phongphutextile.vn',
       contact_phone: '02838383838',
       address: 'Đường Tăng Nhơn Phú, Phường Phước Long B, TP. Thủ Đức, TP. Hồ Chí Minh',
-      risk_score: 88,
+      risk_score: 100,
     },
     {
       company_name: 'CÔNG TY CỔ PHẦN BÁN DẪN SÀI GÒN (SGS)',
@@ -801,7 +802,7 @@ async function main() {
       contact_email: 'info@saigonsemi.com',
       contact_phone: '02837776666',
       address: 'Lô T2, Đường D1, Khu Công Nghệ Cao, TP. Thủ Đức, TP. Hồ Chí Minh',
-      risk_score: 92,
+      risk_score: 100,
     },
     {
       company_name: 'CÔNG TY TNHH NHỰA & BAO BÌ BÌNH MINH SÁNG',
@@ -810,7 +811,7 @@ async function main() {
       contact_email: 'sales@binhminhplastic.vn',
       contact_phone: '02743777888',
       address: 'KCN Sóng Thần 2, Dĩ An, Bình Dương',
-      risk_score: 78,
+      risk_score: 100,
     },
     {
       company_name: 'CÔNG TY CỔ PHẦN LOGISTICS VẬN TẢI MIỀN ĐÔNG',
@@ -819,7 +820,7 @@ async function main() {
       contact_email: 'dispatch@miendonglogistics.vn',
       contact_phone: '02513666777',
       address: 'Quốc lộ 51, Phường Long Bình Tân, TP. Biên Hòa, Đồng Nai',
-      risk_score: 82,
+      risk_score: 100,
     },
     {
       company_name: 'CÔNG TY TNHH ĐIỆN TỬ VIỄN THÔNG VN-SING',
@@ -828,7 +829,7 @@ async function main() {
       contact_email: 'support@vnsing-tech.com',
       contact_phone: '02743555444',
       address: 'KCN VSIP 2, Phường Hòa Phú, TP. Thủ Dầu Một, Bình Dương',
-      risk_score: 90,
+      risk_score: 100,
     },
     {
       company_name: 'CÔNG TY CỔ PHẦN DA GIÀY BIÊN HÒA',
@@ -837,7 +838,7 @@ async function main() {
       contact_email: 'hr@bienhoashoes.vn',
       contact_phone: '02513555111',
       address: 'Khu công nghiệp Biên Hòa 1, TP. Biên Hòa, Đồng Nai',
-      risk_score: 65,
+      risk_score: 100,
     },
     {
       company_name: 'CÔNG TY TNHH BAO BÌ GIẤY TÂN BÌNH',
@@ -846,7 +847,7 @@ async function main() {
       contact_email: 'contact@tanbinhpaper.vn',
       contact_phone: '02838111222',
       address: 'Khu công nghiệp Tân Bình, Quận Tân Phú, TP. Hồ Chí Minh',
-      risk_score: 80,
+      risk_score: 100,
     },
     {
       company_name: 'CÔNG TY TNHH DỊCH VỤ BẢO VỆ AN NINH LONG BÌNH',
@@ -855,7 +856,7 @@ async function main() {
       contact_email: 'security@longbinhsec.vn',
       contact_phone: '02513444333',
       address: 'Đường Bùi Văn Hòa, Phường Long Bình, TP. Biên Hòa, Đồng Nai',
-      risk_score: 70,
+      risk_score: 100,
     },
     {
       company_name: 'CÔNG TY CỔ PHẦN KHO BÃI NGOẠI QUAN ĐỒNG NAI',
@@ -864,7 +865,7 @@ async function main() {
       contact_email: 'warehouse@dn-logistics.vn',
       contact_phone: '02513222333',
       address: 'Khu công nghiệp Nhơn Trạch 3, Đồng Nai',
-      risk_score: 94,
+      risk_score: 100,
     },
     {
       company_name: 'CÔNG TY TNHH HÓA CHẤT CÔNG NGHIỆP MIỀN NAM',
@@ -873,7 +874,7 @@ async function main() {
       contact_email: 'info@southchem.com.vn',
       contact_phone: '02838999888',
       address: 'Khu chế xuất Linh Trung, TP. Thủ Đức, TP. Hồ Chí Minh',
-      risk_score: 60,
+      risk_score: 100,
     },
   ];
 
@@ -887,7 +888,6 @@ async function main() {
         contact_email: sup.contact_email,
         contact_phone: sup.contact_phone,
         address: sup.address,
-        risk_score: sup.risk_score,
       },
       create: sup,
     });
@@ -989,6 +989,75 @@ async function main() {
     }
   }
   console.log('✅ 9. Đã nạp 3 Ngưỡng rủi ro (Safe, Warning, Danger).');
+
+  // =================================================================
+  // 10. NẠP NGƯỠNG KIỂM SOÁT CHẤT LƯỢNG SQA (SQA_THRESHOLDS)
+  // =================================================================
+  const sqaThresholdsData = [
+    {
+      metric_code: 'ANALYSIS_FAILURE_RATE',
+      warning_value: 2.0,
+      critical_value: 5.0,
+      comparison_operator: '>',
+      minimum_sample_size: 20,
+      description: 'Tỷ lệ phân tích hợp đồng thất bại (> 2% cảnh báo, > 5% nghiêm trọng)',
+    },
+    {
+      metric_code: 'ANALYSIS_SUCCESS_RATE',
+      warning_value: 95.0,
+      critical_value: 90.0,
+      comparison_operator: '<',
+      minimum_sample_size: 20,
+      description: 'Tỷ lệ phân tích hợp đồng thành công (< 95% cảnh báo, < 90% nghiêm trọng)',
+    },
+    {
+      metric_code: 'HUMAN_REVIEW_COVERAGE',
+      warning_value: 80.0,
+      critical_value: 60.0,
+      comparison_operator: '<',
+      minimum_sample_size: 20,
+      description: 'Độ bao phủ xác minh của con người (< 80% cảnh báo, < 60% nghiêm trọng)',
+    },
+    {
+      metric_code: 'REJECTION_RATE',
+      warning_value: 10.0,
+      critical_value: 20.0,
+      comparison_operator: '>',
+      minimum_sample_size: 20,
+      description: 'Tỷ lệ cảnh báo bị bác bỏ (> 10% cảnh báo, > 20% nghiêm trọng)',
+    },
+    {
+      metric_code: 'EVIDENCE_COMPLETENESS',
+      warning_value: 95.0,
+      critical_value: 85.0,
+      comparison_operator: '<',
+      minimum_sample_size: 20,
+      description: 'Tỷ lệ phát hiện có bằng chứng đầy đủ (< 95% cảnh báo, < 85% nghiêm trọng)',
+    },
+    {
+      metric_code: 'STUCK_ANALYSIS_TIMEOUT_MINUTES',
+      warning_value: 10.0,
+      critical_value: 15.0,
+      comparison_operator: '>',
+      minimum_sample_size: 1,
+      description: 'Thời gian tối đa tài liệu ở trạng thái Analyzing (> 10 phút cảnh báo, > 15 phút treo)',
+    },
+  ];
+
+  for (const item of sqaThresholdsData) {
+    await prisma.sQA_Thresholds.upsert({
+      where: { metric_code: item.metric_code },
+      update: {
+        warning_value: item.warning_value,
+        critical_value: item.critical_value,
+        comparison_operator: item.comparison_operator,
+        minimum_sample_size: item.minimum_sample_size,
+        description: item.description,
+      },
+      create: item,
+    });
+  }
+  console.log('✅ 10. Đã nạp 6 Ngưỡng kiểm soát chất lượng SQA (SQA_Thresholds).');
   console.log('🎉 HOÀN TẤT SEED DATABASE! Toàn bộ dữ liệu gốc đã sẵn sàng 100%.');
 }
 
