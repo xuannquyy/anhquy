@@ -4,6 +4,34 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
+  console.log('🧹 Đang dọn dẹp toàn bộ dữ liệu cũ trong Database theo thứ tự chuẩn...');
+
+  // 1. Xóa các bảng phụ thuộc nhiều khóa ngoại nhất trước (Bảng con)
+  await prisma.violations.deleteMany({});
+  await prisma.audit_Logs.deleteMany({});
+  await prisma.user_Excluded_Standards.deleteMany({});
+  await prisma.documents.deleteMany({});
+  
+  // 2. Xóa các bảng liên trung gian và danh mục cấp trung
+  await prisma.category_Standards.deleteMany({});
+  await prisma.suppliers.deleteMany({});
+  
+  // 3. Xóa các bảng tiêu chuẩn và danh mục gốc
+  await prisma.standards.deleteMany({});
+  await prisma.standard_Groups.deleteMany({});
+  await prisma.categories.deleteMany({});
+
+  // 4. Xóa phân quyền và người dùng
+  await prisma.role_Permissions.deleteMany({});
+  await prisma.users.deleteMany({});
+  await prisma.roles.deleteMany({});
+  await prisma.permissions.deleteMany({});
+
+  // 5. Xóa cấu hình và ngưỡng rủi ro hệ thống
+  await prisma.system_Configs.deleteMany({});
+  await prisma.risk_Thresholds.deleteMany({});
+
+  console.log('✨ Đã làm sạch toàn bộ Database thành công! Bắt đầu nạp dữ liệu mẫu mới...');
   console.log('🚀 Bắt đầu nạp toàn bộ dữ liệu mẫu (Master Data) vào SQL Server...');
 
   // =================================================================

@@ -23,7 +23,7 @@ import AdminConfigsPage      from './pages/admin/AdminConfigsPage'
 import AdminAuditLogsPage    from './pages/admin/AdminAuditLogsPage'
 import ContractSummaryPage    from './pages/ContractSummaryPage'
 import { ForbiddenPage, NotFoundPage } from './pages/ErrorPages'
-import EvaluationAnalyticsPage from './pages/EvaluationAnalyticsPage';
+import SystemPerformancePage from './pages/SystemPerformancePage';
 
 export default function App() {
   return (
@@ -175,7 +175,14 @@ export default function App() {
             <Route path="/audit/:id/summary" element={<ProtectedRoute><ContractSummaryPage /></ProtectedRoute>} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<NotFoundPage />} />
-            <Route path="/evaluation-analytics" element={<EvaluationAnalyticsPage />} />
+            <Route
+              path="/system-performance"
+              element={
+                <ProtectedRoute permission="VIEW_SQA">
+                  <SystemPerformancePage />
+                </ProtectedRoute>
+              }
+            />
           </Routes>
         </RealtimeProvider>
       </BrowserRouter>

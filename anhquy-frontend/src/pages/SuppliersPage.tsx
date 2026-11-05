@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import {
   Plus, Search, Edit2, Trash2, RotateCcw, Lock, Building2,
   Eye, FileText, Mail, Phone, MapPin, ExternalLink, Ban,
-  Download, ShieldCheck, AlertTriangle
+  Download, ShieldCheck, AlertTriangle, Zap, ShieldAlert
 } from 'lucide-react'
 import { MainLayout } from '../components/MainLayout'
 import { ConfirmModal, Modal, Pagination, RiskScoreBar, StatusBadge, Spinner, EmptyState } from '../components/ui'
@@ -65,6 +65,7 @@ export default function SuppliersPage() {
   const canRestore = role === 'Admin' || role === 'Manager'
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [allSuppliersForStats, setAllSuppliersForStats] = useState<Supplier[]>([])
   const [industries, setIndustries] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
@@ -76,6 +77,9 @@ export default function SuppliersPage() {
   const [filterRiskLevel, setFilterRiskLevel] = useState<'' | 'Safe' | 'Warning' | 'Danger'>('')
   const [sortBy, setSortBy]                 = useState<'default' | 'risk_asc' | 'risk_desc'>('default')
   const [statusTab, setStatusTab]           = useState<'all' | 'active' | 'deleted'>('all')
+
+  // State cho Card bộ lọc tương tác ở đầu trang
+  const [summaryFilter, setSummaryFilter] = useState<'all' | 'safe' | 'risk'>('all')
 
   const [modalOpen, setModalOpen]           = useState(false)
   const [editTarget, setEditTarget]         = useState<Supplier | null>(null)
@@ -97,6 +101,35 @@ export default function SuppliersPage() {
       .catch(() => {})
   }, [])
 
+  const fetchAllSuppliersForStats = useCallback(async () => {
+    try {
+      const [activeRes, deletedRes, approvedViolsRes] = await Promise.all([
+        supplierApi.getAll({ limit: 1000, is_deleted: false }).catch(() => null),
+        supplierApi.getAll({ limit: 1000, is_deleted: true }).catch(() => null),
+        violationApi.getAll({ status: 'Approved', limit: 1000 }).catch(() => null),
+      ])
+      const activeItems = (activeRes?.data?.data || activeRes?.data || {}).items || []
+      const deletedItems = (deletedRes?.data?.data || deletedRes?.data || {}).items || []
+      const approvedViolsList = (approvedViolsRes?.data?.data || approvedViolsRes?.data || {}).items || []
+
+      const calculateScore = (s: Supplier) => {
+        const matched = approvedViolsList.filter(
+          (v: any) => v.Documents?.Suppliers?.id === s.id || v.Documents?.Suppliers?.company_name === s.company_name
+        )
+        const penalty = matched.reduce((sum: number, v: any) => sum + (v.risk_level === 'High' ? 10 : v.risk_level === 'Medium' ? 5 : 2), 0)
+        return Math.max(0, 100 - penalty)
+      }
+
+      const merged = [...activeItems, ...deletedItems].map((s: Supplier) => ({
+        ...s,
+        risk_score: calculateScore(s),
+      }))
+      setAllSuppliersForStats(merged)
+    } catch {}
+  }, [])
+
+  useEffect(() => { fetchAllSuppliersForStats() }, [fetchAllSuppliersForStats])
+
   const fetchSuppliers = useCallback(async () => {
     setLoading(true)
     try {
@@ -104,7 +137,14 @@ export default function SuppliersPage() {
       if (search.trim()) baseParams.search = search.trim()
       if (filterIndustry) baseParams.industry_id = filterIndustry
 
-      // Lấy danh sách vi phạm Đã phê duyệt (Approved) hiện hành để tính điểm chính xác 100%
+      // ─── BỔ SUNG TRUYỀN THAM SỐ LỌC ĐIỂM XUỐNG BACKEND ───
+      if (summaryFilter === 'safe') {
+        baseParams.min_score = 80
+      } else if (summaryFilter === 'risk') {
+        baseParams.max_score = 79
+      }
+      // ─────────────────────────────────────────────────────
+
       const approvedViolsRes = await violationApi.getAll({ status: 'Approved', limit: 1000 }).catch(() => null)
       const approvedViolsData = approvedViolsRes?.data?.data || approvedViolsRes?.data || {}
       const approvedViolsList: Array<{
@@ -163,13 +203,22 @@ export default function SuppliersPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, limit, search, filterIndustry, statusTab])
+  }, [page, limit, search, filterIndustry, statusTab, summaryFilter]) // Đã thêm summaryFilter vào dependencies
 
   useEffect(() => { fetchSuppliers() }, [fetchSuppliers])
 
-  // Lọc theo Ngưỡng rủi ro & Sắp xếp tự động nhưng luôn giữ dòng xóa mềm ở dưới đáy
+  // Lọc theo Card tổng quan tương tác và bộ lọc rủi ro
   const displayedSuppliers = useMemo(() => {
-    const filtered = suppliers.filter((s) => {
+    // 1. Lọc theo Card tổng quan ở đầu trang (summaryFilter)
+    let filtered = suppliers.filter((s) => {
+      const score = s.risk_score ?? 100
+      if (summaryFilter === 'safe') return score >= 80
+      if (summaryFilter === 'risk') return score < 80
+      return true // 'all'
+    })
+
+    // 2. Lọc theo Dropdown chọn ngưỡng rủi ro phụ (filterRiskLevel)
+    filtered = filtered.filter((s) => {
       if (!filterRiskLevel) return true
       return getRiskStatus(s.risk_score) === filterRiskLevel
     })
@@ -184,7 +233,7 @@ export default function SuppliersPage() {
     }
 
     return [...activeList, ...deletedList]
-  }, [suppliers, filterRiskLevel, sortBy])
+  }, [suppliers, summaryFilter, filterRiskLevel, sortBy])
 
   const openDetail = async (s: Supplier) => {
     setDetailSupplier(s)
@@ -193,9 +242,10 @@ export default function SuppliersPage() {
     try {
       const res = await supplierApi.getById(s.id)
       const fullData = res.data?.supplier || res.data?.data || res.data
-      if (fullData) setDetailSupplier(fullData as Supplier)
+      if (fullData) {
+        setDetailSupplier({ ...(fullData as Supplier), risk_score: s.risk_score })
+      }
     } catch {
-      // Giữ thông tin cơ bản
     } finally {
       setDetailLoading(false)
     }
@@ -240,6 +290,7 @@ export default function SuppliersPage() {
       }
       setModalOpen(false)
       fetchSuppliers()
+      fetchAllSuppliersForStats()
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }
       toast.error(e?.response?.data?.message || 'Lưu thất bại.')
@@ -255,6 +306,7 @@ export default function SuppliersPage() {
       toast.success(`Đã xóa mềm đối tác "${confirmDelete.company_name}".`)
       setConfirmDelete(null)
       fetchSuppliers()
+      fetchAllSuppliersForStats()
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }
       toast.error(e?.response?.data?.message || 'Xóa thất bại.')
@@ -268,6 +320,7 @@ export default function SuppliersPage() {
       toast.success(`Đã khôi phục đối tác "${confirmRestore.company_name}" hoạt động trở lại.`)
       setConfirmRestore(null)
       fetchSuppliers()
+      fetchAllSuppliersForStats()
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }
       toast.error(e?.response?.data?.message || 'Khôi phục thất bại.')
@@ -275,7 +328,8 @@ export default function SuppliersPage() {
   }
 
   const handleExportSuppliersCSV = () => {
-    const rowsHtml = displayedSuppliers
+    const dataToExport = allSuppliersForStats.length > 0 ? allSuppliersForStats : displayedSuppliers
+    const rowsHtml = dataToExport
       .map(
         (s, idx) => `
       <tr>
@@ -303,8 +357,15 @@ export default function SuppliersPage() {
     toast.success('Đã xuất danh sách nhà cung ứng ra file Excel (.xls)!')
   }
 
-  const safeCount = suppliers.filter((s) => !s.is_deleted && (s.risk_score ?? 100) >= 80).length
-  const riskCount = suppliers.filter((s) => !s.is_deleted && (s.risk_score ?? 100) < 80).length
+  // Thống kê 3 Card toàn hệ thống
+  const activeSuppliersList = (allSuppliersForStats.length > 0 ? allSuppliersForStats : suppliers).filter(s => !s.is_deleted)
+  const systemTotal = activeSuppliersList.length || total
+  const safeCount = activeSuppliersList.filter((s) => (s.risk_score ?? 100) >= 80).length
+  const riskCount = activeSuppliersList.filter((s) => (s.risk_score ?? 100) < 80).length
+
+  // Tính % cho Thanh tỷ trọng tổng hợp (Progress Bar)
+  const safePercent = systemTotal > 0 ? Math.round((safeCount / systemTotal) * 100) : 100
+  const riskPercent = systemTotal > 0 ? Math.round((riskCount / systemTotal) * 100) : 0
 
   return (
     <MainLayout breadcrumb="Đối tác Cung ứng">
@@ -341,36 +402,108 @@ export default function SuppliersPage() {
           </div>
         </div>
 
-        {/* Summary Strip */}
+        {/* 1. SUMMARY CARDS (Bấm qua lại được để lọc danh sách) */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Pine text-white flex items-center justify-center flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => { setSummaryFilter('all'); setPage(1); }}
+            className={`text-left rounded-xl border p-4 transition-all cursor-pointer flex items-center gap-3.5 ${
+              summaryFilter === 'all'
+                ? 'bg-Pine text-white border-Pine shadow-md'
+                : 'bg-white text-Pine border-white hover:border-Pine/40 shadow-sm'
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+              summaryFilter === 'all' ? 'bg-white/20 text-white' : 'bg-Pine text-white'
+            }`}>
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-Branch">Tổng hồ sơ đối tác</p>
-              <p className="text-xl font-extrabold text-Pine">{total}</p>
+              <p className={`text-xs font-bold ${summaryFilter === 'all' ? 'text-white/80' : 'text-Branch'}`}>Tổng hồ sơ đối tác</p>
+              <p className={`text-xl font-extrabold ${summaryFilter === 'all' ? 'text-white' : 'text-Pine'}`}>{systemTotal}</p>
             </div>
-          </div>
-          <div className="bg-white rounded-xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Mist text-Pine flex items-center justify-center flex-shrink-0">
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setSummaryFilter('safe'); setPage(1); }}
+            className={`text-left rounded-xl border p-4 transition-all cursor-pointer flex items-center gap-3.5 ${
+              summaryFilter === 'safe'
+                ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                : 'bg-white text-Pine border-white hover:border-emerald-400/40 shadow-sm'
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+              summaryFilter === 'safe' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'
+            }`}>
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-Branch">Đạt ngưỡng An toàn (80–100đ)</p>
-              <p className="text-xl font-extrabold text-Pine">{safeCount}</p>
+              <p className={`text-xs font-bold ${summaryFilter === 'safe' ? 'text-white/80' : 'text-Branch'}`}>Đạt ngưỡng An toàn (80–100đ)</p>
+              <p className={`text-xl font-extrabold ${summaryFilter === 'safe' ? 'text-white' : 'text-emerald-700'}`}>{safeCount}</p>
             </div>
-          </div>
-          <div className="bg-white rounded-xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Berry text-white flex items-center justify-center flex-shrink-0">
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setSummaryFilter('risk'); setPage(1); }}
+            className={`text-left rounded-xl border p-4 transition-all cursor-pointer flex items-center gap-3.5 ${
+              summaryFilter === 'risk'
+                ? 'bg-Berry text-white border-Berry shadow-md'
+                : 'bg-white text-Pine border-white hover:border-Berry/40 shadow-sm'
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+              summaryFilter === 'risk' ? 'bg-white/20 text-white' : 'bg-Berry/10 text-Berry'
+            }`}>
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-Branch">Cảnh báo & Nguy hiểm (&lt;80đ)</p>
-              <p className="text-xl font-extrabold text-Berry">{riskCount}</p>
+              <p className={`text-xs font-bold ${summaryFilter === 'risk' ? 'text-white/80' : 'text-Branch'}`}>Cảnh báo & Nguy hiểm (&lt;80đ)</p>
+              <p className={`text-xl font-extrabold ${summaryFilter === 'risk' ? 'text-white' : 'text-Berry'}`}>{riskCount}</p>
             </div>
+          </button>
+        </div>
+
+        {/* 2. BIỂU ĐỒ THANH TỶ TRỌNG TỔNG HỢP (PROGRESS BAR TỔNG HỢP) */}
+        <div className="bg-white rounded-xl border border-white p-4 shadow-sm space-y-2">
+          <div className="flex items-center justify-between text-xs font-extrabold">
+            <span className="text-Pine flex items-center gap-1.5">
+              <Zap className="w-4 h-4 text-Sunny" /> Tỷ trọng Tuân thủ RBA toàn chuỗi cung ứng
+            </span>
+            <span className="text-Branch">
+              An toàn: <strong className="text-emerald-700">{safePercent}%</strong> · Rủi ro: <strong className="text-Berry">{riskPercent}%</strong>
+            </span>
+          </div>
+          <div className="w-full h-3 bg-Snowflake rounded-full overflow-hidden flex border border-Mist/20">
+            <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${safePercent}%` }} title={`An toàn: ${safeCount} đối tác`} />
+            <div className="bg-Berry h-full transition-all duration-500" style={{ width: `${riskPercent}%` }} title={`Rủi ro: ${riskCount} đối tác`} />
           </div>
         </div>
+
+        {/* 4. KHUNG HÀNH ĐỘNG QUYẾT ĐỊNH (ACTIONABLE INSIGHTS STRIP) */}
+        {riskCount > 0 ? (
+          <div className="bg-WarnBg/60 border border-Sunny rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              <ShieldAlert className="w-4 h-4 text-Berry flex-shrink-0" />
+              <span className="font-bold text-Branch">
+                Cảnh báo: Có <strong className="text-Berry">{riskCount} đối tác</strong> dưới 80 điểm. Cần đình chỉ hoặc yêu cầu giải trình gấp!
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setSummaryFilter('risk'); setPage(1); }}
+              className="px-3 py-1.5 bg-Berry text-white font-extrabold rounded-lg hover:opacity-90 transition-all self-start sm:self-auto"
+            >
+              Xem ngay danh sách rủi ro →
+            </button>
+          </div>
+        ) : (
+          <div className="bg-SafeBg border border-SafeBorder rounded-xl p-3.5 flex items-center gap-2.5 text-xs text-SafeGreen font-bold">
+            <ShieldCheck className="w-4 h-4 flex-shrink-0" />
+            Tuyệt vời! 100% nhà cung ứng trong hệ thống đang đạt chuẩn an toàn an tâm vận hành.
+          </div>
+        )}
 
         {/* Clean Filter Tabs + Search Bar */}
         <div className="bg-white rounded-xl border border-white shadow-[0_10px_28px_rgba(39,54,63,0.06)] p-4 sm:p-5 space-y-4">
@@ -703,8 +836,8 @@ export default function SuppliersPage() {
       >
         {detailSupplier && (
           <div className="space-y-5">
-            <div className="bg-Snowflake/50 rounded-2xl p-4 border border-Mist/25">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+            <div className="bg-Snowflake/50 rounded-2xl p-4 border border-Mist/25 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <span className="text-xs text-Mist font-mono font-semibold">MST: {detailSupplier.tax_code}</span>
                   <h4 className="text-base font-extrabold text-Pine">{detailSupplier.company_name}</h4>
@@ -715,12 +848,12 @@ export default function SuppliersPage() {
                 <StatusBadge status={detailSupplier.is_deleted ? 'Error' : getRiskStatus(detailSupplier.risk_score)} />
               </div>
 
-              <div className="mb-3">
+              <div>
                 <p className="text-xs font-semibold text-Pine mb-1">Điểm tín nhiệm & Tuân thủ RBA:</p>
                 <RiskScoreBar score={detailSupplier.risk_score} />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2.5 border-t border-Mist/20 text-xs text-Branch">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2.5 border-t border-Mist/20 text-xs text-Branch">
                 <div className="flex items-center gap-1.5">
                   <Mail className="w-3.5 h-3.5 text-Pine flex-shrink-0" />
                   <span className="truncate">{detailSupplier.contact_email || 'Chưa có email'}</span>
@@ -729,10 +862,11 @@ export default function SuppliersPage() {
                   <Phone className="w-3.5 h-3.5 text-Pine flex-shrink-0" />
                   <span>{detailSupplier.contact_phone || 'Chưa có SĐT'}</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-Pine flex-shrink-0" />
-                  <span className="truncate">{detailSupplier.address || 'Chưa cập nhật địa chỉ'}</span>
-                </div>
+              </div>
+
+              <div className="flex items-start gap-1.5 pt-1.5 text-xs text-Branch">
+                <MapPin className="w-3.5 h-3.5 text-Pine flex-shrink-0 mt-0.5" />
+                <span className="whitespace-normal break-words leading-relaxed">{detailSupplier.address || 'Chưa cập nhật địa chỉ'}</span>
               </div>
             </div>
 
@@ -800,7 +934,7 @@ export default function SuppliersPage() {
                 value={form[key as keyof SupplierFormData]}
                 onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
                 placeholder={placeholder}
-                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Pine placeholder-Mist transition-all disabled:bg-Snowflake disabled:cursor-not-allowed"
+                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Branch placeholder-Mist transition-all disabled:bg-Snowflake disabled:cursor-not-allowed"
               />
             </div>
           ))}
@@ -809,7 +943,7 @@ export default function SuppliersPage() {
             <select
               value={form.industry_id}
               onChange={(e) => setForm((f) => ({ ...f, industry_id: e.target.value }))}
-              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Pine transition-all"
+              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Branch transition-all"
             >
               <option value="">-- Chọn ngành nghề --</option>
               {industries.map((ind) => (
@@ -841,9 +975,9 @@ export default function SuppliersPage() {
       {/* Confirm Soft Delete */}
       <ConfirmModal
         isOpen={!!confirmDelete}
-        title="Xác nhận xóa mềm nhà cung ứng?"
-        message={`Bạn có chắc chắn muốn chuyển đối tác "${confirmDelete?.company_name}" vào danh sách lưu trữ? Bản ghi sau khi xóa sẽ bị khóa chỉnh sửa và đẩy xuống cuối bảng.`}
-        confirmLabel="Đồng ý xóa mềm"
+        title="Xác nhận xóa nhà cung ứng?"
+        message={`Bạn có chắc chắn muốn xóa đối tác "${confirmDelete?.company_name}"`}
+        confirmLabel="Đồng ý xóa"
         variant="danger"
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(null)}

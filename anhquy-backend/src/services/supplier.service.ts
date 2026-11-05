@@ -35,6 +35,8 @@ export interface SupplierFilter {
   search?: string;
   industry_id?: number;
   is_deleted?: boolean;
+  max_score?: number; // Thêm lọc điểm tối đa (ví dụ < 80)
+  min_score?: number; // Thêm lọc điểm tối thiểu (ví dụ >= 80)
   page?: number;
   limit?: number;
 }
@@ -46,14 +48,21 @@ export interface SupplierFilter {
  * Mặc định chỉ lấy is_deleted = false.
  */
 export const getSuppliersService = async (filter: SupplierFilter) => {
-  const { search, industry_id, is_deleted = false, page = 1, limit = 20 } = filter;
+  const { search, industry_id, is_deleted = false, max_score, min_score, page = 1, limit = 20 } = filter;
   const skip = (page - 1) * limit;
 
-  const where: Prisma.SuppliersWhereInput = {
-    is_deleted,
-  };
+  const where: Prisma.SuppliersWhereInput = { is_deleted };
 
   if (industry_id !== undefined) where.industry_id = industry_id;
+  
+  // Xử lý lọc theo khoảng điểm rủi ro trực tiếp tại Database
+  if (max_score !== undefined) {
+    where.risk_score = { ...(where.risk_score as object), lte: max_score };
+  }
+  if (min_score !== undefined) {
+    where.risk_score = { ...(where.risk_score as object), gte: min_score };
+  }
+
   if (search) {
     where.OR = [
       { company_name: { contains: search } },
@@ -65,9 +74,7 @@ export const getSuppliersService = async (filter: SupplierFilter) => {
   const [items, total] = await prisma.$transaction([
     prisma.suppliers.findMany({
       where,
-      include: {
-        Categories: { select: { id: true, name: true, category_type: true } },
-      },
+      include: { Categories: { select: { id: true, name: true, category_type: true } } },
       orderBy: { created_at: "desc" },
       skip,
       take: limit,

@@ -58,6 +58,7 @@ export default function AdminUsersPage() {
   const { publishEvent } = useRealtime()
 
   const [users, setUsers] = useState<AdminUser[]>([])
+  const [allUsersForStats, setAllUsersForStats] = useState<AdminUser[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
@@ -68,6 +69,9 @@ export default function AdminUsersPage() {
   const [search, setSearch]             = useState('')
   const [roleFilter, setRoleFilter]     = useState('')
   const [statusTab, setStatusTab]       = useState<'all' | 'active' | 'locked'>('all')
+
+  // State cho Card bộ lọc tương tác ở đầu trang
+  const [summaryFilter, setSummaryFilter] = useState<'all' | 'active' | 'locked'>('all')
 
   const [modalOpen, setModalOpen]       = useState(false)
   const [editTarget, setEditTarget]     = useState<AdminUser | null>(null)
@@ -90,14 +94,26 @@ export default function AdminUsersPage() {
     }).catch(() => {})
   }, [])
 
+  // Tải toàn bộ danh sách tài khoản hệ thống để tính chính xác số liệu cho 3 Card tổng quan
+  const fetchAllUsersForStats = useCallback(async () => {
+    try {
+      const res = await adminApi.getUsers({ limit: 1000 }).catch(() => null)
+      const data = res?.data?.data || res?.data || {}
+      const items: AdminUser[] = (data as { items?: AdminUser[] })?.items || []
+      setAllUsersForStats(items)
+    } catch {}
+  }, [])
+
+  useEffect(() => { fetchAllUsersForStats() }, [fetchAllUsersForStats])
+
   const fetchUsers = useCallback(async () => {
     setLoading(true)
     try {
       const params: Record<string, string | number | boolean | undefined> = { page, limit }
       if (search.trim()) params.search = search.trim()
       if (roleFilter) params.role_id = roleFilter
-      if (statusTab === 'active') params.is_active = true
-      if (statusTab === 'locked') params.is_active = false
+      if (statusTab === 'active' || summaryFilter === 'active') params.is_active = true
+      if (statusTab === 'locked' || summaryFilter === 'locked') params.is_active = false
 
       const res = await adminApi.getUsers(params)
       const data = res.data?.data || res.data || {}
@@ -116,14 +132,13 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, limit, search, roleFilter, statusTab])
+  }, [page, limit, search, roleFilter, statusTab, summaryFilter])
 
   useEffect(() => { fetchUsers() }, [fetchUsers])
 
   const isBruteForceLocked = (u: AdminUser) =>
     !!u.locked_until && new Date(u.locked_until) > new Date()
 
-  // ─── Tính năng Gỡ khóa Brute-force & Reset bộ đếm nhập sai 1 chạm ──────────
   const handleQuickUnlockBruteForce = async (u: AdminUser) => {
     if (unlockingId === u.id) return
     setUnlockingId(u.id)
@@ -147,6 +162,7 @@ export default function AdminUsersPage() {
         message: `Tài khoản "${u.email}" đã được Quản trị viên mở khóa đăng nhập tức thì.`,
         targetUserId: u.id,
       })
+      fetchAllUsersForStats()
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }
       toast.error(e?.response?.data?.message || 'Gỡ khóa Brute-force thất bại.')
@@ -158,11 +174,11 @@ export default function AdminUsersPage() {
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
       if (roleFilter && String(u.role_id || u.Roles?.id || '') !== roleFilter) return false
-      if (statusTab === 'active' && !u.is_active) return false
-      if (statusTab === 'locked' && u.is_active && !isBruteForceLocked(u)) return false
+      if (summaryFilter === 'active' && (!u.is_active || isBruteForceLocked(u))) return false
+      if (summaryFilter === 'locked' && (u.is_active && !isBruteForceLocked(u))) return false
       return true
     })
-  }, [users, roleFilter, statusTab])
+  }, [users, roleFilter, summaryFilter])
 
   const openCreate = () => {
     setEditTarget(null)
@@ -228,6 +244,7 @@ export default function AdminUsersPage() {
       }
       setModalOpen(false)
       fetchUsers()
+      fetchAllUsersForStats()
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }
       toast.error(e?.response?.data?.message || 'Lưu thất bại.')
@@ -267,6 +284,7 @@ export default function AdminUsersPage() {
       }
       setConfirmToggle(null)
       fetchUsers()
+      fetchAllUsersForStats()
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }
       toast.error(e?.response?.data?.message || 'Thao tác thất bại.')
@@ -283,6 +301,7 @@ export default function AdminUsersPage() {
       setResetTarget(null)
       setNewPassword('')
       fetchUsers()
+      fetchAllUsersForStats()
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }
       toast.error(e?.response?.data?.message || 'Reset mật khẩu thất bại.')
@@ -291,8 +310,10 @@ export default function AdminUsersPage() {
     }
   }
 
-  const activeCount = users.filter((u) => u.is_active).length
-  const lockedCount = users.filter((u) => !u.is_active || isBruteForceLocked(u)).length
+  // Thống kê chính xác dựa trên toàn bộ dữ liệu hệ thống (allUsersForStats)
+  const systemTotalUsers = allUsersForStats.length > 0 ? allUsersForStats.length : total
+  const systemActiveCount = (allUsersForStats.length > 0 ? allUsersForStats : users).filter((u) => u.is_active && !isBruteForceLocked(u)).length
+  const systemLockedCount = (allUsersForStats.length > 0 ? allUsersForStats : users).filter((u) => !u.is_active || isBruteForceLocked(u)).length
 
   return (
     <MainLayout breadcrumb="Quản lý Tài khoản">
@@ -315,35 +336,67 @@ export default function AdminUsersPage() {
           </button>
         </div>
 
-        {/* Summary Strip */}
+        {/* 1. SUMMARY CARDS (Bấm qua lại được để lọc danh sách) */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Pine text-white flex items-center justify-center flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => { setSummaryFilter('all'); setPage(1); }}
+            className={`text-left rounded-xl border p-4 transition-all cursor-pointer flex items-center gap-3.5 ${
+              summaryFilter === 'all'
+                ? 'bg-Pine text-white border-Pine shadow-md'
+                : 'bg-white text-Pine border-white hover:border-Pine/40 shadow-sm'
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+              summaryFilter === 'all' ? 'bg-white/20 text-white' : 'bg-Pine text-white'
+            }`}>
               <Users className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-Branch">Tổng tài khoản hệ thống</p>
-              <p className="text-xl font-extrabold text-Pine">{total}</p>
+              <p className={`text-xs font-bold ${summaryFilter === 'all' ? 'text-white/80' : 'text-Branch'}`}>Tổng tài khoản hệ thống</p>
+              <p className={`text-xl font-extrabold ${summaryFilter === 'all' ? 'text-white' : 'text-Pine'}`}>{systemTotalUsers}</p>
             </div>
-          </div>
-          <div className="bg-white rounded-xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Mist text-Pine flex items-center justify-center flex-shrink-0">
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setSummaryFilter('active'); setPage(1); }}
+            className={`text-left rounded-xl border p-4 transition-all cursor-pointer flex items-center gap-3.5 ${
+              summaryFilter === 'active'
+                ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                : 'bg-white text-Pine border-white hover:border-emerald-400/40 shadow-sm'
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+              summaryFilter === 'active' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'
+            }`}>
               <UserCheck className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-Branch">Đang hoạt động</p>
-              <p className="text-xl font-extrabold text-Pine">{activeCount}</p>
+              <p className={`text-xs font-bold ${summaryFilter === 'active' ? 'text-white/80' : 'text-Branch'}`}>Đang hoạt động</p>
+              <p className={`text-xl font-extrabold ${summaryFilter === 'active' ? 'text-white' : 'text-emerald-700'}`}>{systemActiveCount}</p>
             </div>
-          </div>
-          <div className="bg-white rounded-xl border border-white p-4 shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-Berry text-white flex items-center justify-center flex-shrink-0">
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setSummaryFilter('locked'); setPage(1); }}
+            className={`text-left rounded-xl border p-4 transition-all cursor-pointer flex items-center gap-3.5 ${
+              summaryFilter === 'locked'
+                ? 'bg-Berry text-white border-Berry shadow-md'
+                : 'bg-white text-Pine border-white hover:border-Berry/40 shadow-sm'
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+              summaryFilter === 'locked' ? 'bg-white/20 text-white' : 'bg-Berry/10 text-Berry'
+            }`}>
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-Branch">Đã khóa / Brute-force</p>
-              <p className="text-xl font-extrabold text-Berry">{lockedCount}</p>
+              <p className={`text-xs font-bold ${summaryFilter === 'locked' ? 'text-white/80' : 'text-Branch'}`}>Đã khóa / Brute-force</p>
+              <p className={`text-xl font-extrabold ${summaryFilter === 'locked' ? 'text-white' : 'text-Berry'}`}>{systemLockedCount}</p>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Filter Bar + Table Card */}

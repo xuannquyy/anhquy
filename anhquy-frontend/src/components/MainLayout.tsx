@@ -23,6 +23,7 @@ import {
   Upload,
   BarChart3,
   Loader2,
+  Activity,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useRealtime } from '../context/RealtimeContext'
@@ -119,9 +120,9 @@ const NAV_ITEMS: NavItem[] = [
     group: 'Quản trị Hệ thống',
   },
   {
-    label: 'Thực nghiệm & Khoa học',
-    path: '/evaluation-analytics',
-    icon: <BarChart3 className="w-4 h-4" />,
+    label: 'Kiểm định Hiệu năng AI',
+    path: '/system-performance',
+    icon: <Activity className="w-4 h-4" />,
     group: 'Không gian Kiểm toán',
   },
 ]

@@ -26,12 +26,17 @@ export const getSuppliers = async (req: Request, res: Response): Promise<void> =
     const is_deleted =
       req.query.is_deleted === "true" ? true : req.query.is_deleted === "false" ? false : false;
 
+    const max_score = req.query.max_score ? parseInt(req.query.max_score as string, 10) : undefined;
+    const min_score = req.query.min_score ? parseInt(req.query.min_score as string, 10) : undefined;
+
     const result = await getSuppliersService({
       search: search as string | undefined,
       industry_id,
       is_deleted,
       page: page ? parseInt(page as string, 10) : undefined,
       limit: limit ? parseInt(limit as string, 10) : undefined,
+      max_score,
+      min_score,
     });
 
     res.status(200).json(result);
