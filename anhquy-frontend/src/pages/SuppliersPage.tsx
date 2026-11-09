@@ -584,6 +584,9 @@ export default function SuppliersPage() {
                 <table className="min-w-full divide-y divide-Mist/15">
                   <thead>
                     <tr className="bg-Pine text-white">
+                      <th className="px-3 py-3 text-center text-xs font-extrabold uppercase tracking-wider whitespace-nowrap w-14">
+                        STT
+                      </th>
                       {['Đối tác Cung ứng', 'Mã số thuế', 'Liên hệ', 'Điểm Tín nhiệm', 'Trạng thái', 'Thao tác'].map((h) => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-extrabold uppercase tracking-wider whitespace-nowrap">
                           {h}
@@ -592,7 +595,7 @@ export default function SuppliersPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-Mist/15 bg-white">
-                    {displayedSuppliers.map((s) => (
+                    {displayedSuppliers.map((s, idx) => (
                       <tr
                         key={s.id}
                         className={`transition-colors ${
@@ -601,6 +604,9 @@ export default function SuppliersPage() {
                             : 'hover:bg-Snowflake/35'
                         }`}
                       >
+                        <td className="px-3 py-3.5 text-center text-xs font-bold text-Mist whitespace-nowrap">
+                          {(page - 1) * limit + idx + 1}
+                        </td>
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-3">
                             <div

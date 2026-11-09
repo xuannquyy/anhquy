@@ -661,6 +661,7 @@ export default function StandardsPage() {
               <table className="min-w-full divide-y divide-Mist/15 text-left text-xs">
                 <thead className="bg-Pine text-white uppercase tracking-wider font-extrabold">
                   <tr>
+                    <th className="px-3 py-3 text-center w-14">STT</th>
                     <th className="px-4 py-3">Mã & Tên Tiêu chuẩn</th>
                     <th className="px-4 py-3">Nhóm & Phạm vi</th>
                     <th className="px-4 py-3">Mức độ ưu tiên</th>
@@ -670,13 +671,18 @@ export default function StandardsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-Mist/15">
-                  {standards.map((s) => {
+                  {standards.map((s, idx) => {
                     const isExcluded = excluded.has(s.id)
                     const isSystem = s.created_by === null
                     const canMod = canModifyStandard(s)
 
                     return (
                       <tr key={s.id} className={`hover:bg-Snowflake/40 transition-colors ${!s.is_active ? 'opacity-60 bg-Snowflake/50' : ''}`}>
+                        {/* STT */}
+                        <td className="px-3 py-3.5 align-top text-center font-bold text-Mist">
+                          {(page - 1) * limit + idx + 1}
+                        </td>
+
                         {/* Mã & Tên */}
                         <td className="px-4 py-3.5 align-top">
                           <div className="space-y-1">

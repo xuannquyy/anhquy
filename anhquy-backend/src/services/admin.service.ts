@@ -113,6 +113,7 @@ export const createUserService = async (data: CreateUserInput) => {
 
   const role = await prisma.roles.findUnique({ where: { id: data.role_id } });
   if (!role) throw makeError("Role không tồn tại.", 404);
+  if (role.is_active === false) throw makeError("Không thể gán người dùng vào vai trò đã bị vô hiệu hóa hoặc đã xóa.", 400);
 
   if (data.password.length < 8) {
     throw makeError("Mật khẩu phải có ít nhất 8 ký tự.", 400);
@@ -161,6 +162,7 @@ export const updateUserService = async (
   if (data.role_id !== undefined) {
     const role = await prisma.roles.findUnique({ where: { id: data.role_id } });
     if (!role) throw makeError("Role không tồn tại.", 404);
+    if (role.is_active === false) throw makeError("Không thể gán người dùng vào vai trò đã bị vô hiệu hóa hoặc đã xóa.", 400);
   }
 
   const updated = await prisma.users.update({
@@ -215,14 +217,127 @@ export const resetUserPasswordService = async (id: number, newPassword: string):
 };
 
 // ════════════════════════════════════════════════════════════════════════════════
-// ROLES & ROLE_PERMISSIONS MATRIX
+// ROLES & ROLE_PERMISSIONS MATRIX (RBAC)
 // ════════════════════════════════════════════════════════════════════════════════
 
+export interface CreateRoleInput {
+  role_name: string;
+  description?: string;
+}
+
+export interface UpdateRoleInput {
+  role_name?: string;
+  description?: string;
+  is_active?: boolean;
+}
+
 /**
- * Lấy toàn bộ Roles kèm danh sách permissions đang được gán.
+ * Lấy toàn bộ Roles kèm danh sách permissions đang được gán và danh sách Users.
+ * @param includeInactive - Mặc định false (chỉ lấy roles đang hoạt động).
  */
-export const getRolesWithPermissionsService = async () => {
+export const getRolesWithPermissionsService = async (includeInactive = false) => {
   return prisma.roles.findMany({
+    where: includeInactive ? {} : { is_active: true },
+    include: {
+      Role_Permissions: {
+        include: {
+          Permissions: { select: { id: true, permission_code: true, permission_name: true } },
+        },
+      },
+      Users: {
+        where: { is_active: true },
+        select: {
+          id: true,
+          full_name: true,
+          email: true,
+          is_active: true,
+        },
+      },
+    },
+    orderBy: { id: "asc" },
+  });
+};
+
+/**
+ * Lấy chi tiết 1 Role theo ID kèm permissions và users đang được gán.
+ */
+export const getRoleByIdService = async (id: number) => {
+  const role = await prisma.roles.findUnique({
+    where: { id },
+    include: {
+      Role_Permissions: {
+        include: {
+          Permissions: { select: { id: true, permission_code: true, permission_name: true } },
+        },
+      },
+      Users: {
+        where: { is_active: true },
+        select: { id: true, full_name: true, email: true, is_active: true },
+      },
+    },
+  });
+  if (!role) throw makeError("Vai trò không tồn tại.", 404);
+  return role;
+};
+
+/**
+ * Tạo mới một Role trong hệ thống.
+ * - Kiểm tra trùng tên vai trò (không phân biệt hoa thường và chuẩn hóa khoảng trắng).
+ * - Vai trò mới ban đầu chưa có quyền nào.
+ */
+export const createRoleService = async (data: CreateRoleInput) => {
+  const trimmedName = data.role_name ? data.role_name.trim() : "";
+  if (!trimmedName) throw makeError("Tên vai trò không được để trống.", 400);
+
+  // Kiểm tra trùng lặp tên vai trò
+  const allRoles = await prisma.roles.findMany();
+  const normalizedName = trimmedName.toLowerCase();
+  const duplicate = allRoles.find(
+    (r) => r.role_name.trim().toLowerCase() === normalizedName
+  );
+
+  if (duplicate) {
+    if (duplicate.is_active === false) {
+      throw makeError(
+        `Vai trò '${duplicate.role_name}' đã từng tồn tại và hiện đang bị vô hiệu hóa. Bạn có thể khôi phục lại vai trò này.`,
+        409
+      );
+    }
+    throw makeError(`Tên vai trò '${trimmedName}' đã tồn tại trong hệ thống.`, 409);
+  }
+
+  const role = await prisma.roles.create({
+    data: {
+      role_name: trimmedName,
+      description: data.description ? data.description.trim() : null,
+      is_active: true,
+    },
+    include: {
+      Role_Permissions: {
+        include: {
+          Permissions: { select: { id: true, permission_code: true, permission_name: true } },
+        },
+      },
+      Users: {
+        select: { id: true, full_name: true, email: true, is_active: true },
+      },
+    },
+  });
+
+  return role;
+};
+
+/**
+ * Chỉnh sửa thông tin vai trò (tên, mô tả, trạng thái hoạt động).
+ * - Giữ nguyên ID vai trò, không làm mất quyền hoặc người dùng được gán.
+ * - Bảo vệ vai trò Admin hệ thống.
+ */
+export const updateRoleService = async (
+  id: number,
+  data: UpdateRoleInput
+): Promise<{ oldValue: object; newValue: object; role: object }> => {
+  const existing = await prisma.roles.findUnique({
+    where: { id },
     include: {
       Role_Permissions: {
         include: {
@@ -230,8 +345,170 @@ export const getRolesWithPermissionsService = async () => {
         },
       },
     },
-    orderBy: { id: "asc" },
   });
+  if (!existing) throw makeError("Vai trò không tồn tại.", 404);
+
+  const isAdminRole = existing.role_name.trim().toLowerCase() === "admin";
+  if (isAdminRole) {
+    if (data.role_name !== undefined && data.role_name.trim().toLowerCase() !== "admin") {
+      throw makeError("Không thể thay đổi tên của vai trò Quản trị viên (Admin) mặc định.", 400);
+    }
+    if (data.is_active === false) {
+      throw makeError("Không thể vô hiệu hóa vai trò Quản trị viên (Admin) mặc định.", 400);
+    }
+  }
+
+  // Không cho phép sửa thuộc tính của vai trò đã xóa mềm (trừ khi hành động là kích hoạt lại)
+  if (existing.is_active === false && data.is_active !== true) {
+    throw makeError("Không thể chỉnh sửa vai trò đã bị vô hiệu hóa. Vui lòng khôi phục trước.", 400);
+  }
+
+  if (data.role_name !== undefined) {
+    const trimmedName = data.role_name.trim();
+    if (!trimmedName) throw makeError("Tên vai trò không được để trống.", 400);
+
+    const otherRoles = await prisma.roles.findMany({ where: { id: { not: id } } });
+    const hasDup = otherRoles.some(
+      (r) => r.role_name.trim().toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (hasDup) {
+      throw makeError(`Tên vai trò '${trimmedName}' đã được sử dụng bởi một vai trò khác.`, 409);
+    }
+  }
+
+  const updated = await prisma.roles.update({
+    where: { id },
+    data: {
+      ...(data.role_name !== undefined && { role_name: data.role_name.trim() }),
+      ...(data.description !== undefined && { description: data.description.trim() }),
+      ...(data.is_active !== undefined && { is_active: data.is_active }),
+    },
+    include: {
+      Role_Permissions: {
+        include: {
+          Permissions: { select: { id: true, permission_code: true, permission_name: true } },
+        },
+      },
+      Users: {
+        where: { is_active: true },
+        select: { id: true, full_name: true, email: true, is_active: true },
+      },
+    },
+  });
+
+  const oldValue = {
+    role_name: existing.role_name,
+    description: existing.description,
+    is_active: existing.is_active,
+  };
+  const newValue = {
+    role_name: updated.role_name,
+    description: updated.description,
+    is_active: updated.is_active,
+  };
+
+  return { oldValue, newValue, role: updated };
+};
+
+/**
+ * Xóa mềm (Soft Delete) vai trò:
+ * - Gán is_active = false (không xóa vật lý khỏi cơ sở dữ liệu).
+ * - Chặn xóa Admin.
+ * - Chặn xóa nếu còn người dùng đang gán vai trò này.
+ * - Chặn xóa vai trò cuối cùng có quyền quản trị.
+ */
+export const deleteRoleService = async (
+  id: number
+): Promise<{ oldValue: object; newValue: object }> => {
+  const existing = await prisma.roles.findUnique({
+    where: { id },
+    include: {
+      Role_Permissions: {
+        include: { Permissions: { select: { permission_code: true } } },
+      },
+    },
+  });
+  if (!existing) throw makeError("Vai trò không tồn tại.", 404);
+
+  if (existing.role_name.trim().toLowerCase() === "admin") {
+    throw makeError("Không thể xóa vai trò Quản trị viên (Admin) mặc định của hệ thống.", 400);
+  }
+
+  // Kiểm tra người dùng đang gán
+  const activeUsersCount = await prisma.users.count({
+    where: { role_id: id, is_active: true },
+  });
+  if (activeUsersCount > 0) {
+    throw makeError(
+      `Vai trò '${existing.role_name}' đang được gán cho ${activeUsersCount} người dùng đang hoạt động. Vui lòng chuyển các người dùng này sang vai trò khác trước khi xóa.`,
+      400
+    );
+  }
+
+  // Kiểm tra vai trò quản trị cuối cùng
+  const hasAdminPerm = existing.Role_Permissions.some(
+    (rp) => rp.Permissions.permission_code === "MANAGE_ROLES" || rp.Permissions.permission_code === "MANAGE_USERS"
+  );
+  if (hasAdminPerm) {
+    const otherAdminRoles = await prisma.roles.count({
+      where: {
+        id: { not: id },
+        is_active: true,
+        Role_Permissions: {
+          some: {
+            Permissions: {
+              permission_code: { in: ["MANAGE_ROLES", "MANAGE_USERS"] },
+            },
+          },
+        },
+      },
+    });
+    if (otherAdminRoles === 0) {
+      throw makeError("Không thể xóa vai trò cuối cùng đang có quyền quản trị hệ thống.", 400);
+    }
+  }
+
+  const updated = await prisma.roles.update({
+    where: { id },
+    data: { is_active: false },
+  });
+
+  const oldValue = { id: existing.id, role_name: existing.role_name, is_active: existing.is_active };
+  const newValue = { id: updated.id, role_name: updated.role_name, is_active: false };
+
+  return { oldValue, newValue };
+};
+
+/**
+ * Khôi phục vai trò đã xóa mềm (Soft Delete).
+ */
+export const restoreRoleService = async (
+  id: number
+): Promise<{ oldValue: object; newValue: object; role: object }> => {
+  const existing = await prisma.roles.findUnique({ where: { id } });
+  if (!existing) throw makeError("Vai trò không tồn tại.", 404);
+
+  const restored = await prisma.roles.update({
+    where: { id },
+    data: { is_active: true },
+    include: {
+      Role_Permissions: {
+        include: {
+          Permissions: { select: { id: true, permission_code: true, permission_name: true } },
+        },
+      },
+      Users: {
+        where: { is_active: true },
+        select: { id: true, full_name: true, email: true, is_active: true },
+      },
+    },
+  });
+
+  return {
+    oldValue: { id: existing.id, is_active: existing.is_active },
+    newValue: { id: restored.id, is_active: true },
+    role: restored,
+  };
 };
 
 /**
@@ -251,6 +528,9 @@ export const grantPermissionService = async (
 ): Promise<{ role_id: number; permission_id: number }> => {
   const role = await prisma.roles.findUnique({ where: { id: roleId } });
   if (!role) throw makeError("Role không tồn tại.", 404);
+  if (role.is_active === false) {
+    throw makeError("Không thể cấp quyền cho vai trò đã bị vô hiệu hóa hoặc đã xóa.", 400);
+  }
 
   const permission = await prisma.permissions.findUnique({ where: { id: permissionId } });
   if (!permission) throw makeError("Permission không tồn tại.", 404);
@@ -272,6 +552,20 @@ export const revokePermissionService = async (
   roleId: number,
   permissionId: number
 ): Promise<void> => {
+  const role = await prisma.roles.findUnique({ where: { id: roleId } });
+  if (!role) throw makeError("Role không tồn tại.", 404);
+  if (role.is_active === false) {
+    throw makeError("Không thể thu hồi quyền của vai trò đã bị vô hiệu hóa.", 400);
+  }
+
+  // Bảo vệ vai trò Admin khỏi mất quyền quản trị
+  if (role.role_name.trim().toLowerCase() === "admin") {
+    const perm = await prisma.permissions.findUnique({ where: { id: permissionId } });
+    if (perm && ["MANAGE_ROLES", "MANAGE_USERS", "MANAGE_SYSTEM_CONFIGS", "VIEW_AUDIT_LOGS"].includes(perm.permission_code)) {
+      throw makeError(`Không thể thu hồi quyền quản trị tối cao '${perm.permission_code}' khỏi vai trò Admin.`, 400);
+    }
+  }
+
   const existing = await prisma.role_Permissions.findUnique({
     where: { role_id_permission_id: { role_id: roleId, permission_id: permissionId } },
   });
@@ -280,6 +574,106 @@ export const revokePermissionService = async (
   await prisma.role_Permissions.delete({
     where: { role_id_permission_id: { role_id: roleId, permission_id: permissionId } },
   });
+};
+
+/**
+ * Đồng bộ hóa toàn bộ danh sách permissions của một vai trò trong 1 Transaction an toàn.
+ * Tránh tình trạng cập nhật nửa vời khi thao tác hàng loạt.
+ */
+export const syncRolePermissionsService = async (
+  roleId: number,
+  permissionIds: number[]
+): Promise<{ oldValue: object; newValue: object }> => {
+  const role = await prisma.roles.findUnique({
+    where: { id: roleId },
+    include: { Role_Permissions: { select: { permission_id: true } } },
+  });
+  if (!role) throw makeError("Vai trò không tồn tại.", 404);
+  if (role.is_active === false) {
+    throw makeError("Không thể phân quyền cho vai trò đã bị vô hiệu hóa hoặc đã xóa.", 400);
+  }
+
+  // Bảo vệ vai trò Admin
+  if (role.role_name.trim().toLowerCase() === "admin") {
+    const essentialCodes = ["MANAGE_ROLES", "MANAGE_USERS", "MANAGE_SYSTEM_CONFIGS", "VIEW_AUDIT_LOGS"];
+    const essentialPerms = await prisma.permissions.findMany({
+      where: { permission_code: { in: essentialCodes } },
+      select: { id: true, permission_code: true },
+    });
+    const targetSet = new Set(permissionIds);
+    for (const ep of essentialPerms) {
+      if (!targetSet.has(ep.id)) {
+        throw makeError(
+          `Không thể thu hồi quyền quản trị tối cao '${ep.permission_code}' khỏi vai trò Admin.`,
+          400
+        );
+      }
+    }
+  }
+
+  const oldPermIds = role.Role_Permissions.map((rp) => rp.permission_id);
+
+  await prisma.$transaction(async (tx) => {
+    // Xóa những quyền bị bỏ
+    await tx.role_Permissions.deleteMany({
+      where: {
+        role_id: roleId,
+        permission_id: { notIn: permissionIds },
+      },
+    });
+
+    // Cấp những quyền mới
+    for (const pid of permissionIds) {
+      await tx.role_Permissions.upsert({
+        where: { role_id_permission_id: { role_id: roleId, permission_id: pid } },
+        create: { role_id: roleId, permission_id: pid },
+        update: {},
+      });
+    }
+  });
+
+  return {
+    oldValue: { role_id: roleId, permission_ids: oldPermIds },
+    newValue: { role_id: roleId, permission_ids: permissionIds },
+  };
+};
+
+/**
+ * Gán trực tiếp người dùng vào vai trò và tự động áp dụng toàn bộ quyền của vai trò đó.
+ */
+export const assignUserRoleService = async (
+  userId: number,
+  roleId: number
+): Promise<{ oldValue: object; newValue: object; user: object }> => {
+  const user = await prisma.users.findUnique({
+    where: { id: userId },
+    select: { id: true, full_name: true, email: true, role_id: true, is_active: true },
+  });
+  if (!user) throw makeError("Người dùng không tồn tại.", 404);
+
+  const role = await prisma.roles.findUnique({ where: { id: roleId } });
+  if (!role) throw makeError("Vai trò không tồn tại.", 404);
+  if (role.is_active === false) {
+    throw makeError("Không thể gán người dùng vào vai trò đã bị vô hiệu hóa hoặc đã xóa.", 400);
+  }
+
+  const updated = await prisma.users.update({
+    where: { id: userId },
+    data: { role_id: roleId, updated_at: new Date() },
+    select: {
+      id: true,
+      full_name: true,
+      email: true,
+      role_id: true,
+      Roles: { select: { id: true, role_name: true } },
+    },
+  });
+
+  return {
+    oldValue: { user_id: userId, role_id: user.role_id },
+    newValue: { user_id: userId, role_id: roleId },
+    user: updated,
+  };
 };
 
 // ════════════════════════════════════════════════════════════════════════════════

@@ -51,7 +51,13 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
     // Đối chiếu trực tiếp với bảng Users để lấy role_id và trạng thái is_active mới nhất
     const currentUser = await prisma.users.findUnique({
       where: { id: decoded.userId },
-      select: { id: true, role_id: true, email: true, is_active: true },
+      select: {
+        id: true,
+        role_id: true,
+        email: true,
+        is_active: true,
+        Roles: { select: { is_active: true } },
+      },
     });
 
     if (!currentUser) {
@@ -61,6 +67,11 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 
     if (!currentUser.is_active) {
       res.status(403).json({ message: "Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên." });
+      return;
+    }
+
+    if (currentUser.Roles?.is_active === false) {
+      res.status(403).json({ message: "Vai trò của tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên." });
       return;
     }
 
@@ -99,6 +110,17 @@ export const requirePermission = (permissionCode: string) => {
     const { roleId } = req.user;
 
     try {
+      // Kiểm tra trạng thái hoạt động của vai trò trong DB
+      const role = await prisma.roles.findUnique({
+        where: { id: roleId },
+        select: { id: true, is_active: true },
+      });
+
+      if (!role || role.is_active === false) {
+        res.status(403).json({ message: "Vai trò của tài khoản đã bị vô hiệu hóa hoặc không còn hoạt động." });
+        return;
+      }
+
       // Tìm permission_id tương ứng với permission_code
       const permission = await prisma.permissions.findUnique({
         where: { permission_code: permissionCode },

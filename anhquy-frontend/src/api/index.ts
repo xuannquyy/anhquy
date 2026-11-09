@@ -148,8 +148,29 @@ export const adminApi = {
   resetPassword: (id: number, newPassword: string) =>
     axiosClient.post(`/admin/users/${id}/reset-password`, { newPassword }),
 
-  getRolesMatrix: () =>
-    axiosClient.get('/admin/roles'),
+  getRolesMatrix: (params?: { include_inactive?: boolean }) =>
+    axiosClient.get('/admin/roles', { params }),
+
+  getRoleById: (id: number) =>
+    axiosClient.get(`/admin/roles/${id}`),
+
+  createRole: (data: { role_name: string; description?: string }) =>
+    axiosClient.post('/admin/roles', data),
+
+  updateRole: (id: number, data: { role_name?: string; description?: string; is_active?: boolean }) =>
+    axiosClient.put(`/admin/roles/${id}`, data),
+
+  deleteRole: (id: number) =>
+    axiosClient.delete(`/admin/roles/${id}`),
+
+  restoreRole: (id: number) =>
+    axiosClient.post(`/admin/roles/${id}/restore`),
+
+  syncRolePermissions: (roleId: number, permissionIds: number[]) =>
+    axiosClient.put(`/admin/roles/${roleId}/permissions`, { permission_ids: permissionIds }),
+
+  assignUserRole: (userId: number, roleId: number) =>
+    axiosClient.post(`/admin/users/${userId}/role`, { role_id: roleId }),
 
   getAllPermissions: () =>
     axiosClient.get('/admin/permissions'),

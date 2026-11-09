@@ -930,6 +930,7 @@ export default function ReportsPage() {
                     <table className="min-w-full text-xs divide-y divide-Mist/15">
                       <thead className="bg-Pine text-white font-extrabold uppercase tracking-wider text-[11px]">
                         <tr>
+                          <th className="px-3 py-3 text-center w-14">STT</th>
                           <th className="px-4 py-3 text-left">Tên Công ty Đối tác</th>
                           <th className="px-4 py-3 text-left">Mã số thuế</th>
                           <th className="px-4 py-3 text-left">Ngành nghề</th>
@@ -939,8 +940,11 @@ export default function ReportsPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-Mist/15 font-medium text-Branch">
-                        {sortedSuppliers.map((s) => (
+                        {sortedSuppliers.map((s, idx) => (
                           <tr key={s.id} className="hover:bg-Snowflake/40 transition-colors">
+                            <td className="px-3 py-3.5 text-center font-bold text-Mist">
+                              {idx + 1}
+                            </td>
                             <td className="px-4 py-3.5 font-bold text-Pine">
                               <Link
                                 to={`/suppliers`}
@@ -1014,6 +1018,7 @@ export default function ReportsPage() {
                     <table className="min-w-full text-xs divide-y divide-Mist/15 min-w-[700px]">
                       <thead className="bg-Pine text-white font-extrabold uppercase tracking-wider text-[11px]">
                         <tr>
+                          <th className="px-3 py-3 text-center w-14">STT</th>
                           <th className="px-4 py-3 text-left">Đối tác / Hợp đồng</th>
                           <th className="px-4 py-3 text-left">Tiêu chuẩn RBA / VN</th>
                           <th className="px-4 py-3 text-left">Mức rủi ro</th>
@@ -1023,8 +1028,11 @@ export default function ReportsPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-Mist/15 font-medium text-Branch">
-                        {filteredViolations.map((v) => (
+                        {filteredViolations.map((v, idx) => (
                           <tr key={v.id} className="hover:bg-Snowflake/40 transition-colors">
+                            <td className="px-3 py-3 text-center font-bold text-Mist">
+                              {idx + 1}
+                            </td>
                             <td className="px-4 py-3">
                               <p className="font-bold text-Pine">{v.Documents?.Suppliers?.company_name || '—'}</p>
                               <p className="text-[11px] text-Mist font-mono">{v.Documents?.file_name}</p>

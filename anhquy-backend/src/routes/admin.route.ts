@@ -7,6 +7,13 @@ import {
   updateUser,
   resetPassword,
   getRolesMatrix,
+  getRoleById,
+  createRole,
+  updateRole,
+  deleteRole,
+  restoreRole,
+  syncRolePermissions,
+  assignUserRole,
   getAllPermissions,
   grantPermission,
   revokePermission,
@@ -45,6 +52,27 @@ router.post("/users/:id/reset-password", requirePermission("MANAGE_USERS"), rese
 
 /** GET  /api/admin/roles */
 router.get("/roles", requirePermission("MANAGE_ROLES"), getRolesMatrix);
+
+/** GET  /api/admin/roles/:id */
+router.get("/roles/:id", requirePermission("MANAGE_ROLES"), getRoleById);
+
+/** POST /api/admin/roles — Tạo vai trò mới */
+router.post("/roles", requirePermission("MANAGE_ROLES"), createRole);
+
+/** PUT  /api/admin/roles/:id — Chỉnh sửa vai trò */
+router.put("/roles/:id", requirePermission("MANAGE_ROLES"), updateRole);
+
+/** DELETE /api/admin/roles/:id — Xóa mềm vai trò */
+router.delete("/roles/:id", requirePermission("MANAGE_ROLES"), deleteRole);
+
+/** POST /api/admin/roles/:id/restore — Khôi phục vai trò đã xóa */
+router.post("/roles/:id/restore", requirePermission("MANAGE_ROLES"), restoreRole);
+
+/** PUT  /api/admin/roles/:roleId/permissions — Đồng bộ danh sách quyền của vai trò (Batch Transaction) */
+router.put("/roles/:roleId/permissions", requirePermission("MANAGE_ROLES"), syncRolePermissions);
+
+/** POST /api/admin/users/:userId/role — Gán vai trò cho người dùng */
+router.post("/users/:userId/role", requirePermission("MANAGE_USERS"), assignUserRole);
 
 /** GET  /api/admin/permissions */
 router.get("/permissions", requirePermission("MANAGE_ROLES"), getAllPermissions);

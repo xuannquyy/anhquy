@@ -6,6 +6,13 @@ import {
   updateUserService,
   resetUserPasswordService,
   getRolesWithPermissionsService,
+  getRoleByIdService,
+  createRoleService,
+  updateRoleService,
+  deleteRoleService,
+  restoreRoleService,
+  syncRolePermissionsService,
+  assignUserRoleService,
   getAllPermissionsService,
   grantPermissionService,
   revokePermissionService,
@@ -162,14 +169,206 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
 };
 
 // ════════════════════════════════════════════════════════════════════════════════
-// ROLES & PERMISSIONS MATRIX
+// ROLES & PERMISSIONS MATRIX (RBAC)
 // ════════════════════════════════════════════════════════════════════════════════
 
-/** GET /api/admin/roles — Lấy ma trận roles + permissions */
-export const getRolesMatrix = async (_req: Request, res: Response): Promise<void> => {
+/** GET /api/admin/roles — Lấy ma trận roles + permissions + users */
+export const getRolesMatrix = async (req: Request, res: Response): Promise<void> => {
   try {
-    const roles = await getRolesWithPermissionsService();
+    const includeInactive = req.query["include_inactive"] === "true";
+    const roles = await getRolesWithPermissionsService(includeInactive);
     res.status(200).json({ roles });
+  } catch (error) {
+    const err = error as ServiceError;
+    res.status(err.httpStatus ?? 500).json({ message: err.message });
+  }
+};
+
+/** GET /api/admin/roles/:id — Lấy chi tiết 1 role */
+export const getRoleById = async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params["id"] as string, 10);
+  if (isNaN(id)) { res.status(400).json({ message: "ID không hợp lệ." }); return; }
+
+  try {
+    const role = await getRoleByIdService(id);
+    res.status(200).json({ role });
+  } catch (error) {
+    const err = error as ServiceError;
+    res.status(err.httpStatus ?? 500).json({ message: err.message });
+  }
+};
+
+/** POST /api/admin/roles — Thêm vai trò mới */
+export const createRole = async (req: Request, res: Response): Promise<void> => {
+  const { role_name, description } = req.body;
+  if (!role_name || typeof role_name !== "string" || !role_name.trim()) {
+    res.status(400).json({ message: "Tên vai trò (role_name) là bắt buộc." });
+    return;
+  }
+
+  try {
+    const role = await createRoleService({ role_name, description });
+
+    await prisma.audit_Logs.create({
+      data: {
+        user_id: req.user!.userId,
+        action_type: "CREATE_ROLE",
+        target_table: "Roles",
+        target_id: role.id,
+        old_value: null,
+        new_value: JSON.stringify({ id: role.id, role_name: role.role_name, description: role.description }),
+      },
+    });
+
+    res.status(201).json({ message: "Tạo vai trò thành công.", role });
+  } catch (error) {
+    const err = error as ServiceError;
+    res.status(err.httpStatus ?? 500).json({ message: err.message });
+  }
+};
+
+/** PUT /api/admin/roles/:id — Chỉnh sửa vai trò */
+export const updateRole = async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params["id"] as string, 10);
+  if (isNaN(id)) { res.status(400).json({ message: "ID không hợp lệ." }); return; }
+
+  const { role_name, description, is_active } = req.body;
+
+  try {
+    const { oldValue, newValue, role } = await updateRoleService(id, {
+      role_name,
+      description,
+      is_active,
+    });
+
+    await prisma.audit_Logs.create({
+      data: {
+        user_id: req.user!.userId,
+        action_type: "UPDATE_ROLE",
+        target_table: "Roles",
+        target_id: id,
+        old_value: JSON.stringify(oldValue),
+        new_value: JSON.stringify(newValue),
+      },
+    });
+
+    res.status(200).json({ message: "Cập nhật vai trò thành công.", role });
+  } catch (error) {
+    const err = error as ServiceError;
+    res.status(err.httpStatus ?? 500).json({ message: err.message });
+  }
+};
+
+/** DELETE /api/admin/roles/:id — Xóa mềm vai trò */
+export const deleteRole = async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params["id"] as string, 10);
+  if (isNaN(id)) { res.status(400).json({ message: "ID không hợp lệ." }); return; }
+
+  try {
+    const { oldValue, newValue } = await deleteRoleService(id);
+
+    await prisma.audit_Logs.create({
+      data: {
+        user_id: req.user!.userId,
+        action_type: "SOFT_DELETE_ROLE",
+        target_table: "Roles",
+        target_id: id,
+        old_value: JSON.stringify(oldValue),
+        new_value: JSON.stringify(newValue),
+      },
+    });
+
+    res.status(200).json({ message: "Xóa vai trò thành công (Soft Delete)." });
+  } catch (error) {
+    const err = error as ServiceError;
+    res.status(err.httpStatus ?? 500).json({ message: err.message });
+  }
+};
+
+/** POST /api/admin/roles/:id/restore — Khôi phục vai trò đã xóa mềm */
+export const restoreRole = async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params["id"] as string, 10);
+  if (isNaN(id)) { res.status(400).json({ message: "ID không hợp lệ." }); return; }
+
+  try {
+    const { oldValue, newValue, role } = await restoreRoleService(id);
+
+    await prisma.audit_Logs.create({
+      data: {
+        user_id: req.user!.userId,
+        action_type: "RESTORE_ROLE",
+        target_table: "Roles",
+        target_id: id,
+        old_value: JSON.stringify(oldValue),
+        new_value: JSON.stringify(newValue),
+      },
+    });
+
+    res.status(200).json({ message: "Khôi phục vai trò thành công.", role });
+  } catch (error) {
+    const err = error as ServiceError;
+    res.status(err.httpStatus ?? 500).json({ message: err.message });
+  }
+};
+
+/** PUT /api/admin/roles/:roleId/permissions — Đồng bộ danh sách quyền của vai trò (Batch Transaction) */
+export const syncRolePermissions = async (req: Request, res: Response): Promise<void> => {
+  const roleId = parseInt(req.params["roleId"] as string, 10);
+  if (isNaN(roleId)) { res.status(400).json({ message: "roleId không hợp lệ." }); return; }
+
+  const { permission_ids } = req.body;
+  if (!Array.isArray(permission_ids)) {
+    res.status(400).json({ message: "permission_ids phải là một mảng ID các quyền." });
+    return;
+  }
+
+  try {
+    const { oldValue, newValue } = await syncRolePermissionsService(roleId, permission_ids);
+
+    await prisma.audit_Logs.create({
+      data: {
+        user_id: req.user!.userId,
+        action_type: "SYNC_ROLE_PERMISSIONS",
+        target_table: "Role_Permissions",
+        target_id: roleId,
+        old_value: JSON.stringify(oldValue),
+        new_value: JSON.stringify(newValue),
+      },
+    });
+
+    res.status(200).json({ message: "Đồng bộ quyền của vai trò thành công." });
+  } catch (error) {
+    const err = error as ServiceError;
+    res.status(err.httpStatus ?? 500).json({ message: err.message });
+  }
+};
+
+/** POST /api/admin/users/:userId/role — Gán vai trò cho người dùng */
+export const assignUserRole = async (req: Request, res: Response): Promise<void> => {
+  const userId = parseInt(req.params["userId"] as string, 10);
+  if (isNaN(userId)) { res.status(400).json({ message: "userId không hợp lệ." }); return; }
+
+  const { role_id } = req.body;
+  if (role_id === undefined || isNaN(parseInt(role_id, 10))) {
+    res.status(400).json({ message: "role_id là bắt buộc." });
+    return;
+  }
+
+  try {
+    const { oldValue, newValue, user } = await assignUserRoleService(userId, parseInt(role_id, 10));
+
+    await prisma.audit_Logs.create({
+      data: {
+        user_id: req.user!.userId,
+        action_type: "ASSIGN_USER_ROLE",
+        target_table: "Users",
+        target_id: userId,
+        old_value: JSON.stringify(oldValue),
+        new_value: JSON.stringify(newValue),
+      },
+    });
+
+    res.status(200).json({ message: "Gán vai trò cho người dùng thành công.", user });
   } catch (error) {
     const err = error as ServiceError;
     res.status(err.httpStatus ?? 500).json({ message: err.message });

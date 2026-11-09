@@ -356,7 +356,7 @@ export default function ViolationsPage() {
                   }`}
                 >
                   <Layers className="w-3.5 h-3.5" />
-                  Bảng phẳng ({displayedViolations.length})
+                  Bảng ({displayedViolations.length})
                 </button>
               </div>
             )}
@@ -631,14 +631,20 @@ export default function ViolationsPage() {
                   <table className="min-w-full divide-y divide-Mist/15">
                     <thead>
                       <tr className="bg-Pine text-white">
+                        <th className="px-3 py-3 text-center text-xs font-extrabold uppercase tracking-wider whitespace-nowrap w-14">
+                          STT
+                        </th>
                         {['Nhà cung ứng / Hợp đồng', 'Tiêu chuẩn', 'Mức độ', 'Lỗi vi phạm (Đỏ) & Khuyến nghị (Xanh)', 'Trạng thái', 'Thao tác'].map((h) => (
                           <th key={h} className="px-4 py-3 text-left text-xs font-extrabold uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-Mist/15 bg-white">
-                      {displayedViolations.map((v) => (
+                      {displayedViolations.map((v, idx) => (
                         <tr key={v.id} className="hover:bg-Snowflake/35 transition-colors">
+                          <td className="px-3 py-3.5 text-center text-xs font-bold text-Mist whitespace-nowrap">
+                            {(page - 1) * limit + idx + 1}
+                          </td>
                           <td className="px-4 py-3.5">
                             <p className="text-xs font-extrabold text-Pine">{v.Documents?.Suppliers?.company_name || '—'}</p>
                             {v.Documents && (

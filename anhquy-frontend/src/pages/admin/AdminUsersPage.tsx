@@ -460,13 +460,16 @@ export default function AdminUsersPage() {
                 <table className="min-w-full divide-y divide-Mist/15">
                   <thead>
                     <tr className="bg-Pine text-white">
+                      <th className="px-3 py-3 text-center text-xs font-extrabold uppercase tracking-wider whitespace-nowrap w-14">
+                        STT
+                      </th>
                       {['Nhân sự / Email', 'Vai trò', 'Trạng thái', 'Nhập sai MK', 'Ngày tạo', 'Thao tác'].map((h) => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-extrabold uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-Mist/15 bg-white">
-                    {filteredUsers.map((u) => {
+                    {filteredUsers.map((u, idx) => {
                       const locked = isBruteForceLocked(u)
                       const hasFailedAttempts = (u.failed_login_attempts ?? 0) > 0
                       const isSelf = u.id === currentUser?.id
@@ -480,6 +483,9 @@ export default function AdminUsersPage() {
                               : 'hover:bg-Snowflake/35'
                           }`}
                         >
+                          <td className="px-3 py-3.5 text-center text-xs font-bold text-Mist whitespace-nowrap">
+                            {(page - 1) * limit + idx + 1}
+                          </td>
                           <td className="px-4 py-3.5">
                             <div className="flex items-center gap-3">
                               <div

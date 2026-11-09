@@ -103,6 +103,7 @@ model Roles {
   id               Int                @id(map: "PK__Roles__3213E83F0C67AB3A") @default(autoincrement())
   role_name        String             @unique(map: "UQ__Roles__783254B19F8FE99A") @db.VarChar(50)
   description      String?            @db.NVarChar(255)
+  is_active        Boolean?           @default(true)
   Role_Permissions Role_Permissions[]
   Users            Users[]
 }

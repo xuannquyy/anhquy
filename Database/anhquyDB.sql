@@ -1,4 +1,4 @@
-﻿USE master;
+USE master;
 GO
 
 IF DB_ID('anhquyDB') IS NOT NULL
@@ -22,7 +22,8 @@ GO
 CREATE TABLE Roles (
     id INT IDENTITY(1,1) PRIMARY KEY,
     role_name VARCHAR(50) NOT NULL UNIQUE, -- VD: 'Admin', 'Manager', 'User'
-    description NVARCHAR(255) NULL
+    description NVARCHAR(255) NULL,
+    is_active BIT DEFAULT 1
 );
 
 -- 2. BẢNG QUYỀN HẠN (PERMISSIONS) - [Tách ra theo ý thầy]
