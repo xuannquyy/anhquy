@@ -10,6 +10,8 @@ import {
   getUserExcludedStandardsService,
   excludeStandardService,
   includeStandardService,
+  suggestStandardCodeService,
+  generateStandardDraftService,
 } from "../services/standard.service";
 import prisma from "../config/prisma";
 
@@ -112,6 +114,8 @@ export const createStandard = async (req: Request, res: Response): Promise<void>
     description,
     legal_document_name,
     article_reference,
+    page_reference,
+    original_quote,
     official_url
   } = req.body;
 
@@ -135,6 +139,8 @@ export const createStandard = async (req: Request, res: Response): Promise<void>
         description,
         legal_document_name,
         article_reference,
+        page_reference,
+        original_quote,
         official_url,
       },
       req.user!.userId
@@ -163,6 +169,8 @@ export const updateStandard = async (req: Request, res: Response): Promise<void>
     is_active,
     legal_document_name,
     article_reference,
+    page_reference,
+    original_quote,
     official_url
   } = req.body;
 
@@ -186,6 +194,8 @@ export const updateStandard = async (req: Request, res: Response): Promise<void>
       is_active,
       legal_document_name,
       article_reference,
+      page_reference,
+      original_quote,
       official_url,
     }, req.user!.userId, isAdmin);
 
@@ -288,6 +298,49 @@ export const includeStandard = async (req: Request, res: Response): Promise<void
   try {
     await includeStandardService(req.user!.userId, standardId);
     res.status(200).json({ message: "Đã bỏ tiêu chuẩn khỏi danh sách loại trừ." });
+  } catch (error) {
+    const err = error as ServiceError;
+    res.status(err.httpStatus ?? 500).json({ message: err.message });
+  }
+};
+
+// ─── Gợi ý mã & Hỗ trợ soạn thảo AI ──────────────────────────────────────────
+
+/**
+ * GET /api/standards/suggest-code?group_id=:id
+ */
+export const suggestStandardCode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const groupId = parseInt(req.query.group_id as string, 10);
+    if (isNaN(groupId)) {
+      res.status(400).json({ message: "group_id không hợp lệ." });
+      return;
+    }
+    const suggestedCode = await suggestStandardCodeService(groupId);
+    res.status(200).json({ suggested_code: suggestedCode });
+  } catch (error) {
+    const err = error as ServiceError;
+    res.status(err.httpStatus ?? 500).json({ message: err.message });
+  }
+};
+
+/**
+ * POST /api/standards/ai-draft
+ */
+export const generateStandardDraft = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { name, legal_document_name, article_reference, group_name } = req.body;
+    if (!name || typeof name !== "string") {
+      res.status(400).json({ message: "Tên tiêu chuẩn là bắt buộc để AI gợi ý nội dung." });
+      return;
+    }
+    const draft = await generateStandardDraftService({
+      name: name.trim(),
+      legal_document_name: legal_document_name ? String(legal_document_name).trim() : undefined,
+      article_reference: article_reference ? String(article_reference).trim() : undefined,
+      group_name: group_name ? String(group_name).trim() : undefined,
+    });
+    res.status(200).json({ draft });
   } catch (error) {
     const err = error as ServiceError;
     res.status(err.httpStatus ?? 500).json({ message: err.message });

@@ -10,6 +10,8 @@ import {
   getMyExcludedStandards,
   excludeStandard,
   includeStandard,
+  suggestStandardCode,
+  generateStandardDraft,
 } from "../controllers/standard.controller";
 import { requireAuth, requirePermission } from "../middlewares/auth.middleware";
 
@@ -44,6 +46,18 @@ router.get("/excluded", requirePermission("VIEW_STANDARD"), getMyExcludedStandar
  * Query: group_id, jurisdiction, is_active, type (system|personal), search, page, limit
  */
 router.get("/", requirePermission("VIEW_STANDARD"), getStandards);
+
+/**
+ * GET /api/standards/suggest-code?group_id=:id
+ * Gợi ý mã tiêu chuẩn mới dạng CUSTOM-{GROUP_CODE}-{SEQUENCE}
+ */
+router.get("/suggest-code", requirePermission("VIEW_STANDARD"), suggestStandardCode);
+
+/**
+ * POST /api/standards/ai-draft
+ * Soạn thảo nhanh tiêu chí kiểm tra bằng Gemini AI
+ */
+router.post("/ai-draft", requirePermission("CREATE_CUSTOM_STANDARD"), generateStandardDraft);
 
 /** GET /api/standards/:id */
 router.get("/:id", requirePermission("VIEW_STANDARD"), getStandardById);

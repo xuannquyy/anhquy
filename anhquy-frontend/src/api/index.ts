@@ -129,6 +129,12 @@ export const standardApi = {
 
   include: (id: number) =>
     axiosClient.delete(`/standards/${id}/exclude`),
+
+  suggestCode: (groupId: number) =>
+    axiosClient.get('/standards/suggest-code', { params: { group_id: groupId } }),
+
+  generateDraft: (data: { name: string; legal_document_name?: string; article_reference?: string; group_name?: string }) =>
+    axiosClient.post('/standards/ai-draft', data),
 }
 
 // ─── Admin ───────────────────────────────────────────────────────────────────

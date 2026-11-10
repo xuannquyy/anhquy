@@ -106,6 +106,8 @@ CREATE TABLE Standards (
     description NVARCHAR(MAX) NULL,
     legal_document_name NVARCHAR(255) NULL, -- Ví dụ: "Bộ luật Lao động 2019 (Luật số 45/2019/QH14)" hoặc "RBA Code of Conduct v8.0"
     article_reference NVARCHAR(100) NULL,    -- Ví dụ: "Điều 105, 107" hoặc "Mục A3"
+    page_reference NVARCHAR(50) NULL,        -- Ví dụ: "4" hoặc "4–5"
+    original_quote NVARCHAR(MAX) NULL,       -- Trích dẫn nguyên văn từ tài liệu nguồn (Verbatim Quote)
     official_url NVARCHAR(500) NULL,         -- Ví dụ đường dẫn chính thống: "https://vanban.chinhphu.vn/?pageid=27160&docid=198889"
     created_by INT NULL, -- NẾU NULL LÀ BỘ TIÊU CHUẨN GỐC, NẾU CÓ ID USER THÌ LÀ BỘ CÁ NHÂN DO USER TẠO
     is_active BIT DEFAULT 1,

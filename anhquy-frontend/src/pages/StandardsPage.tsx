@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   Plus, Edit2, Trash2, RotateCcw, Lock, Globe, MapPin,
-  SlidersHorizontal, Search, Ban, ListChecks, CheckCircle2, LayoutGrid, List, BookOpen, ExternalLink
+  SlidersHorizontal, Search, Ban, ListChecks, CheckCircle2, LayoutGrid, List, BookOpen, ExternalLink,
+  Eye, Sparkles, RefreshCw, FileText
 } from 'lucide-react'
 import { MainLayout } from '../components/MainLayout'
 import { ConfirmModal, Modal, Pagination, Spinner, EmptyState } from '../components/ui'
@@ -20,9 +21,11 @@ interface Standard {
   jurisdiction: 'Global' | 'VN' | null
   content_i18n: string | null
   description?: string | null
-  // Bổ sung các trường pháp lý mới
+  // Bổ sung các trường pháp lý chuẩn hóa
   legal_document_name?: string | null
   article_reference?: string | null
+  page_reference?: string | null
+  original_quote?: string | null
   official_url?: string | null
   is_active: boolean
   priority_level: number | null
@@ -76,8 +79,16 @@ export default function StandardsPage() {
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Standard | null>(null)
+
+  // Modal xem chi tiết tiêu chuẩn
+  const [detailModalOpen, setDetailModalOpen] = useState(false)
+  const [viewTarget, setViewTarget] = useState<Standard | null>(null)
   
-  // Cập nhật form state với 3 trường pháp lý chuẩn hóa
+  // Trạng thái AI soạn thảo nội dung
+  const [aiDraftLoading, setAiDraftLoading] = useState(false)
+  const [codeSuggesting, setCodeSuggesting] = useState(false)
+
+  // Cập nhật form state đầy đủ các trường pháp lý & trích dẫn gốc
   const [form, setForm] = useState({
     standard_code: '',
     name: '',
@@ -88,6 +99,8 @@ export default function StandardsPage() {
     group_id: '',
     legal_document_name: '',
     article_reference: '',
+    page_reference: '',
+    original_quote: '',
     official_url: '',
   })
   const [saving, setSaving] = useState(false)
@@ -174,8 +187,73 @@ export default function StandardsPage() {
     }
   }
 
-  const openCreate = () => {
+  // Tự động gợi ý mã khi chọn nhóm
+  const handleGroupSelect = async (groupIdStr: string) => {
+    setForm((f) => ({ ...f, group_id: groupIdStr }))
+    if (!editTarget && groupIdStr) {
+      // Chỉ tự gợi ý mã nếu mã hiện tại đang trống hoặc đang theo chuẩn CUSTOM-
+      if (!form.standard_code || form.standard_code.startsWith('CUSTOM-')) {
+        await fetchSuggestedCode(Number(groupIdStr))
+      }
+    }
+  }
+
+  const fetchSuggestedCode = async (groupId: number) => {
+    setCodeSuggesting(true)
+    try {
+      const res = await standardApi.suggestCode(groupId)
+      const code = res.data?.suggested_code
+      if (code) {
+        setForm((f) => ({ ...f, standard_code: code }))
+      }
+    } catch {
+      // Fallback cục bộ nếu API bận
+      const grp = groups.find((g) => g.id === groupId)
+      let tag = 'LD'
+      if (grp?.group_code.includes('OHS')) tag = 'AT'
+      else if (grp?.group_code.includes('ENV')) tag = 'MT'
+      else if (grp?.group_code.includes('ETHIC')) tag = 'DD'
+      setForm((f) => ({ ...f, standard_code: `CUSTOM-${tag}-01` }))
+    } finally {
+      setCodeSuggesting(false)
+    }
+  }
+
+  // Hỗ trợ soạn thảo tiêu chuẩn bằng Gemini AI
+  const handleAiDraftContent = async () => {
+    if (!form.name.trim()) {
+      toast.error('Vui lòng nhập tên tiêu chuẩn trước khi yêu cầu AI soạn nội dung.')
+      return
+    }
+    setAiDraftLoading(true)
+    try {
+      const selectedGroup = groups.find((g) => String(g.id) === String(form.group_id))
+      const res = await standardApi.generateDraft({
+        name: form.name.trim(),
+        legal_document_name: form.legal_document_name.trim() || undefined,
+        article_reference: form.article_reference.trim() || undefined,
+        group_name: selectedGroup?.group_name,
+      })
+      const draft = res.data?.draft
+      if (draft) {
+        setForm((f) => ({
+          ...f,
+          content_vi: draft.content_vi || f.content_vi,
+          content_en: draft.content_en || f.content_en,
+        }))
+        toast.success('AI đã gợi ý tiêu chí kiểm tra! Vui lòng rà soát và chỉnh sửa trước khi lưu.')
+      }
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } }
+      toast.error(e?.response?.data?.message || 'Không thể tạo bản thảo từ AI lúc này.')
+    } finally {
+      setAiDraftLoading(false)
+    }
+  }
+
+  const openCreate = async () => {
     setEditTarget(null)
+    const initialGroupId = groups[0] ? String(groups[0].id) : '1'
     setForm({
       standard_code: '',
       name: '',
@@ -183,12 +261,17 @@ export default function StandardsPage() {
       content_en: '',
       jurisdiction: 'Global',
       priority_level: '1',
-      group_id: groups[0] ? String(groups[0].id) : '1',
+      group_id: initialGroupId,
       legal_document_name: '',
       article_reference: '',
+      page_reference: '',
+      original_quote: '',
       official_url: '',
     })
     setModalOpen(true)
+    if (groups[0]) {
+      fetchSuggestedCode(groups[0].id)
+    }
   }
 
   const openEdit = (s: Standard) => {
@@ -212,9 +295,16 @@ export default function StandardsPage() {
       group_id: String(s.Standard_Groups?.id || '1'),
       legal_document_name: s.legal_document_name || '',
       article_reference: s.article_reference || '',
+      page_reference: s.page_reference || '',
+      original_quote: s.original_quote || '',
       official_url: s.official_url || '',
     })
     setModalOpen(true)
+  }
+
+  const openDetail = (s: Standard) => {
+    setViewTarget(s)
+    setDetailModalOpen(true)
   }
 
   const handleSave = async () => {
@@ -233,12 +323,14 @@ export default function StandardsPage() {
         standard_code: form.standard_code.trim(),
         name: form.name.trim(),
         content_i18n,
-        description: form.legal_document_name ? `${form.legal_document_name} - ${form.article_reference}` : form.name.trim(),
+        description: form.legal_document_name ? `${form.legal_document_name} - ${form.article_reference || ''}` : form.name.trim(),
         jurisdiction: form.jurisdiction,
         priority_level: Number(form.priority_level),
         group_id: Number(form.group_id),
         legal_document_name: form.legal_document_name.trim() || null,
         article_reference: form.article_reference.trim() || null,
+        page_reference: form.page_reference.trim() || null,
+        original_quote: form.original_quote.trim() || null,
         official_url: form.official_url.trim() || null,
       }
       if (editTarget) {
@@ -310,7 +402,7 @@ export default function StandardsPage() {
             <button
               type="button"
               onClick={() => setLang(lang === 'vi' ? 'en' : 'vi')}
-              className="flex items-center gap-1.5 px-3.5 py-2.5 border border-Mist/40 bg-white text-Pine text-xs font-extrabold rounded-2xl hover:bg-Snowflake transition-all shadow-sm"
+              className="flex items-center gap-1.5 px-3.5 py-2.5 border border-Mist/40 bg-white text-Pine text-xs font-extrabold rounded-2xl hover:bg-Snowflake transition-all shadow-sm cursor-pointer"
             >
               <Globe className="w-4 h-4 text-Berry" />
               Ngôn ngữ: {lang.toUpperCase()}
@@ -319,7 +411,7 @@ export default function StandardsPage() {
               <button
                 type="button"
                 onClick={openCreate}
-                className="flex items-center gap-2 px-4 py-2.5 bg-Pine text-white text-xs font-extrabold rounded-2xl hover:bg-Pine/90 shadow-sm hover:shadow-md transition-all"
+                className="flex items-center gap-2 px-4 py-2.5 bg-Pine text-white text-xs font-extrabold rounded-2xl hover:bg-Pine/90 shadow-sm hover:shadow-md transition-all cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 Tạo tiêu chuẩn riêng
@@ -400,7 +492,7 @@ export default function StandardsPage() {
                   key={tab.key}
                   type="button"
                   onClick={() => { setActiveTab(tab.key as typeof activeTab); setPage(1) }}
-                  className={`px-3.5 py-1.5 text-xs font-extrabold rounded-xl transition-all ${
+                  className={`px-3.5 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
                     activeTab === tab.key
                       ? 'bg-Pine text-white shadow-sm'
                       : 'text-Branch hover:text-Pine'
@@ -425,7 +517,7 @@ export default function StandardsPage() {
               <select
                 value={filterGroup}
                 onChange={(e) => { setFilterGroup(e.target.value); setPage(1) }}
-                className="px-3 py-2 border border-Mist/40 rounded-xl text-xs font-bold bg-white text-Pine focus:outline-none focus:border-Pine"
+                className="px-3 py-2 border border-Mist/40 rounded-xl text-xs font-bold bg-white text-Pine focus:outline-none focus:border-Pine cursor-pointer"
               >
                 <option value="">Tất cả 4 nhóm</option>
                 {groups.map((g) => <option key={g.id} value={g.id}>{g.group_name}</option>)}
@@ -433,7 +525,7 @@ export default function StandardsPage() {
               <select
                 value={filterJurisdiction}
                 onChange={(e) => { setFilterJurisdiction(e.target.value); setPage(1) }}
-                className="px-3 py-2 border border-Mist/40 rounded-xl text-xs font-bold bg-white text-Pine focus:outline-none focus:border-Pine"
+                className="px-3 py-2 border border-Mist/40 rounded-xl text-xs font-bold bg-white text-Pine focus:outline-none focus:border-Pine cursor-pointer"
               >
                 <option value="">Mọi phạm vi</option>
                 <option value="Global">Global (RBA)</option>
@@ -442,7 +534,7 @@ export default function StandardsPage() {
               <select
                 value={filterStatus}
                 onChange={(e) => { setFilterStatus(e.target.value as typeof filterStatus); setPage(1) }}
-                className="px-3 py-2 border border-Mist/40 rounded-xl text-xs font-bold bg-white text-Pine focus:outline-none focus:border-Pine"
+                className="px-3 py-2 border border-Mist/40 rounded-xl text-xs font-bold bg-white text-Pine focus:outline-none focus:border-Pine cursor-pointer"
               >
                 <option value="all">Mọi trạng thái</option>
                 <option value="active">Đang hoạt động</option>
@@ -454,7 +546,7 @@ export default function StandardsPage() {
                   type="button"
                   onClick={() => setViewMode('grid')}
                   title="Hiển thị dạng Lưới (Grid)"
-                  className={`p-1.5 rounded-lg transition-all ${
+                  className={`p-1.5 rounded-lg transition-all cursor-pointer ${
                     viewMode === 'grid' ? 'bg-Pine text-white shadow-sm' : 'text-Branch hover:text-Pine'
                   }`}
                 >
@@ -464,7 +556,7 @@ export default function StandardsPage() {
                   type="button"
                   onClick={() => setViewMode('list')}
                   title="Hiển thị dạng Danh sách (List)"
-                  className={`p-1.5 rounded-lg transition-all ${
+                  className={`p-1.5 rounded-lg transition-all cursor-pointer ${
                     viewMode === 'list' ? 'bg-Pine text-white shadow-sm' : 'text-Branch hover:text-Pine'
                   }`}
                 >
@@ -487,13 +579,19 @@ export default function StandardsPage() {
                 const isSystem = s.created_by === null
                 const canMod = canModifyStandard(s)
 
+                // Căn cứ pháp lý hoàn chỉnh
+                const refParts: string[] = []
+                if (s.article_reference) refParts.push(s.article_reference)
+                if (s.page_reference) refParts.push(`Tr. ${s.page_reference}`)
+                const refDetail = refParts.length > 0 ? ` (${refParts.join(', ')})` : ''
+
                 return (
                   <div
                     key={s.id}
                     className={`rounded-2xl border p-4 transition-all duration-300 flex flex-col justify-between
                       ${
                         !s.is_active
-                          ? 'opacity-60 bg-Snowflake/50 border-Mist/30 cursor-not-allowed'
+                           ? 'opacity-60 bg-Snowflake/50 border-Mist/30 cursor-not-allowed'
                           : isExcluded
                           ? 'bg-Snowflake/25 border-Mist/40 border-l-4 border-l-Mist'
                           : 'bg-white border-Mist/25 shadow-sm hover:shadow-md'
@@ -566,19 +664,19 @@ export default function StandardsPage() {
                         )}
                       </div>
 
-                      {/* Content */}
+                      {/* Content diễn giải */}
                       <p className="text-xs text-Branch leading-relaxed line-clamp-3">
                         {parseContent(s.content_i18n, s.description, lang)}
                       </p>
 
-                      {/* NGUỒN GỐC / CĂN CỨ PHÁP LÝ (Có gắn nút mở link chính thức) */}
+                      {/* NGUỒN GỐC / CĂN CỨ PHÁP LÝ */}
                       {(s.legal_document_name || s.description) && (
                         <div className="mt-2.5 pt-2 border-t border-Mist/15 flex items-center justify-between gap-2 text-[11px]">
                           <div className="flex items-center gap-1.5 text-Branch truncate">
                             <BookOpen className="w-3.5 h-3.5 text-Berry flex-shrink-0" />
                             <span className="font-extrabold text-Pine">Căn cứ:</span>
-                            <span className="truncate font-semibold text-Branch" title={s.legal_document_name ? `${s.legal_document_name} (${s.article_reference || ''})` : (s.description || '')}>
-                              {s.legal_document_name ? `${s.legal_document_name} ${s.article_reference ? `(${s.article_reference})` : ''}` : s.description}
+                            <span className="truncate font-semibold text-Branch" title={s.legal_document_name ? `${s.legal_document_name}${refDetail}` : (s.description || '')}>
+                              {s.legal_document_name ? `${s.legal_document_name}${refDetail}` : s.description}
                             </span>
                           </div>
 
@@ -588,9 +686,9 @@ export default function StandardsPage() {
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex-shrink-0 font-bold text-Pine bg-Snowflake px-2.5 py-1 rounded-xl border border-Mist/30 hover:bg-Pine hover:text-white transition-all flex items-center gap-1"
-                              title="Mở văn bản gốc chính thức"
+                              title="Mở tài liệu nguồn chính thức trong tab mới"
                             >
-                              🌐 Xem bản gốc <ExternalLink className="w-3 h-3" />
+                              🌐 Xem nguồn <ExternalLink className="w-3 h-3" />
                             </a>
                           )}
                         </div>
@@ -610,46 +708,61 @@ export default function StandardsPage() {
                         {s.Standard_Groups?.group_name || 'Nhóm tiêu chuẩn'}
                       </span>
 
-                      {s.is_active ? (
-                        canMod ? (
-                          <div className="flex gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => openEdit(s)}
-                              className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-Pine hover:bg-Snowflake rounded-xl transition-colors"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                              Sửa
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setConfirmDelete(s)}
-                              className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-Berry hover:bg-Berry/10 rounded-xl transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              Xóa
-                            </button>
-                          </div>
+                      <div className="flex items-center gap-1.5">
+                        {/* Nút Xem chi tiết */}
+                        <button
+                          type="button"
+                          onClick={() => openDetail(s)}
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-Pine bg-Snowflake hover:bg-Mist/25 rounded-xl border border-Mist/30 transition-colors cursor-pointer"
+                          title="Xem toàn bộ thông tin chi tiết"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-Pine" />
+                          Xem
+                        </button>
+
+                        {s.is_active ? (
+                          canMod ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openEdit(s)}
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-Pine hover:bg-Snowflake rounded-xl transition-colors cursor-pointer"
+                                title="Chỉnh sửa tiêu chuẩn"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                                Sửa
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDelete(s)}
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-Berry hover:bg-Berry/10 rounded-xl transition-colors cursor-pointer"
+                                title="Chuyển vào lưu trữ"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Xóa
+                              </button>
+                            </>
+                          ) : (
+                            <span className="text-[11px] font-bold text-Pine/60">Bảo vệ</span>
+                          )
                         ) : (
-                          <span className="text-[11px] font-bold text-Pine/60">Bảo vệ toàn vẹn</span>
-                        )
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 text-xs text-Berry/60">
-                            <Lock className="w-3.5 h-3.5" /> Đã khóa
-                          </span>
-                          {canMod && (
-                            <button
-                              type="button"
-                              onClick={() => setConfirmRestore(s)}
-                              className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-Pine bg-Snowflake hover:bg-Mist/30 border border-Mist/40 rounded-xl transition-colors cursor-pointer"
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                              Khôi phục
-                            </button>
-                          )}
-                        </div>
-                      )}
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 text-xs text-Berry/60">
+                              <Lock className="w-3.5 h-3.5" /> Đã khóa
+                            </span>
+                            {canMod && (
+                              <button
+                                type="button"
+                                onClick={() => setConfirmRestore(s)}
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-Pine bg-Snowflake hover:bg-Mist/30 border border-Mist/40 rounded-xl transition-colors cursor-pointer"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                Khôi phục
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )
@@ -675,6 +788,11 @@ export default function StandardsPage() {
                     const isExcluded = excluded.has(s.id)
                     const isSystem = s.created_by === null
                     const canMod = canModifyStandard(s)
+
+                    const refParts: string[] = []
+                    if (s.article_reference) refParts.push(s.article_reference)
+                    if (s.page_reference) refParts.push(`Tr. ${s.page_reference}`)
+                    const refDetail = refParts.length > 0 ? ` (${refParts.join(', ')})` : ''
 
                     return (
                       <tr key={s.id} className={`hover:bg-Snowflake/40 transition-colors ${!s.is_active ? 'opacity-60 bg-Snowflake/50' : ''}`}>
@@ -734,9 +852,9 @@ export default function StandardsPage() {
                           </p>
                           {(s.legal_document_name || s.description) && (
                             <div className="mt-1.5 flex items-center justify-between gap-1 text-[10px] font-semibold text-Pine bg-Snowflake px-2 py-1 rounded-lg border border-Mist/30">
-                              <span className="truncate flex items-center gap-1" title={s.legal_document_name ? `${s.legal_document_name} (${s.article_reference || ''})` : (s.description || '')}>
+                              <span className="truncate flex items-center gap-1" title={s.legal_document_name ? `${s.legal_document_name}${refDetail}` : (s.description || '')}>
                                 <BookOpen className="w-3 h-3 text-Berry flex-shrink-0" />
-                                {s.legal_document_name ? `${s.legal_document_name} ${s.article_reference ? `(${s.article_reference})` : ''}` : s.description}
+                                {s.legal_document_name ? `${s.legal_document_name}${refDetail}` : s.description}
                               </span>
                               {s.official_url && (
                                 <a
@@ -744,8 +862,9 @@ export default function StandardsPage() {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-Pine hover:underline font-bold flex-shrink-0 flex items-center gap-0.5"
+                                  title="Mở tài liệu nguồn trong tab mới"
                                 >
-                                  🌐 Bản gốc
+                                  🌐 Nguồn
                                 </a>
                               )}
                             </div>
@@ -784,40 +903,52 @@ export default function StandardsPage() {
 
                         {/* Thao tác */}
                         <td className="px-4 py-3.5 align-top text-right whitespace-nowrap">
-                          {s.is_active ? (
-                            canMod ? (
-                              <div className="flex items-center justify-end gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => openEdit(s)}
-                                  className="p-1.5 text-Pine hover:bg-Snowflake rounded-lg transition-colors"
-                                  title="Chỉnh sửa"
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setConfirmDelete(s)}
-                                  className="p-1.5 text-Berry hover:bg-Berry/10 rounded-lg transition-colors"
-                                  title="Ẩn / Lưu trữ"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
+                          <div className="flex items-center justify-end gap-1">
+                            {/* Nút Xem chi tiết */}
+                            <button
+                              type="button"
+                              onClick={() => openDetail(s)}
+                              className="p-1.5 text-Pine hover:bg-Snowflake rounded-lg transition-colors cursor-pointer"
+                              title="Xem chi tiết"
+                            >
+                              <Eye className="w-4 h-4 text-Pine" />
+                            </button>
+
+                            {s.is_active ? (
+                              canMod ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => openEdit(s)}
+                                    className="p-1.5 text-Pine hover:bg-Snowflake rounded-lg transition-colors cursor-pointer"
+                                    title="Chỉnh sửa"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirmDelete(s)}
+                                    className="p-1.5 text-Berry hover:bg-Berry/10 rounded-lg transition-colors cursor-pointer"
+                                    title="Ẩn / Lưu trữ"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="text-[10px] font-bold text-Mist">Bảo vệ</span>
+                              )
                             ) : (
-                              <span className="text-[10px] font-bold text-Mist">Bảo vệ</span>
-                            )
-                          ) : (
-                            canMod && (
-                              <button
-                                type="button"
-                                onClick={() => setConfirmRestore(s)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-Pine bg-Snowflake hover:bg-Mist/35 border border-Mist/40 rounded-lg transition-colors"
-                              >
-                                <RotateCcw className="w-3 h-3" /> Khôi phục
-                              </button>
-                            )
-                          )}
+                              canMod && (
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmRestore(s)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-Pine bg-Snowflake hover:bg-Mist/35 border border-Mist/40 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <RotateCcw className="w-3 h-3" /> Khôi phục
+                                </button>
+                              )
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )
@@ -841,6 +972,195 @@ export default function StandardsPage() {
         </div>
       </div>
 
+      {/* Detail View Modal (Xem chi tiết tiêu chuẩn - Read-only) */}
+      <Modal
+        isOpen={detailModalOpen}
+        title="Chi tiết Tiêu chuẩn Kiểm toán"
+        onClose={() => setDetailModalOpen(false)}
+        size="lg"
+      >
+        {viewTarget && (() => {
+          const isSystem = viewTarget.created_by === null
+          const isExcluded = excluded.has(viewTarget.id)
+          let content_vi = '—'
+          let content_en = '—'
+          if (viewTarget.content_i18n) {
+            try {
+              const c = JSON.parse(viewTarget.content_i18n) as ContentI18n
+              content_vi = c.vi || viewTarget.description || '—'
+              content_en = c.en || '—'
+            } catch {
+              content_vi = viewTarget.content_i18n
+            }
+          } else if (viewTarget.description) {
+            content_vi = viewTarget.description
+          }
+
+          return (
+            <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+              {/* Header tags */}
+              <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-Mist/20">
+                <span className="font-mono text-sm font-extrabold text-white bg-Pine px-3 py-1 rounded-xl">
+                  {viewTarget.standard_code}
+                </span>
+                {viewTarget.jurisdiction === 'VN' ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold bg-Berry/10 text-Berry px-2.5 py-1 rounded-xl border border-Berry/20">
+                    <MapPin className="w-3 h-3" /> Pháp luật Việt Nam
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold bg-Snowflake text-Pine px-2.5 py-1 rounded-xl border border-Mist/30">
+                    <Globe className="w-3 h-3" /> Global RBA
+                  </span>
+                )}
+                <span
+                  className={`text-xs px-2.5 py-1 rounded-xl font-bold ${
+                    viewTarget.priority_level === 1
+                      ? 'bg-Berry text-white'
+                      : 'bg-Frostysilver/50 text-Pine'
+                  }`}
+                >
+                  {viewTarget.priority_level === 1 ? 'Mức 1 · Bắt buộc' : 'Mức 2 · Quan trọng'}
+                </span>
+                <span className="text-xs bg-Pine/10 text-Pine px-2.5 py-1 rounded-xl font-bold">
+                  {isSystem ? 'Tiêu chuẩn gốc hệ thống' : 'Tiêu chuẩn riêng người dùng'}
+                </span>
+                <span className={`text-xs px-2.5 py-1 rounded-xl font-bold ${
+                  viewTarget.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-Berry/10 text-Berry'
+                }`}>
+                  {viewTarget.is_active ? 'Đang hoạt động' : 'Đã lưu trữ'}
+                </span>
+                <span className={`text-xs px-2.5 py-1 rounded-xl font-bold ${
+                  !isExcluded && viewTarget.is_active ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {!isExcluded && viewTarget.is_active ? 'AI đang quét' : 'AI tạm tắt'}
+                </span>
+              </div>
+
+              {/* Title & Group */}
+              <div>
+                <p className="text-[11px] font-bold text-Mist uppercase tracking-wider">Tên tiêu chuẩn</p>
+                <h3 className="text-base font-extrabold text-Pine mt-0.5">{viewTarget.name}</h3>
+                <p className="text-xs font-semibold text-Branch mt-1">
+                  Nhóm: <span className="font-bold text-Pine">{viewTarget.Standard_Groups?.group_name || '—'}</span>
+                </p>
+              </div>
+
+              {/* Legal Reference & Source Box */}
+              <div className="bg-Snowflake/60 rounded-2xl p-4 border border-Mist/30 space-y-3">
+                <h4 className="text-xs font-extrabold text-Pine uppercase tracking-wider flex items-center gap-1.5">
+                  <BookOpen className="w-4 h-4 text-Berry" />
+                  Nguồn gốc & Căn cứ Pháp lý
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div className="sm:col-span-2">
+                    <p className="text-[11px] font-bold text-Mist">Tên văn bản nguồn</p>
+                    <p className="font-extrabold text-Pine mt-0.5">{viewTarget.legal_document_name || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold text-Mist">Vị trí (Điều/Mục/Khoản)</p>
+                    <p className="font-bold text-Branch mt-0.5">{viewTarget.article_reference || '—'}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1 border-t border-Mist/15">
+                  <div>
+                    <p className="text-[11px] font-bold text-Mist">Trang tham chiếu</p>
+                    <p className="font-bold text-Branch mt-0.5">{viewTarget.page_reference ? `Trang ${viewTarget.page_reference}` : '—'}</p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-[11px] font-bold text-Mist">Liên kết tài liệu chính thức</p>
+                    {viewTarget.official_url ? (
+                      <a
+                        href={viewTarget.official_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-Pine hover:underline font-bold mt-0.5 text-xs truncate max-w-full"
+                        title={viewTarget.official_url}
+                      >
+                        🌐 {viewTarget.official_url} <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
+                      </a>
+                    ) : (
+                      <p className="text-Mist mt-0.5">—</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Trích dẫn nguyên văn (Verbatim Quote) */}
+                <div className="pt-2 border-t border-Mist/15">
+                  <p className="text-[11px] font-bold text-Mist flex items-center gap-1 mb-1">
+                    <FileText className="w-3.5 h-3.5 text-Berry" />
+                    Trích dẫn nguyên văn từ tài liệu nguồn (Verbatim Quote):
+                  </p>
+                  {viewTarget.original_quote ? (
+                    <blockquote className="bg-white p-3 rounded-xl border-l-4 border-l-Berry border border-Mist/20 text-xs italic text-Branch leading-relaxed whitespace-pre-wrap">
+                      "{viewTarget.original_quote}"
+                    </blockquote>
+                  ) : (
+                    <p className="text-xs text-Mist italic">Chưa lưu trữ trích dẫn nguyên văn.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Interpretive Content / Audit Criteria */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-extrabold text-Pine uppercase tracking-wider">
+                  Nội dung diễn giải & Tiêu chí kiểm tra
+                </h4>
+
+                <div className="bg-white rounded-2xl p-3.5 border border-Mist/25 space-y-1">
+                  <div className="flex items-center gap-1 text-[11px] font-bold text-Pine">
+                    <span className="w-2 h-2 rounded-full bg-Pine" />
+                    Tiếng Việt:
+                  </div>
+                  <p className="text-xs text-Branch leading-relaxed whitespace-pre-wrap pl-3">
+                    {content_vi}
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-2xl p-3.5 border border-Mist/25 space-y-1">
+                  <div className="flex items-center gap-1 text-[11px] font-bold text-Pine">
+                    <span className="w-2 h-2 rounded-full bg-Berry" />
+                    English:
+                  </div>
+                  <p className="text-xs text-Branch leading-relaxed whitespace-pre-wrap pl-3">
+                    {content_en}
+                  </p>
+                </div>
+              </div>
+
+              {/* Footer Buttons */}
+              <div className="flex items-center justify-between gap-3 pt-3 border-t border-Mist/20">
+                <span className="text-[11px] text-Mist font-medium">
+                  ID: #{viewTarget.id} · Cập nhật: {new Date(viewTarget.created_at).toLocaleDateString('vi-VN')}
+                </span>
+                <div className="flex gap-2">
+                  {canModifyStandard(viewTarget) && viewTarget.is_active && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDetailModalOpen(false)
+                        openEdit(viewTarget)
+                      }}
+                      className="px-4 py-2 bg-Pine text-white text-xs font-extrabold rounded-xl hover:bg-Pine/90 transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" /> Chỉnh sửa
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setDetailModalOpen(false)}
+                    className="px-4 py-2 border border-Mist/40 text-Branch text-xs font-bold rounded-xl hover:bg-Snowflake transition-all cursor-pointer"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+      </Modal>
+
       {/* Create/Edit Modal */}
       <Modal
         isOpen={modalOpen}
@@ -848,25 +1168,39 @@ export default function StandardsPage() {
         onClose={() => setModalOpen(false)}
         size="lg"
       >
-        <div className="space-y-4">
+        <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Mã tiêu chuẩn *</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine">Mã tiêu chuẩn *</label>
+                {!editTarget && (
+                  <button
+                    type="button"
+                    onClick={() => form.group_id && fetchSuggestedCode(Number(form.group_id))}
+                    disabled={codeSuggesting}
+                    className="text-[10px] font-bold text-Berry hover:underline flex items-center gap-0.5 cursor-pointer"
+                    title="Gợi ý lại mã theo nhóm đã chọn"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${codeSuggesting ? 'animate-spin' : ''}`} /> Gợi ý mã
+                  </button>
+                )}
+              </div>
               <input
                 type="text"
                 disabled={!!editTarget}
                 value={form.standard_code}
                 onChange={(e) => setForm((f) => ({ ...f, standard_code: e.target.value }))}
                 placeholder="CUSTOM-LD-01"
-                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white font-mono disabled:bg-Snowflake"
+                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white font-mono disabled:bg-Snowflake font-semibold"
               />
+              <p className="text-[10px] text-Mist mt-1">Định dạng: CUSTOM-{"{NHÓM}"}-{"{STT}"}</p>
             </div>
             <div>
               <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Phạm vi áp dụng</label>
               <select
                 value={form.jurisdiction}
                 onChange={(e) => setForm((f) => ({ ...f, jurisdiction: e.target.value }))}
-                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Pine"
+                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Pine cursor-pointer"
               >
                 <option value="Global">Global (RBA)</option>
                 <option value="VN">Việt Nam</option>
@@ -877,30 +1211,31 @@ export default function StandardsPage() {
               <select
                 value={form.priority_level}
                 onChange={(e) => setForm((f) => ({ ...f, priority_level: e.target.value }))}
-                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Pine"
+                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Pine cursor-pointer"
               >
                 <option value="1">Mức 1 – Nghiêm trọng (Bắt buộc)</option>
                 <option value="2">Mức 2 – Quan trọng (Khuyến nghị)</option>
               </select>
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Tên tiêu chuẩn *</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="Ví dụ: Quy định phụ cấp ca đêm tối thiểu 35%"
-              className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Branch"
-            />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Tên tiêu chuẩn *</label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Ví dụ: Quy định phụ cấp ca đêm tối thiểu 30%"
+                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Branch"
+              />
+            </div>
             <div>
               <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Nhóm tiêu chuẩn *</label>
               <select
                 value={form.group_id}
-                onChange={(e) => setForm((f) => ({ ...f, group_id: e.target.value }))}
-                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Branch"
+                onChange={(e) => handleGroupSelect(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm font-bold focus:outline-none focus:border-Pine bg-white text-Branch cursor-pointer"
               >
                 <option value="">-- Chọn nhóm tiêu chuẩn --</option>
                 {groups.map((g) => <option key={g.id} value={g.id}>{g.group_name}</option>)}
@@ -908,24 +1243,37 @@ export default function StandardsPage() {
             </div>
           </div>
 
-          {/* SECTION NHẬP THÔNG TIN PHÁP LÝ (B2B Standard) */}
+          {/* SECTION NHẬP THÔNG TIN PHÁP LÝ (B2B Compliance Standard) */}
           <div className="p-4 bg-Snowflake/50 rounded-2xl border border-Mist/20 space-y-3">
-            <h4 className="text-xs font-extrabold text-Pine uppercase tracking-wider flex items-center gap-1.5">
-              <BookOpen className="w-4 h-4 text-Berry" /> Trích dẫn Nguồn gốc & Căn cứ Pháp lý (B2B Standard)
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold text-Branch mb-1">Tên văn bản gốc</label>
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-extrabold text-Pine uppercase tracking-wider flex items-center gap-1.5">
+                <BookOpen className="w-4 h-4 text-Berry" /> Nguồn gốc & Căn cứ Pháp lý (B2B Compliance)
+              </h4>
+              <button
+                type="button"
+                onClick={handleAiDraftContent}
+                disabled={aiDraftLoading}
+                className="px-2.5 py-1 text-xs font-bold text-Berry bg-Berry/10 hover:bg-Berry/20 border border-Berry/20 rounded-xl transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                title="Sử dụng Gemini AI để tạo bản thảo tiêu chí kiểm tra"
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${aiDraftLoading ? 'animate-spin' : ''}`} />
+                {aiDraftLoading ? 'Đang soạn thảo...' : '✨ AI hỗ trợ soạn nội dung'}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] font-bold text-Branch mb-1">Tên văn bản nguồn</label>
                 <input
                   type="text"
                   value={form.legal_document_name}
                   onChange={(e) => setForm((f) => ({ ...f, legal_document_name: e.target.value }))}
-                  placeholder="VD: Bộ luật Lao động 2019 hoặc RBA v8.0"
+                  placeholder="VD: Bộ luật Lao động 2019 (Luật số 45/2019/QH14) hoặc RBA v8.0"
                   className="w-full px-3 py-2 border border-Mist/40 rounded-xl text-xs bg-white text-Pine focus:outline-none focus:border-Pine font-medium"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-Branch mb-1">Điều khoản / Mục áp dụng</label>
+                <label className="block text-[11px] font-bold text-Branch mb-1">Vị trí trong tài liệu (Điều/Mục/Khoản)</label>
                 <input
                   type="text"
                   value={form.article_reference}
@@ -935,41 +1283,75 @@ export default function StandardsPage() {
                 />
               </div>
             </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-Branch mb-1">Trang tham chiếu (Page Reference)</label>
+                <input
+                  type="text"
+                  value={form.page_reference}
+                  onChange={(e) => setForm((f) => ({ ...f, page_reference: e.target.value }))}
+                  placeholder="VD: 4 hoặc 4–5"
+                  className="w-full px-3 py-2 border border-Mist/40 rounded-xl text-xs bg-white text-Pine focus:outline-none focus:border-Pine font-medium"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] font-bold text-Branch mb-1">Liên kết tài liệu nguồn (Official URL)</label>
+                <input
+                  type="url"
+                  value={form.official_url}
+                  onChange={(e) => setForm((f) => ({ ...f, official_url: e.target.value }))}
+                  placeholder="VD: https://vanban.chinhphu.vn/?pageid=27160&docid=198540"
+                  className="w-full px-3 py-2 border border-Mist/40 rounded-xl text-xs bg-white text-Pine focus:outline-none focus:border-Pine font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Trích dẫn nguyên văn */}
             <div>
-              <label className="block text-[11px] font-bold text-Branch mb-1">Đường dẫn tra cứu chính thức (Official URL)</label>
-              <input
-                type="url"
-                value={form.official_url}
-                onChange={(e) => setForm((f) => ({ ...f, official_url: e.target.value }))}
-                placeholder="VD: https://vanban.chinhphu.vn/?pageid=27160&docid=198540"
-                className="w-full px-3 py-2 border border-Mist/40 rounded-xl text-xs bg-white text-Pine focus:outline-none focus:border-Pine font-mono"
+              <label className="block text-[11px] font-bold text-Branch mb-1 flex items-center justify-between">
+                <span>Nội dung trích dẫn gốc (Verbatim Quote) - Tùy chọn</span>
+                <span className="text-[10px] text-Mist font-normal italic">Trích nguyên văn từ tài liệu nguồn, không qua diễn giải</span>
+              </label>
+              <textarea
+                value={form.original_quote}
+                onChange={(e) => setForm((f) => ({ ...f, original_quote: e.target.value }))}
+                rows={2}
+                placeholder="Đoạn văn bản trích dẫn nguyên văn từ văn bản pháp luật hoặc quy chuẩn gốc..."
+                className="w-full px-3 py-2 border border-Mist/40 rounded-xl text-xs bg-white text-Branch focus:outline-none focus:border-Pine resize-none font-serif italic"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Nội dung quy định (Tiếng Việt)</label>
+            <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5 flex items-center justify-between">
+              <span>Nội dung diễn giải / Tiêu chí kiểm tra (Tiếng Việt)</span>
+              <span className="text-[10px] text-Mist font-normal">Tiêu chí chi tiết để rà soát hợp đồng</span>
+            </label>
             <textarea
               value={form.content_vi}
               onChange={(e) => setForm((f) => ({ ...f, content_vi: e.target.value }))}
               rows={3}
-              placeholder="Mô tả chi tiết yêu cầu kiểm toán bằng tiếng Việt..."
+              placeholder="Mô tả chi tiết yêu cầu kiểm toán và tiêu chí xác định vi phạm bằng tiếng Việt..."
               className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Branch resize-none"
             />
           </div>
           <div>
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5">Content (English)</label>
+            <label className="block text-xs font-extrabold uppercase tracking-wider text-Pine mb-1.5 flex items-center justify-between">
+              <span>Nội dung diễn giải (Tiếng Anh)</span>
+              <span className="text-[10px] text-Mist font-normal">Interpretive content in English</span>
+            </label>
             <textarea
               value={form.content_en}
               onChange={(e) => setForm((f) => ({ ...f, content_en: e.target.value }))}
               rows={3}
-              placeholder="Standard description in English..."
+              placeholder="Detailed audit criteria and interpretation in English..."
               className="w-full px-3.5 py-2.5 border border-Mist/40 rounded-xl text-sm focus:outline-none focus:border-Pine bg-white text-Branch resize-none"
             />
           </div>
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={() => setModalOpen(false)} className="flex-1 py-2.5 border border-Mist/40 text-Branch text-xs font-bold rounded-xl hover:bg-Snowflake transition-all">Hủy bỏ</button>
-            <button type="button" onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-Pine text-white text-xs font-extrabold rounded-xl hover:bg-Pine/90 disabled:opacity-60 transition-all flex items-center justify-center gap-2">
+          <div className="flex gap-3 pt-2 border-t border-Mist/20">
+            <button type="button" onClick={() => setModalOpen(false)} className="flex-1 py-2.5 border border-Mist/40 text-Branch text-xs font-bold rounded-xl hover:bg-Snowflake transition-all cursor-pointer">Hủy bỏ</button>
+            <button type="button" onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-Pine text-white text-xs font-extrabold rounded-xl hover:bg-Pine/90 disabled:opacity-60 transition-all flex items-center justify-center gap-2 cursor-pointer">
               {saving ? <Spinner size="sm" /> : null}
               {editTarget ? 'Lưu thay đổi' : 'Tạo tiêu chuẩn'}
             </button>

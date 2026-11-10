@@ -73,6 +73,8 @@ export interface CreateStandardInput {
   // Bổ sung các trường pháp lý mới
   legal_document_name?: string;
   article_reference?: string;
+  page_reference?: string;
+  original_quote?: string;
   official_url?: string;
 }
 
@@ -86,6 +88,8 @@ export interface UpdateStandardInput {
   // Bổ sung các trường pháp lý mới
   legal_document_name?: string | null;
   article_reference?: string | null;
+  page_reference?: string | null;
+  original_quote?: string | null;
   official_url?: string | null;
 }
 
@@ -133,6 +137,9 @@ export const getStandardsService = async (filter: StandardFilter) => {
         { standard_code: { contains: search } },
         { description: { contains: search } },
         { legal_document_name: { contains: search } },
+        { article_reference: { contains: search } },
+        { page_reference: { contains: search } },
+        { original_quote: { contains: search } },
       ],
     });
   }
@@ -211,6 +218,8 @@ export const createStandardService = async (data: CreateStandardInput, userId: n
         // Lưu trữ thông tin pháp lý mới
         legal_document_name: data.legal_document_name?.trim() ?? null,
         article_reference: data.article_reference?.trim() ?? null,
+        page_reference: data.page_reference?.trim() ?? null,
+        original_quote: data.original_quote?.trim() ?? null,
         official_url: data.official_url?.trim() ?? null,
         created_by: userId,
         is_active: true,
@@ -280,6 +289,8 @@ export const updateStandardService = async (
       // Cập nhật các trường pháp lý mới
       ...(data.legal_document_name !== undefined && { legal_document_name: data.legal_document_name?.trim() ?? null }),
       ...(data.article_reference !== undefined && { article_reference: data.article_reference?.trim() ?? null }),
+      ...(data.page_reference !== undefined && { page_reference: data.page_reference?.trim() ?? null }),
+      ...(data.original_quote !== undefined && { original_quote: data.original_quote?.trim() ?? null }),
       ...(data.official_url !== undefined && { official_url: data.official_url?.trim() ?? null }),
       ...(data.is_active !== undefined && { is_active: data.is_active }),
       updated_at: new Date(),
@@ -294,6 +305,8 @@ export const updateStandardService = async (
     description: existing.description,
     legal_document_name: existing.legal_document_name,
     article_reference: existing.article_reference,
+    page_reference: existing.page_reference,
+    original_quote: existing.original_quote,
     official_url: existing.official_url,
     is_active: existing.is_active,
   };
@@ -305,6 +318,8 @@ export const updateStandardService = async (
     description: updated.description,
     legal_document_name: updated.legal_document_name,
     article_reference: updated.article_reference,
+    page_reference: updated.page_reference,
+    original_quote: updated.original_quote,
     official_url: updated.official_url,
     is_active: updated.is_active,
   };
@@ -402,4 +417,112 @@ export const includeStandardService = async (userId: number, standardId: number)
   }
 
   return { user_id: userId, standard_id: standardId };
+};
+
+// ─── Auto-suggest Standard Code & AI Drafting ─────────────────────────────────
+
+/**
+ * Tự động gợi ý mã tiêu chuẩn mới dạng CUSTOM-{GROUP_CODE}-{SEQUENCE}
+ * Dựa trên nhóm tiêu chuẩn được chọn và các mã đã có trong cơ sở dữ liệu.
+ */
+export const suggestStandardCodeService = async (groupId: number): Promise<string> => {
+  const group = await prisma.standard_Groups.findUnique({
+    where: { id: groupId },
+    select: { id: true, group_code: true, group_name: true },
+  });
+  if (!group) throw makeError("Nhóm tiêu chuẩn không tồn tại.", 404);
+
+  // Ánh xạ mã nhóm ngắn gọn theo chuẩn B2B ANHQUY
+  let tag = "CUST";
+  const upperCode = group.group_code.toUpperCase();
+  const upperName = group.group_name.toUpperCase();
+
+  if (upperCode.includes("LABOR") || upperName.includes("LAO ĐỘNG")) tag = "LD";
+  else if (upperCode.includes("OHS") || upperName.includes("AN TOÀN") || upperName.includes("SỨC KHỎE")) tag = "AT";
+  else if (upperCode.includes("ENV") || upperName.includes("MÔI TRƯỜNG")) tag = "MT";
+  else if (upperCode.includes("ETHIC") || upperName.includes("ĐẠO ĐỨC")) tag = "DD";
+  else {
+    tag = upperCode.replace(/^GRP-/, "").replace(/[^A-Z0-9]/g, "").slice(0, 4) || "CUST";
+  }
+
+  const prefix = `CUSTOM-${tag}-`;
+  const existingStandards = await prisma.standards.findMany({
+    where: {
+      standard_code: {
+        startsWith: prefix,
+      },
+    },
+    select: { standard_code: true },
+  });
+
+  let maxNum = 0;
+  for (const s of existingStandards) {
+    const suffix = s.standard_code.substring(prefix.length);
+    const parsed = parseInt(suffix, 10);
+    if (!isNaN(parsed) && parsed > maxNum) {
+      maxNum = parsed;
+    }
+  }
+
+  const nextNum = maxNum + 1;
+  const formattedNum = String(nextNum).padStart(2, "0");
+  return `${prefix}${formattedNum}`;
+};
+
+export interface AIDraftStandardInput {
+  name: string;
+  legal_document_name?: string;
+  article_reference?: string;
+  group_name?: string;
+}
+
+/**
+ * Hỗ trợ soạn thảo tiêu chuẩn bằng Gemini AI.
+ * Trả về bản thảo diễn giải Tiếng Việt / Tiếng Anh và tiêu chí kiểm tra.
+ * KHÔNG tự động lưu hay giả mạo trích dẫn nguyên văn pháp luật.
+ */
+export const generateStandardDraftService = async (input: AIDraftStandardInput) => {
+  const apiKey = process.env.GEMINI_API_KEY?.trim() ?? "";
+  if (!apiKey) {
+    throw makeError("Chưa cấu hình GEMINI_API_KEY trên hệ thống.", 500);
+  }
+
+  const { GoogleGenAI } = await import("@google/genai");
+  const genai = new GoogleGenAI({ apiKey });
+
+  const prompt = `Bạn là chuyên gia tư vấn pháp lý và tiêu chuẩn tuân thủ chuỗi cung ứng B2B (RBA Code of Conduct và Pháp luật Việt Nam).
+Hãy hỗ trợ soạn thảo nội dung tiêu chí kiểm tra cho một tiêu chuẩn mới dựa trên các thông tin sau:
+- Tên tiêu chuẩn: ${input.name}
+- Tên văn bản nguồn: ${input.legal_document_name || "Chưa cung cấp"}
+- Vị trí trong tài liệu (Điều/Mục/Khoản): ${input.article_reference || "Chưa cung cấp"}
+- Nhóm tiêu chuẩn: ${input.group_name || "Chưa cung cấp"}
+
+Yêu cầu trả về DUY NHẤT một chuỗi JSON hợp lệ (không có markdown \`\`\`json hay giải thích nào khác) với cấu trúc:
+{
+  "content_vi": "Nội dung diễn giải và tiêu chí kiểm tra chi tiết bằng Tiếng Việt (nêu rõ các quy định cụ thể cần rà soát trong hợp đồng)",
+  "content_en": "Detailed audit criteria and interpretation in English",
+  "suggested_description": "Tóm tắt ngắn gọn tiêu chuẩn và căn cứ nguồn"
+}
+
+LƯU Ý QUAN TRỌNG:
+- Đây là nội dung DIỄN GIẢI / TIÊU CHÍ KIỂM TRA, KHÔNG PHẢI VĂN BẢN TRÍCH NGUYÊN VĂN PHÁP LUẬT.
+- Nội dung phải chính xác, ngắn gọn, súc tích, mang tính thực thi cao cho kiểm toán viên.`;
+
+  try {
+    const response = await genai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+    const text = response.text?.trim() || "";
+    const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
+    const parsed = JSON.parse(cleaned);
+    return {
+      content_vi: parsed.content_vi || "",
+      content_en: parsed.content_en || "",
+      suggested_description: parsed.suggested_description || "",
+    };
+  } catch (error: unknown) {
+    console.error("[Standard AI Draft Error]", error);
+    throw makeError("Không thể tạo gợi ý từ AI lúc này. Vui lòng thử lại hoặc tự soạn thảo.", 502);
+  }
 };
