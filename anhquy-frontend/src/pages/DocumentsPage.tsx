@@ -761,16 +761,22 @@ export default function DocumentsPage() {
             }`}
           >
             {uploadFile ? (
-              <div className="flex items-center justify-center gap-3">
-                <FileText className="w-8 h-8 text-Pine" />
-                <div className="text-left">
-                  <p className="text-sm font-extrabold text-Branch">{uploadFile.name}</p>
-                  <p className="text-xs text-Mist">{formatBytes(uploadFile.size)}</p>
+              <div className="flex items-center justify-center gap-3 min-w-0">
+                <FileText className="w-8 h-8 text-Pine flex-shrink-0" />
+
+                <div className="text-left min-w-0 flex-1">
+                  <p className="text-sm font-extrabold text-Branch [overflow-wrap:anywhere]">
+                    {uploadFile.name}
+                  </p>
+                  <p className="text-xs text-Mist mt-1">
+                    {formatBytes(uploadFile.size)}
+                  </p>
                 </div>
+
                 <button
                   type="button"
                   onClick={() => setUploadFile(null)}
-                  className="ml-2 text-Berry hover:text-Berry/70"
+                  className="ml-2 text-Berry hover:text-Berry/70 flex-shrink-0"
                 >
                   <XCircle className="w-5 h-5" />
                 </button>

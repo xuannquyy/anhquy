@@ -234,7 +234,6 @@ function printOfficialExecutiveReportA4(
       <p>(V/v: Đánh giá rủi ro pháp lý và mức độ tuân thủ Bộ tiêu chuẩn RBA v8.0 & Pháp luật Việt Nam)</p>
     </div>
 
-    <p style="margin:0 0 6px 0"><strong>Kính gửi:</strong> <strong>Ban Giám đốc / Hội đồng Thẩm định Hợp đồng</strong></p>
     <p style="margin:0 0 10px 0;text-align:justify">
       <strong>Căn cứ thực hiện:</strong> Căn cứ Bộ luật Dân sự 2015, Bộ luật Lao động 2019, Luật Thương mại 2005, các văn bản quy phạm pháp luật chuyên ngành hiện hành và Bộ Quy tắc Ứng xử Liên minh Doanh nghiệp có Trách nhiệm (RBA v8.0).
     </p>
@@ -308,7 +307,7 @@ function printOfficialExecutiveReportA4(
     <table class="signature-table">
       <tr>
         <td>
-          <strong>CÁN BỘ LẬP BÁO CÁO</strong><br/>
+          <strong>NGƯỜI LẬP BÁO CÁO</strong><br/>
           <i style="font-size:10pt">(Ký và ghi rõ họ tên)</i>
           <div style="height:65px"></div>
           <strong>${escapeHtml(auditorName)}</strong>
@@ -525,10 +524,10 @@ const currentScore = Math.max(0, 100 - penaltyPoints)
           </div>
 
           <div className="bg-Snowflake/35 rounded-2xl p-4 border border-Mist/30 mb-5 text-xs sm:text-sm text-Branch space-y-1.5">
-            <p>
+            {/* <p>
               <strong className="text-Pine">Kính gửi:</strong>{' '}
               <strong>Ban Giám đốc / Hội đồng Thẩm định Hợp đồng</strong>
-            </p>
+            </p> */}
             <p className="leading-relaxed text-justify">
               <strong className="text-Pine">Căn cứ thực hiện:</strong> Căn cứ Bộ luật Dân sự 2015, Bộ luật Lao động 2019, Luật Thương mại 2005, các văn bản quy phạm pháp luật chuyên ngành hiện hành và Bộ Quy tắc Ứng xử Liên minh Doanh nghiệp có Trách nhiệm (RBA v8.0).
             </p>
@@ -747,7 +746,7 @@ const currentScore = Math.max(0, 100 - penaltyPoints)
           {/* 6. MỤC IV: CHỮ KÝ XÁC NHẬN & PHÊ DUYỆT CỦA BAN GIÁM ĐỐC */}
           <div className="mt-8 pt-5 border-t-2 border-Mist/30 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center text-xs">
             <div>
-              <p className="font-extrabold text-Branch uppercase">CÁN BỘ LẬP BÁO CÁO</p>
+              <p className="font-extrabold text-Branch uppercase">NGƯỜI LẬP BÁO CÁO</p>
               <p className="text-[11px] text-Mist italic mt-0.5">(Ký và ghi rõ họ tên)</p>
               <div className="h-20" />
               <p className="font-bold text-Pine uppercase">{user?.full_name || 'Chuyên viên Kiểm toán'}</p>
